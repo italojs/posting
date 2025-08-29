@@ -8,6 +8,7 @@ const common = {
     logs: "Logs",
     login: "Login",
     yourProfile: "Seu perfil",
+  feed: "Feed",
   },
   createContent: {
     title: "Criar conteúdo",
@@ -34,6 +35,25 @@ const common = {
     communityTitle: "Comunidade",
     communitySubtitle: "Explore perfis de usuários",
     noUsers: "Nenhum usuário ainda",
+  },
+  feed: {
+    title: "Feed",
+    subtitle: "Escolha categorias e fontes de RSS para ver um feed consolidado",
+    categories: "Categorias",
+    categoriesAll: "Todas",
+    categoriesTechnology: "Tecnologia",
+    categoriesBusiness: "Negócios",
+    categoriesScience: "Ciência",
+    categoriesSports: "Esportes",
+    categoriesEntertainment: "Entretenimento",
+    categoriesGeneral: "Geral",
+    sources: "Fontes",
+    sourcesCount: "Fontes: {{count}}",
+    selectAll: "Selecionar tudo",
+    feedTitle: "RSS selecionados",
+    selectAtLeastOne: "Selecione pelo menos um RSS para exibir os itens",
+    empty: "Nenhum item encontrado",
+    loadError: "Falha ao carregar RSS",
   },
 };
 export default common;

@@ -5,6 +5,7 @@ import LoginPage from "/app/ui/LoginPage";
 import NotFoundPage from "/app/ui/NotFoundPage";
 import SignupPage from "/app/ui/SignupPage";
 import UserProfilePage from "/app/ui/UserProfilePage";
+import FeedPage from "/app/ui/FeedPage";
 
 /**
  * User does not have to be logged in to view these routes
@@ -22,6 +23,10 @@ export const publicRoutes = {
 	userProfile: {
 		path: "/profile/:username",
 		element: (<UserProfilePage />) as React.ReactElement,
+	},
+	feed: {
+		path: "/feed",
+		element: (<FeedPage />) as React.ReactElement,
 	},
 	home: {
 		path: "/",

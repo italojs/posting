@@ -1,4 +1,4 @@
-import { AreaChartOutlined, HomeOutlined, LoginOutlined, LogoutOutlined, PlusOutlined, ProfileOutlined } from '@ant-design/icons';
+import { AreaChartOutlined, HomeOutlined, LoginOutlined, LogoutOutlined, PlusOutlined, ProfileOutlined, ReadOutlined } from '@ant-design/icons';
 import { limitText, removeUndefinedFromArray } from '@netsu/js-utils';
 import { Avatar, Dropdown, Image, Layout, Menu, Select, theme } from 'antd';
 import { Content, Footer, Header } from 'antd/es/layout/layout';
@@ -34,6 +34,12 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
             icon: <HomeOutlined />,
             label: t('app.home'),
             onClick: () => navigate(publicRoutes.home.path),
+        },
+        {
+            key: 'feed',
+            icon: <ReadOutlined />,
+            label: t('app.feed'),
+            onClick: () => navigate(publicRoutes.feed.path),
         },
     ];
 

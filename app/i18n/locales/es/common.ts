@@ -4,6 +4,11 @@ const common = {
     createContent: "Crear contenido",
     logout: "Salir",
     language: "Idioma",
+  home: "Inicio",
+  logs: "Logs",
+  login: "Entrar",
+  yourProfile: "Tu perfil",
+  feed: "Feed",
   },
   createContent: {
     title: "Crear contenido",
@@ -19,6 +24,25 @@ const common = {
   home: {
     createCta: "Crear contenido",
     historyTitle: "Tu historial",
+  },
+  feed: {
+    title: "Feed",
+    subtitle: "Elige categorías y fuentes RSS para ver un feed consolidado",
+    categories: "Categorías",
+    categoriesAll: "Todas",
+    categoriesTechnology: "Tecnología",
+    categoriesBusiness: "Negocios",
+    categoriesScience: "Ciencia",
+    categoriesSports: "Deportes",
+    categoriesEntertainment: "Entretenimiento",
+    categoriesGeneral: "General",
+    sources: "Fuentes",
+    sourcesCount: "Fuentes: {{count}}",
+    selectAll: "Seleccionar todo",
+    feedTitle: "RSS seleccionados",
+    selectAtLeastOne: "Selecciona al menos un RSS para mostrar los elementos",
+    empty: "Sin elementos",
+    loadError: "No se pudo cargar RSS",
   },
 };
 export default common;
