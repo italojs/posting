@@ -1,6 +1,6 @@
 import { AreaChartOutlined, HomeOutlined, LoginOutlined, LogoutOutlined, PlusOutlined, ProfileOutlined } from '@ant-design/icons';
 import { limitText, removeUndefinedFromArray } from '@netsu/js-utils';
-import { Avatar, Dropdown, Image, Layout, Menu, theme } from 'antd';
+import { Avatar, Dropdown, Image, Layout, Menu, Select, theme } from 'antd';
 import { Content, Footer, Header } from 'antd/es/layout/layout';
 import { MenuItemType } from 'antd/es/menu/interface';
 import { Meteor } from 'meteor/meteor';
@@ -10,6 +10,7 @@ import { BasicSiteProps } from '../../App';
 import { AvailableUserRoles } from '/app/api/roles/models';
 import { SITE_NAME } from '/app/utils/constants';
 import { adminRoutes, publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
+import { useTranslation } from 'react-i18next';
 
 interface RouteRendererProps extends BasicSiteProps {}
 
@@ -19,6 +20,7 @@ interface RouteRenderMenuItem extends MenuItemType {
 
 const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userProfile, userRoles, profilePhoto }) => {
     const { token } = theme.useToken();
+    const { i18n, t } = useTranslation('common');
     const [, navigate] = useLocation();
 
     const items: (RouteRenderMenuItem | undefined)[] = [
@@ -30,7 +32,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
         {
             key: 'home',
             icon: <HomeOutlined />,
-            label: 'Home',
+            label: t('app.home'),
             onClick: () => navigate(publicRoutes.home.path),
         },
     ];
@@ -39,7 +41,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
         items.push({
             key: 'logs',
             icon: <AreaChartOutlined />,
-            label: 'Logs',
+            label: t('app.logs'),
             onClick: () => navigate(adminRoutes.logs.path),
         });
     }
@@ -48,7 +50,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
         items.push({
             key: 'create-content',
             icon: <PlusOutlined />,
-            label: 'Criar conteúdo',
+            label: t('app.createContent'),
             onClick: () => navigate(protectedRoutes.createContent.path),
         });
         items.push({
@@ -59,14 +61,14 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
                     menu={{
                         items: [
                             {
-                                label: 'Your Profile',
+                                label: t('app.yourProfile'),
                                 key: 'your-profile',
                                 icon: <ProfileOutlined />,
                                 onClick: () =>
                                     navigate(publicRoutes.userProfile.path.replace(':username', userProfile.username)),
                             },
                             {
-                                label: 'Logout',
+                                label: t('app.logout'),
                                 key: 'logout',
                                 icon: <LogoutOutlined />,
                                 onClick: () => Meteor.logout(),
@@ -94,7 +96,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
         items.push({
             key: 'login',
             icon: <LoginOutlined />,
-            label: 'Login',
+            label: t('app.login'),
             onClick: () => navigate(publicRoutes.login.path),
             style: { marginLeft: 'auto' },
         });
@@ -117,6 +119,19 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
                     items={removeUndefinedFromArray(items)}
                     style={{ flex: 1, minWidth: 0, background: 'transparent' }}
                 />
+                <div style={{ marginLeft: 12 }}>
+                    <Select
+                        size="small"
+                        value={i18n.language.startsWith('pt') ? 'pt' : i18n.language.startsWith('es') ? 'es' : 'en'}
+                        onChange={(lng) => i18n.changeLanguage(lng)}
+                        options={[
+                            { label: 'PT', value: 'pt' },
+                            { label: 'EN', value: 'en' },
+                            { label: 'ES', value: 'es' },
+                        ]}
+                        style={{ width: 80 }}
+                    />
+                </div>
             </Header>
 
             <Content style={{ padding: '32px 24px' }}>

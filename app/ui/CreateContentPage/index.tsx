@@ -7,11 +7,13 @@ import { BasicSiteProps } from '../App';
 import { RssItemModel } from '/app/api/contents/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
+import { useTranslation } from 'react-i18next';
 
 type CreateContentPageProps = BasicSiteProps;
 
 const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [form] = Form.useForm();
+    const { t } = useTranslation('common');
     const [, navigate] = useLocation();
     const [loading, setLoading] = useState(false);
     const [rssItems, setRssItems] = useState<RssItemModel[]>([]);
@@ -30,16 +32,16 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const handleFetchRss = async () => {
         const urls = getUrlsFromForm();
         if (urls.length === 0) {
-            message.warning('Informe pelo menos um URL de RSS');
+            message.warning(t('createContent.needAtLeastOneUrl'));
             return;
         }
         setLoading(true);
         try {
             const res = (await Meteor.callAsync('get.contents.fetchRss', { urls })) as { items: RssItemModel[] };
             setRssItems(res.items || []);
-            if ((res.items || []).length === 0) message.info('Nenhum item encontrado neste(s) RSS');
+            if ((res.items || []).length === 0) message.info(t('createContent.listEmpty'));
         } catch (error) {
-            errorResponse(error as Meteor.Error, 'Falha ao carregar RSS');
+            errorResponse(error as Meteor.Error, t('createContent.loadError'));
         }
         setLoading(false);
     };
@@ -55,10 +57,10 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 rssItems,
                 networks: { newsletter: values.newsletter ?? true },
             });
-            message.success('Conteúdo salvo');
+            message.success(t('createContent.saved'));
             navigate(publicRoutes.home.path);
         } catch (error) {
-            errorResponse(error as Meteor.Error, 'Não foi possível salvar o conteúdo');
+            errorResponse(error as Meteor.Error, t('createContent.saveError'));
         }
         setLoading(false);
     };
@@ -73,11 +75,10 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
             <div>
                 <Typography.Title level={3} style={{ marginBottom: 0 }}>
-                    Criar conteúdo
+                    {t('createContent.title')}
                 </Typography.Title>
                 <Typography.Text type="secondary">
-                    Defina um nome, adicione URL(s) de RSS e visualize os itens. Por enquanto, salvaremos como rascunho
-                    para sua newsletter.
+                    {/* optional subtitle; keeping UI clean */}
                 </Typography.Text>
             </div>
 
@@ -85,29 +86,29 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 <Form form={form} layout="vertical" initialValues={{ newsletter: true }}>
                     <Row gutter={[16, 16]}>
                         <Col xs={24} md={12}>
-                            <Form.Item name="name" label="Nome do conteúdo" rules={[{ required: true }]}> 
-                                <Input placeholder="Ex.: Newsletter semanal de tecnologia" allowClear />
+                            <Form.Item name="name" label={t('createContent.nameLabel')} rules={[{ required: true }]}> 
+                                <Input placeholder="Newsletter" allowClear />
                             </Form.Item>
 
-                            <Form.Item name="rss" label="URLs de RSS (uma por linha)">
-                                <Input.TextArea rows={6} placeholder="https://exemplo.com/feed.xml\nhttps://outro.com/rss" />
+                            <Form.Item name="rss" label={t('createContent.rssLabel')}>
+                                <Input.TextArea rows={6} placeholder="https://example.com/feed.xml\nhttps://another.com/rss" />
                             </Form.Item>
 
                             <Space>
-                                <Button type="primary" icon={<UnorderedListOutlined />} onClick={handleFetchRss} loading={loading}>
-                                    Carregar RSS
+                <Button type="primary" icon={<UnorderedListOutlined />} onClick={handleFetchRss} loading={loading}>
+                    {t('createContent.loadRss')}
                                 </Button>
                                 <Form.Item name="newsletter" valuePropName="checked" noStyle>
-                                    <Checkbox>Newsletter</Checkbox>
+                    <Checkbox>{t('createContent.newsletter')}</Checkbox>
                                 </Form.Item>
                             </Space>
                         </Col>
                         <Col xs={24} md={12}>
-                            <Typography.Text type="secondary">Itens encontrados: {rssCount}</Typography.Text>
+                <Typography.Text type="secondary">{t('createContent.itemsFound', { count: rssCount })}</Typography.Text>
                             <div style={{ maxHeight: 420, overflow: 'auto', marginTop: 8 }}>
                                 <List
                                     dataSource={rssItems}
-                                    locale={{ emptyText: 'Nenhum item' }}
+                    locale={{ emptyText: t('createContent.listEmpty') }}
                                     renderItem={(it) => (
                                         <List.Item>
                                             <List.Item.Meta
@@ -131,7 +132,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
                     <div style={{ marginTop: 16 }}>
                         <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                            Gerar news letter (salvar)
+                            {t('createContent.generate')}
                         </Button>
                     </div>
                 </Form>

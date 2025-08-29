@@ -9,6 +9,7 @@ import { AvailableCollectionNames, MethodUtilMethodsFindCollectionModel } from '
 import { errorResponse } from '/app/utils/errors';
 import { useLocation } from 'wouter';
 import { protectedRoutes } from '/app/utils/constants/routes';
+import { useTranslation } from 'react-i18next';
 
 export interface MiniBrowsePageUserProfileModel
   extends Pick<UserProfileModel, '_id' | 'username' | 'userId' | 'photo'> {}
@@ -25,6 +26,7 @@ type BrowsePageProps = BasicSiteProps;
 export type FetchDataType = (silent?: boolean) => Promise<void>;
 
 const BrowsePage: React.FC<BrowsePageProps> = ({ userId }) => {
+  const { t } = useTranslation('common');
   const [loading, setLoading] = useState(true);
   const [userProfiles, setUserProfiles] = useState<MiniBrowsePageUserProfileModel[]>([]);
   const [contents, setContents] = useState<ContentModel[]>([]);
@@ -76,7 +78,7 @@ const BrowsePage: React.FC<BrowsePageProps> = ({ userId }) => {
       {userId && (
         <Card>
           <Button type="primary" onClick={() => navigate(protectedRoutes.createContent.path)}>
-            Criar conteúdo
+            {t('home.createCta')}
           </Button>
         </Card>
       )}
@@ -86,12 +88,12 @@ const BrowsePage: React.FC<BrowsePageProps> = ({ userId }) => {
           <Space direction="vertical" style={{ width: '100%' }}>
             <div>
               <Typography.Title level={4} style={{ marginBottom: 0 }}>
-                Seu histórico
+                {t('home.historyTitle')}
               </Typography.Title>
-              <Typography.Text type="secondary">Conteúdos salvos recentemente</Typography.Text>
+              <Typography.Text type="secondary">{t('home.recentSaved')}</Typography.Text>
             </div>
             {contents.length === 0 ? (
-              <Empty description="Nenhum conteúdo salvo" />
+              <Empty description={t('createContent.listEmpty')} />
             ) : (
               <Row gutter={[16, 16]}>
                 {contents.map((c) => (
@@ -119,13 +121,13 @@ const BrowsePage: React.FC<BrowsePageProps> = ({ userId }) => {
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         <div>
           <Typography.Title level={4} style={{ marginBottom: 0 }}>
-            Community
+            {t('browse.communityTitle')}
           </Typography.Title>
-          <Typography.Text type="secondary">Browse user profiles</Typography.Text>
+          <Typography.Text type="secondary">{t('browse.communitySubtitle')}</Typography.Text>
         </div>
 
         {userProfiles.length === 0 ? (
-          <Empty description="No users yet" />
+          <Empty description={t('browse.noUsers')} />
         ) : (
           <List
             dataSource={userProfiles}

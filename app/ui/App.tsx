@@ -1,9 +1,14 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { ConfigProvider, theme } from 'antd';
+import enUS from 'antd/es/locale/en_US';
+import ptBR from 'antd/es/locale/pt_BR';
+import esES from 'antd/es/locale/es_ES';
 import { Meteor } from 'meteor/meteor';
 import { useTracker } from 'meteor/react-meteor-data';
 import React, { useEffect, useState } from 'react';
 import { Route, Switch } from 'wouter';
+import '/app/i18n';
+import { useTranslation } from 'react-i18next';
 import { MethodGetAWSFileFromS3Model } from '../api/aws/models';
 import { AvailableUserRoles, MethodGetRolesUserRolesModel, ResultGetRolesUserRolesModel } from '../api/roles/models';
 import UserProfileModel from '../api/userProfile/models';
@@ -38,6 +43,7 @@ export interface BasicSiteProps extends ComponentProps {
 }
 
 const App: React.FC = () => {
+    const { i18n } = useTranslation();
     const userId: AppUserIdModel = useTracker(() => Meteor.userId());
     /**
      * Basic public profile data that is required by most pages (reduces fetch requests)
@@ -131,11 +137,14 @@ const App: React.FC = () => {
         }
     }, [userId]);
 
+    const antdLocale = i18n.language.startsWith('pt') ? ptBR : i18n.language.startsWith('es') ? esES : enUS;
+
     // user is not logged in
     if (userId === null) {
         // you can add any config providers here to cover all public routes
         return (
             <ConfigProvider
+                locale={antdLocale}
                 theme={{
                     // Light, clean theme
                     algorithm: theme.defaultAlgorithm,
@@ -165,6 +174,7 @@ const App: React.FC = () => {
     // you can add any config providers here to cover all protected routes
     return (
         <ConfigProvider
+            locale={antdLocale}
             theme={{
                 algorithm: theme.defaultAlgorithm,
                 token: {
