@@ -11,4 +11,3 @@ import '/app/api/userProfile/userProfile';
 import '/app/api/contents/contents';
 
 // publications
-// post/postLike publications removed as post feature has been deleted

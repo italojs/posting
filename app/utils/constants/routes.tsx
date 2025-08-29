@@ -1,5 +1,5 @@
 import React from "react";
-import BrowsePage from "../../ui/BrowsePage";
+import MainPage from "../../ui/MainPage";
 import CreateContentPage from "/app/ui/CreateContentPage/index";
 import LoginPage from "/app/ui/LoginPage";
 import NotFoundPage from "/app/ui/NotFoundPage";
@@ -25,7 +25,7 @@ export const publicRoutes = {
 	},
 	home: {
 		path: "/",
-		element: (<BrowsePage />) as React.ReactElement,
+		element: (<MainPage />) as React.ReactElement,
 	},
 	default: {
 		path: "*",
