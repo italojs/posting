@@ -295,8 +295,18 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
                           {new Date(c.createdAt).toLocaleString()}
                         </Typography.Text>
                       </div>
+                      {c.audience && (
+                        <div style={{ marginTop: 8 }}>
+                          <Typography.Text type="secondary">Público: {c.audience}</Typography.Text>
+                        </div>
+                      )}
+                      {c.goal && (
+                        <div style={{ marginTop: 4 }}>
+                          <Typography.Text type="secondary">Objetivo: {c.goal}</Typography.Text>
+                        </div>
+                      )}
                       <div style={{ marginTop: 8 }}>
-                        <Typography.Text type="secondary">RSS: {c.rssUrls.length}</Typography.Text>
+                        <Typography.Text type="secondary">RSS: {c.rssUrls.length} • Itens: {c.rssItems?.length ?? 0}</Typography.Text>
                       </div>
                     </Card>
                   </Col>
