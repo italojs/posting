@@ -77,7 +77,10 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
                                 label: t('app.logout'),
                                 key: 'logout',
                                 icon: <LogoutOutlined />,
-                                onClick: () => Meteor.logout(),
+                                onClick: () =>
+                                    Meteor.logout(() => {
+                                        navigate(publicRoutes.home.path);
+                                    }),
                             },
                         ],
                     }}
