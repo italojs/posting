@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { UserModel } from "../api/users/models";
+import { AppUser } from "../api/users/models";
 
 /**
  * Get a users email.
@@ -10,6 +10,6 @@ import { UserModel } from "../api/users/models";
  * @param user Meteor user model
  * @returns user email
  */
-export const getUserEmail = (user: Pick<UserModel, "emails"> | undefined) => {
+export const getUserEmail = (user: Pick<AppUser, "emails"> | undefined) => {
 	return _.first(user?.emails)?.address;
 };

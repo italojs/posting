@@ -3,9 +3,9 @@ import { Button, Card, Checkbox, Col, Empty, List, Row, Segmented, Space, Spin, 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Meteor } from 'meteor/meteor';
 import { BasicSiteProps } from '../App';
-import { RssItemModel } from '/app/api/contents/models';
+import { RssItem } from '/app/api/contents/models';
 import { useTranslation } from 'react-i18next';
-import { MethodGetRssSourcesListModel, RssSourceModel } from '/app/api/rssSources/models';
+import { GetRssSourcesListInput, RssSource } from '/app/api/rssSources/models';
 
 type FeedPageProps = BasicSiteProps;
 
@@ -27,20 +27,20 @@ const FeedPage: React.FC<FeedPageProps> = () => {
     const [category, setCategory] = useState<RssCategory | 'all'>('all');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
-    const [items, setItems] = useState<RssItemModel[]>([]);
-    const [sources, setSources] = useState<RssSourceModel[]>([]);
+    const [items, setItems] = useState<RssItem[]>([]);
+    const [sources, setSources] = useState<RssSource[]>([]);
     const [favoriteUrls, setFavoriteUrls] = useState<string[]>([]);
     const [showOnlyFavorites, setShowOnlyFavorites] = useState<boolean>(false);
 
     // Load sources from server when category changes (or initial)
     useEffect(() => {
         const run = async () => {
-            const payload: MethodGetRssSourcesListModel = {
+            const payload: GetRssSourcesListInput = {
                 category: category === 'all' ? undefined : (category as string),
                 enabledOnly: true,
             };
             try {
-                const res = (await Meteor.callAsync('get.rssSources.list', payload)) as { sources: RssSourceModel[] };
+                const res = (await Meteor.callAsync('get.rssSources.list', payload)) as { sources: RssSource[] };
                 setSources(res.sources || []);
                 // If selection is empty, optionally preselect first one
                 if ((res.sources || []).length > 0 && selectedIds.length === 0) {
@@ -81,7 +81,7 @@ const FeedPage: React.FC<FeedPageProps> = () => {
             setLoading(true);
             try {
                 const res = (await Meteor.callAsync('get.contents.fetchRss', { urls: selectedUrls })) as {
-                    items: RssItemModel[];
+                    items: RssItem[];
                 };
                 // Sort by isoDate/pubDate desc if available
                 const sorted = [...(res.items || [])].sort((a, b) => {

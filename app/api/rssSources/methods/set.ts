@@ -1,15 +1,15 @@
 import { check } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import RssSourcesCollection from '../rssSources';
-import { MethodSetRssSourcesBulkUpsertModel, RssSourceModel } from '../models';
+import { BulkUpsertRssSourcesInput, RssSource } from '../models';
 
 Meteor.methods({
-    'set.rssSources.bulkUpsert': async ({ sources }: MethodSetRssSourcesBulkUpsertModel) => {
+    'set.rssSources.bulkUpsert': async ({ sources }: BulkUpsertRssSourcesInput) => {
         check(sources, [Object]);
 
         for (const s of sources) {
             const now = new Date();
-            const doc: RssSourceModel = {
+            const doc: RssSource = {
                 name: s.name,
                 url: s.url,
                 category: s.category,

@@ -4,7 +4,7 @@ import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import { BasicSiteProps } from '../App';
-import { RssItemModel } from '/app/api/contents/models';
+import { RssItem } from '/app/api/contents/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const { t } = useTranslation('common');
     const [, navigate] = useLocation();
     const [loading, setLoading] = useState(false);
-    const [rssItems, setRssItems] = useState<RssItemModel[]>([]);
+    const [rssItems, setRssItems] = useState<RssItem[]>([]);
     const [favoriteUrls, setFavoriteUrls] = useState<string[]>([]);
     const [selectedFavorites, setSelectedFavorites] = useState<string[]>([]);
 
@@ -56,7 +56,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         }
         setLoading(true);
         try {
-            const res = (await Meteor.callAsync('get.contents.fetchRss', { urls: merged })) as { items: RssItemModel[] };
+            const res = (await Meteor.callAsync('get.contents.fetchRss', { urls: merged })) as { items: RssItem[] };
             setRssItems(res.items || []);
             if ((res.items || []).length === 0) message.info(t('createContent.listEmpty'));
         } catch (error) {

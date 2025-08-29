@@ -1,7 +1,7 @@
 /* eslint-disable import/prefer-default-export */
 import { Meteor } from 'meteor/meteor';
 
-export class UserModel implements Meteor.User {
+export class AppUser implements Meteor.User {
     _id!: string;
 
     username?: string;
@@ -25,7 +25,7 @@ export class UserModel implements Meteor.User {
 // ---- GET METHOD MODELS ----
 
 // ---- SET METHOD MODELS ----
-export interface MethodSetUserCreateModel {
+export interface CreateUserInput {
     email: string;
     password: string;
     firstName: string;

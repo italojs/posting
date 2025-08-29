@@ -1,10 +1,10 @@
 import { Meteor } from 'meteor/meteor';
-import UserProfileModel, { ResultGetUserProfileRssFavoritesModel } from '../models';
+import UserProfile, { GetUserProfileRssFavoritesResult } from '../models';
 import UserProfileCollection from '../userProfile';
 import { noAuthError } from '/app/utils/serverErrors';
 
 Meteor.methods({
-    'get.userProfiles.current': async (): Promise<UserProfileModel | undefined> => {
+    'get.userProfiles.current': async (): Promise<UserProfile | undefined> => {
         const userId = Meteor.userId();
         if (!userId) return noAuthError('User not logged in');
 
@@ -12,7 +12,7 @@ Meteor.methods({
         return userProfile;
     },
 
-    'get.userProfiles.rssFavorites': async (): Promise<ResultGetUserProfileRssFavoritesModel> => {
+    'get.userProfiles.rssFavorites': async (): Promise<GetUserProfileRssFavoritesResult> => {
         const userId = Meteor.userId();
         if (!userId) return noAuthError('User not logged in');
 

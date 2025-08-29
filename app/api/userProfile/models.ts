@@ -1,9 +1,9 @@
-export interface PhotoModel {
+export interface Photo {
     key: string;
     // you can save other information here like file type and size
 }
 
-interface UserProfileModel {
+interface UserProfile {
     _id: string;
     /**
      * User this profile is linked to
@@ -22,7 +22,7 @@ interface UserProfileModel {
      * access the user profile instead of user account
      */
     username: string;
-    photo?: PhotoModel;
+    photo?: Photo;
 
     /**
      * User's favorite RSS feed URLs
@@ -30,30 +30,30 @@ interface UserProfileModel {
     favoritesRssUrls?: string[];
 }
 
-export default UserProfileModel;
+export default UserProfile;
 
 // ---- GET METHOD MODELS ----
 
 // ---- SET METHOD MODELS ----
-export interface MethodSetUserProfileUpdateModel {
-    update: Partial<UserProfileModel>;
+export interface UpdateUserProfileInput {
+    update: Partial<UserProfile>;
     userId: string;
 }
 
-export interface MethodSetUserProfileUpdateProfilePhotoModel {
+export interface UpdateUserProfilePhotoInput {
     key: string;
     userId: string;
 }
 
 // ---- FAVORITES (RSS) GET/SET MODELS ----
-export interface ResultGetUserProfileRssFavoritesModel {
+export interface GetUserProfileRssFavoritesResult {
     urls: string[];
 }
 
-export interface MethodSetUserProfileAddRssFavoritesModel {
+export interface AddUserProfileRssFavoritesInput {
     urls: string[]; // absolute URLs
 }
 
-export interface MethodSetUserProfileRemoveRssFavoritesModel {
+export interface RemoveUserProfileRssFavoritesInput {
     urls: string[]; // absolute URLs
 }

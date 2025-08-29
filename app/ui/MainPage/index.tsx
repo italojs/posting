@@ -3,16 +3,16 @@ import { Button, Card, Col, Empty, Image, List, Row, Space, Tag, Typography } fr
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState } from 'react';
 import { BasicSiteProps } from '../App';
-import { ContentModel } from '/app/api/contents/models';
-import UserProfileModel from '/app/api/userProfile/models';
-import { AvailableCollectionNames, MethodUtilMethodsFindCollectionModel } from '/app/api/utils/models';
+import { Content } from '/app/api/contents/models';
+import UserProfile from '/app/api/userProfile/models';
+import { AvailableCollectionNames, FindCollectionParams } from '/app/api/utils/models';
 import { errorResponse } from '/app/utils/errors';
 import { useLocation } from 'wouter';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { useTranslation } from 'react-i18next';
 
-export interface MiniMainPageUserProfileModel
-  extends Pick<UserProfileModel, '_id' | 'username' | 'userId' | 'photo'> {}
+export interface MiniMainPageUserProfile
+  extends Pick<UserProfile, '_id' | 'username' | 'userId' | 'photo'> {}
 
 const miniMainPageUserProfileFields = {
   _id: 1,
@@ -204,14 +204,14 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
   const { t } = useTranslation('common');
   // Para visitantes, não mostrar loading nem buscar dados
   const [loading, setLoading] = useState<boolean>(!!userId);
-  const [userProfiles, setUserProfiles] = useState<MiniMainPageUserProfileModel[]>([]);
-  const [contents, setContents] = useState<ContentModel[]>([]);
+  const [userProfiles, setUserProfiles] = useState<MiniMainPageUserProfile[]>([]);
+  const [contents, setContents] = useState<Content[]>([]);
   const [, navigate] = useLocation();
 
   const fetchData: FetchDataType = async (silent) => {
     setLoading(!silent);
     try {
-      const findData: MethodUtilMethodsFindCollectionModel = {
+      const findData: FindCollectionParams = {
         collection: AvailableCollectionNames.USER_PROFILE,
         selector: {},
         options: {
@@ -220,19 +220,19 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
         },
       };
 
-      const res: MiniMainPageUserProfileModel[] = await Meteor.callAsync(
+      const res: MiniMainPageUserProfile[] = await Meteor.callAsync(
         'utilMethods.findCollection',
         findData,
       );
       setUserProfiles(res);
 
       if (userId) {
-        const contentFind: MethodUtilMethodsFindCollectionModel = {
+        const contentFind: FindCollectionParams = {
           collection: AvailableCollectionNames.CONTENTS,
           selector: { userId },
           options: { sort: { createdAt: -1 }, limit: 12 },
         };
-        const c: ContentModel[] = await Meteor.callAsync('utilMethods.findCollection', contentFind);
+        const c: Content[] = await Meteor.callAsync('utilMethods.findCollection', contentFind);
         setContents(c);
       } else {
         setContents([]);

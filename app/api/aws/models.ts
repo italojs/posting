@@ -1,4 +1,4 @@
-export interface MethodSetAwsUploadFileModel {
+export interface UploadFileInput {
     key: string;
     /**
      * Should be base64 for image
@@ -7,14 +7,14 @@ export interface MethodSetAwsUploadFileModel {
     contentType: string;
 }
 
-export interface MethodSetAwsDeleteFileModel {
+export interface DeleteFileInput {
     key: string;
 }
 
-export interface MethodSetAwsDeleteMultipleFilesModel {
+export interface DeleteMultipleFilesInput {
     keys: string[];
 }
 
-export interface MethodGetAWSFileFromS3Model {
+export interface GetAwsFileInput {
     key: string;
 }

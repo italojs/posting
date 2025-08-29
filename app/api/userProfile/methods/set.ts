@@ -1,12 +1,12 @@
 import { checkStrEmpty } from '@netsu/js-utils';
 import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
-import { MethodGetRolesUserRolesModel, ResultGetRolesUserRolesModel } from '../../roles/models';
-import UserProfileModel, {
-    MethodSetUserProfileUpdateModel,
-    MethodSetUserProfileUpdateProfilePhotoModel,
-    MethodSetUserProfileAddRssFavoritesModel,
-    MethodSetUserProfileRemoveRssFavoritesModel,
+import { GetUserRolesInput, GetUserRolesResult } from '../../roles/models';
+import UserProfile, {
+    UpdateUserProfileInput,
+    UpdateUserProfilePhotoInput,
+    AddUserProfileRssFavoritesInput,
+    RemoveUserProfileRssFavoritesInput,
 } from '../models';
 import UserProfileCollection from '../userProfile';
 import { isModerator, stringContainsOnlyLettersAndNumbers } from '/app/utils/checks';
@@ -14,7 +14,7 @@ import { clientContentError, noAuthError, notFoundError } from '/app/utils/serve
 import { currentUserAsync, getUserByIdAsync } from '/server/utils/meteor';
 
 Meteor.methods({
-    'set.userProfile.update': async ({ update, userId }: MethodSetUserProfileUpdateModel) => {
+    'set.userProfile.update': async ({ update, userId }: UpdateUserProfileInput) => {
         check(userId, String);
         check(update, Object);
 
@@ -53,7 +53,7 @@ Meteor.methods({
             return clientContentError('First name is required');
         }
 
-        const newUpdate: Partial<UserProfileModel> = {
+    const newUpdate: Partial<UserProfile> = {
             firstName: cleanedFirstName,
             lastName: cleanedLastName,
             username: cleanedUsername,
@@ -63,11 +63,11 @@ Meteor.methods({
         if (!user) return noAuthError();
 
         if (user._id !== userId) {
-            const currentUserRoleData: MethodGetRolesUserRolesModel = {
+            const currentUserRoleData: GetUserRolesInput = {
                 userIds: [user._id],
             };
 
-            const currentUserRole: ResultGetRolesUserRolesModel = await Meteor.callAsync(
+            const currentUserRole: GetUserRolesResult = await Meteor.callAsync(
                 'get.roles.userRoles',
                 currentUserRoleData,
             );
@@ -91,7 +91,7 @@ Meteor.methods({
 
     // system logs removed
     },
-    'set.userProfile.updateProfilePhoto': async ({ key, userId }: MethodSetUserProfileUpdateProfilePhotoModel) => {
+    'set.userProfile.updateProfilePhoto': async ({ key, userId }: UpdateUserProfilePhotoInput) => {
         check(userId, String);
         check(key, String);
 
@@ -99,11 +99,11 @@ Meteor.methods({
         if (!user) return noAuthError();
 
         if (user._id !== userId) {
-            const currentUserRoleData: MethodGetRolesUserRolesModel = {
+            const currentUserRoleData: GetUserRolesInput = {
                 userIds: [user._id],
             };
 
-            const currentUserRole: ResultGetRolesUserRolesModel = await Meteor.callAsync(
+            const currentUserRole: GetUserRolesResult = await Meteor.callAsync(
                 'get.roles.userRoles',
                 currentUserRoleData,
             );
@@ -131,7 +131,7 @@ Meteor.methods({
     // system logs removed
     },
 
-    'set.userProfile.addRssFavorites': async ({ urls }: MethodSetUserProfileAddRssFavoritesModel) => {
+    'set.userProfile.addRssFavorites': async ({ urls }: AddUserProfileRssFavoritesInput) => {
         check(urls, [String]);
         const user = await currentUserAsync();
         if (!user) return noAuthError();
@@ -154,7 +154,7 @@ Meteor.methods({
         return { ok: true };
     },
 
-    'set.userProfile.removeRssFavorites': async ({ urls }: MethodSetUserProfileRemoveRssFavoritesModel) => {
+    'set.userProfile.removeRssFavorites': async ({ urls }: RemoveUserProfileRssFavoritesInput) => {
         check(urls, [String]);
         const user = await currentUserAsync();
         if (!user) return noAuthError();

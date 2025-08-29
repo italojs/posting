@@ -1,11 +1,11 @@
 import { check } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
-import { MethodGetAWSFileFromS3Model } from '../models';
+import { GetAwsFileInput } from '../models';
 import { internalServerError } from '/app/utils/serverErrors';
 import { downloadFileFromS3 } from '/server/utils/s3';
 
 Meteor.methods({
-    'get.aws.fileFromS3': async ({ key }: MethodGetAWSFileFromS3Model): Promise<string | undefined> => {
+    'get.aws.fileFromS3': async ({ key }: GetAwsFileInput): Promise<string | undefined> => {
         check(key, String);
 
         try {

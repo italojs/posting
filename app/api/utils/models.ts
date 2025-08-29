@@ -1,4 +1,4 @@
-import { MethodSearchModel } from '/app/types/interfaces';
+import { SearchParams } from '/app/types/interfaces';
 
 export enum AvailableCollectionNames {
     USERS = 'users',
@@ -6,7 +6,7 @@ export enum AvailableCollectionNames {
     CONTENTS = 'contents',
 }
 
-export interface MethodUtilMethodsFindCollectionModel extends MethodSearchModel {
+export interface FindCollectionParams extends SearchParams {
     collection: AvailableCollectionNames;
     /**
      * If provided, deleted documents will also be provided. If `onlyOne` is used, below will not be used.

@@ -1,12 +1,12 @@
 import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import ContentsCollection from '../contents';
-import { ContentModel, MethodSetContentsCreateModel } from '../models';
+import { Content, CreateContentInput } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 
 Meteor.methods({
-    'set.contents.create': async ({ name, rssUrls, rssItems, networks }: MethodSetContentsCreateModel) => {
+    'set.contents.create': async ({ name, rssUrls, rssItems, networks }: CreateContentInput) => {
         check(name, String);
         check(rssUrls, [String]);
         check(rssItems, [Object]);
@@ -21,7 +21,7 @@ Meteor.methods({
         const cleanedUrls = rssUrls.map((u) => u.trim()).filter(Boolean);
         if (cleanedUrls.length === 0) return clientContentError('Informe pelo menos um RSS');
 
-        const doc: Omit<ContentModel, '_id'> = {
+    const doc: Omit<Content, '_id'> = {
             userId: user._id,
             name: cleanedName,
             rssUrls: cleanedUrls,

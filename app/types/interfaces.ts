@@ -1,7 +1,7 @@
 import { Mongo } from 'meteor/mongo';
 import { ReactNode } from 'react';
 
-export interface ComponentProps {
+export interface BaseProps {
     history?: any;
     location?: any;
     /**
@@ -15,11 +15,11 @@ export interface ComponentProps {
     children?: ReactNode;
 }
 
-export interface SearchableObject {
+export interface AnyMap {
     [index: string]: any;
 }
 
-export interface MongoDBOptions {
+export interface QueryOptions {
     sort?: Mongo.SortSpecifier | undefined;
     skip?: number | undefined;
     limit?: number | undefined;
@@ -30,9 +30,9 @@ export interface MongoDBOptions {
 
 export type MongoDBSelector = string | Mongo.Selector<any> | Mongo.ObjectID;
 
-export interface MethodSearchModel {
+export interface SearchParams {
     selector?: MongoDBSelector;
-    options?: MongoDBOptions;
+    options?: QueryOptions;
     /**
      * Should only one value be returned
      */
@@ -50,7 +50,7 @@ export enum AvailableAwsSnsDetailStatuses {
     INSTANCE_REMOVED = 'Instance removed',
 }
 
-export interface AwsSnsResponse {
+export interface AwsSnsEvent {
     version: string;
     id: string;
     'detail-type': AvailableAwsSnsDetailTypes;
@@ -69,7 +69,7 @@ export interface AwsSnsResponse {
     };
 }
 
-export interface FroalaEditorModel {
+export interface FroalaEditor {
     image: {
         insert: any;
         get: any;
@@ -78,7 +78,7 @@ export interface FroalaEditorModel {
         hideAll: () => void;
     };
 }
-export interface FroalaFileModel extends Blob {
+export interface FroalaFile extends Blob {
     lastModified: number;
     lastModifiedDate: Date;
     name: string;

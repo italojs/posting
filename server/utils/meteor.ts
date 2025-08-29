@@ -1,11 +1,11 @@
 /* eslint-disable import/prefer-default-export */
 
 import { Meteor } from 'meteor/meteor';
-import { UserModel } from '/app/api/users/models';
+import { AppUser } from '/app/api/users/models';
 
 /**
  * This will find a user by their ID, equivalent to
- * `Meteor.users.findOne(userId) as unknown as UserModel | undefined`
+ * `Meteor.users.findOne(userId) as unknown as AppUser | undefined`
  *
  * @note **SERVER ONLY**
  *
@@ -13,7 +13,7 @@ import { UserModel } from '/app/api/users/models';
  * @returns user
  */
 export const getUserByIdAsync = async (userId: string) => {
-    return (await Meteor.users.findOneAsync(userId)) as unknown as UserModel | undefined;
+    return (await Meteor.users.findOneAsync(userId)) as unknown as AppUser | undefined;
 };
 
 /**
@@ -26,5 +26,5 @@ export const getUserByIdAsync = async (userId: string) => {
  * @returns The current user
  */
 export const currentUserAsync = async () => {
-    return (await Meteor.userAsync()) as unknown as UserModel | undefined;
+    return (await Meteor.userAsync()) as unknown as AppUser | undefined;
 };

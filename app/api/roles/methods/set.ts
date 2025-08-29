@@ -1,27 +1,22 @@
 import { Roles } from 'meteor/alanning:roles';
 import { check } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
-import {
-    AvailableUserRoles,
-    MethodGetRolesUserRolesModel,
-    MethodSetRolesUpdateUserRolesModel,
-    ResultGetRolesUserRolesModel,
-} from '../models';
+import { AvailableUserRoles, GetUserRolesInput, UpdateUserRolesInput, GetUserRolesResult } from '../models';
 import { noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 
 Meteor.methods({
-    'set.roles.updateUserRoles': async function ({ role, users, removeRole }: MethodSetRolesUpdateUserRolesModel) {
+    'set.roles.updateUserRoles': async function ({ role, users, removeRole }: UpdateUserRolesInput) {
         check(users, [String]);
 
         const currentUser = await currentUserAsync();
         if (!currentUser) return noAuthError();
 
-        const currentUserRoleData: MethodGetRolesUserRolesModel = {
+    const currentUserRoleData: GetUserRolesInput = {
             userIds: users,
         };
 
-        const currentUserRole: ResultGetRolesUserRolesModel = await Meteor.callAsync(
+    const currentUserRole: GetUserRolesResult = await Meteor.callAsync(
             'get.roles.userRoles',
             currentUserRoleData,
         );
@@ -31,11 +26,11 @@ Meteor.methods({
             return noAuthError();
         }
 
-        const data: MethodGetRolesUserRolesModel = {
+    const data: GetUserRolesInput = {
             userIds: users,
         };
 
-        const res: ResultGetRolesUserRolesModel = await Meteor.callAsync('get.roles.userRoles', data);
+    const res: GetUserRolesResult = await Meteor.callAsync('get.roles.userRoles', data);
 
         if (removeRole) {
             if (res.result.find((r) => r.roles.includes(AvailableUserRoles.ADMIN))) {

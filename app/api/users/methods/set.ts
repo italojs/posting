@@ -3,12 +3,12 @@ import { Accounts } from 'meteor/accounts-base';
 import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import UserProfileCollection from '../../userProfile/userProfile';
-import { MethodSetUserCreateModel, UserModel } from '../models';
+import { CreateUserInput, AppUser } from '../models';
 import { stringContainsOnlyLettersAndNumbers } from '/app/utils/checks';
 import { clientContentError, notFoundError } from '/app/utils/serverErrors';
 
 Meteor.methods({
-    'set.user.create': async function ({ email, password, firstName, lastName, username }: MethodSetUserCreateModel) {
+    'set.user.create': async function ({ email, password, firstName, lastName, username }: CreateUserInput) {
         check(email, String);
         check(password, String);
         check(firstName, String);
@@ -41,7 +41,7 @@ Meteor.methods({
         });
 
         // ensure the user was created
-        const newUser = (await Meteor.users.findOneAsync({ 'emails.address': email })) as UserModel | undefined;
+    const newUser = (await Meteor.users.findOneAsync({ 'emails.address': email })) as AppUser | undefined;
         if (!newUser) return notFoundError('new user');
 
         // create the users profile

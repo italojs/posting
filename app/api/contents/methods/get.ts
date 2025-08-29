@@ -1,15 +1,15 @@
 import { check } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import Parser from 'rss-parser';
-import { MethodGetContentsFetchRssModel, ResultGetContentsFetchRssModel, RssItemModel } from '../models';
+import { FetchRssInput, FetchRssResult, RssItem } from '../models';
 
 const parser = new Parser();
 
 Meteor.methods({
-    'get.contents.fetchRss': async ({ urls }: MethodGetContentsFetchRssModel) => {
+    'get.contents.fetchRss': async ({ urls }: FetchRssInput) => {
         check(urls, [String]);
 
-        const allItems: RssItemModel[] = [];
+    const allItems: RssItem[] = [];
 
         for (const url of urls) {
             try {
@@ -20,14 +20,14 @@ Meteor.methods({
                     isoDate: (it as any).isoDate,
                     pubDate: it.pubDate,
                     contentSnippet: it.contentSnippet,
-                })) as RssItemModel[];
+                })) as RssItem[];
                 allItems.push(...items);
             } catch (e) {
                 // ignore single feed failure; continue others
             }
         }
 
-        const res: ResultGetContentsFetchRssModel = {
+    const res: FetchRssResult = {
             items: allItems,
         };
 

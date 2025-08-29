@@ -3,7 +3,7 @@ import { Meteor } from 'meteor/meteor';
 import { createDefaultUserAccount } from './utils/dummyData';
 import { denyClientSideDatabaseActions } from './utils/securityLayer';
 import { AvailableUserRoles } from '/app/api/roles/models';
-import { UserModel } from '/app/api/users/models';
+import { AppUser } from '/app/api/users/models';
 import '/app/startup/imports';
 
 Meteor.startup(async () => {
@@ -19,7 +19,7 @@ Meteor.startup(async () => {
         await createDefaultUserAccount();
 
         defaultUser = (await Meteor.users.findOneAsync({ 'emails.address': 'admin@gmail.com' })) as
-            | UserModel
+            | AppUser
             | undefined;
 
         if (!defaultUser) {

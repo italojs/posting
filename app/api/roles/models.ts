@@ -6,30 +6,30 @@ export enum AvailableUserRoles {
 /**
  * This model is based off of the roles collection provided by the meteor roles package
  */
-interface RoleModel {
+interface Role {
     _id: string;
     userId: string;
     roles: AvailableUserRoles[];
 }
 
-export default RoleModel;
+export default Role;
 
 // ---- GET METHOD MODELS ----
-export interface UserLinkedRoleModel {
+export interface UserLinkedRole {
     userId: string;
     roles: AvailableUserRoles[];
 }
 
-export interface MethodGetRolesUserRolesModel {
+export interface GetUserRolesInput {
     userIds: string[];
 }
 
-export interface ResultGetRolesUserRolesModel {
-    result: UserLinkedRoleModel[];
+export interface GetUserRolesResult {
+    result: UserLinkedRole[];
 }
 
 // ---- SET METHOD MODELS ----
-export interface MethodSetRolesUpdateUserRolesModel {
+export interface UpdateUserRolesInput {
     role: AvailableUserRoles;
     users: string[];
     removeRole?: boolean;

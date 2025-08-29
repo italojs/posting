@@ -1,4 +1,4 @@
-export interface RssItemModel {
+export interface RssItem {
     title?: string;
     link?: string;
     isoDate?: string;
@@ -6,12 +6,12 @@ export interface RssItemModel {
     contentSnippet?: string;
 }
 
-export interface ContentModel {
+export interface Content {
     _id: string;
     userId: string;
     name: string;
     rssUrls: string[];
-    rssItems: RssItemModel[];
+    rssItems: RssItem[];
     networks: {
         newsletter: boolean;
     };
@@ -19,18 +19,18 @@ export interface ContentModel {
 }
 
 // ---- GET METHOD MODELS ----
-export interface MethodGetContentsFetchRssModel {
+export interface FetchRssInput {
     urls: string[];
 }
 
-export interface ResultGetContentsFetchRssModel {
-    items: RssItemModel[];
+export interface FetchRssResult {
+    items: RssItem[];
 }
 
 // ---- SET METHOD MODELS ----
-export interface MethodSetContentsCreateModel {
+export interface CreateContentInput {
     name: string;
     rssUrls: string[];
-    rssItems: RssItemModel[];
+    rssItems: RssItem[];
     networks: { newsletter: boolean };
 }

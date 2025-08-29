@@ -1,6 +1,6 @@
 import { Mongo } from 'meteor/mongo';
-import { RssSourceModel } from './models';
+import { RssSource } from './models';
 
-const RssSourcesCollection = new Mongo.Collection<RssSourceModel>('rss_sources');
+const RssSourcesCollection = new Mongo.Collection<RssSource>('rss_sources');
 
 export default RssSourcesCollection;

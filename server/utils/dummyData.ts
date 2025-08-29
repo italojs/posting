@@ -1,9 +1,9 @@
 /* eslint-disable import/prefer-default-export */
 import { Meteor } from 'meteor/meteor';
-import { MethodSetUserCreateModel } from '/app/api/users/models';
+import { CreateUserInput } from '/app/api/users/models';
 
 export const createDefaultUserAccount = async () => {
-    const data: MethodSetUserCreateModel = {
+    const data: CreateUserInput = {
         email: 'admin@gmail.com',
         password: 'password',
         firstName: 'Admin',

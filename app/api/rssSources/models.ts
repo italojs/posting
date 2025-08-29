@@ -1,6 +1,6 @@
 export type RssCategory = 'technology' | 'business' | 'science' | 'sports' | 'entertainment' | 'general' | string;
 
-export interface RssSourceModel {
+export interface RssSource {
     _id?: string;
     name: string;
     url: string;
@@ -11,16 +11,16 @@ export interface RssSourceModel {
 }
 
 // GET
-export interface MethodGetRssSourcesListModel {
+export interface GetRssSourcesListInput {
     category?: string;
     enabledOnly?: boolean; // default true
 }
 
-export interface ResultGetRssSourcesListModel {
-    sources: RssSourceModel[];
+export interface GetRssSourcesListResult {
+    sources: RssSource[];
 }
 
 // SET
-export interface MethodSetRssSourcesBulkUpsertModel {
-    sources: RssSourceModel[]; // _id optional; upsert by url
+export interface BulkUpsertRssSourcesInput {
+    sources: RssSource[]; // _id optional; upsert by url
 }

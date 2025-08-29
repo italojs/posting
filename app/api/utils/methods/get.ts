@@ -2,7 +2,7 @@ import { Meteor } from 'meteor/meteor';
 import { Mongo } from 'meteor/mongo';
 import UserProfileCollection from '../../userProfile/userProfile';
 import ContentsCollection from '../../contents/contents';
-import { AvailableCollectionNames, MethodUtilMethodsFindCollectionModel } from '../models';
+import { AvailableCollectionNames, FindCollectionParams } from '../models';
 import { MongoDBSelector } from '/app/types/interfaces';
 import { internalServerError } from '/app/utils/serverErrors';
 
@@ -14,7 +14,7 @@ Meteor.methods({
         options = {},
         includeDeleted = false,
         count = false,
-    }: MethodUtilMethodsFindCollectionModel) {
+    }: FindCollectionParams) {
         const collectionMap: Record<AvailableCollectionNames, any> = {
             [AvailableCollectionNames.USER_PROFILE]: UserProfileCollection,
             [AvailableCollectionNames.USERS]: Meteor.users,

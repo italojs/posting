@@ -3,7 +3,7 @@ import { Button, Card, Input, message, Space, Typography } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useState } from 'react';
 import { useLocation } from 'wouter';
-import { MethodSetUserCreateModel } from '/app/api/users/models';
+import { CreateUserInput } from '/app/api/users/models';
 import { publicRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 
@@ -30,7 +30,7 @@ const SignupPage: React.FC = () => {
         setLoggingIn(true);
 
         try {
-            const data: MethodSetUserCreateModel = {
+            const data: CreateUserInput = {
                 email: cleanedEmail,
                 firstName: cleanedFirstName,
                 lastName: cleanedLastName,

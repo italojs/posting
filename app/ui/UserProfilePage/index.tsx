@@ -8,16 +8,9 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { BasicSiteProps } from '../App';
 import NotFoundPage from '../NotFoundPage';
-import {
-    MethodGetAWSFileFromS3Model,
-    MethodSetAwsDeleteFileModel,
-    MethodSetAwsUploadFileModel,
-} from '/app/api/aws/models';
-import UserProfileModel, {
-    MethodSetUserProfileUpdateModel,
-    MethodSetUserProfileUpdateProfilePhotoModel,
-} from '/app/api/userProfile/models';
-import { AvailableCollectionNames, MethodUtilMethodsFindCollectionModel } from '/app/api/utils/models';
+import { GetAwsFileInput, DeleteFileInput, UploadFileInput } from '/app/api/aws/models';
+import UserProfile, { UpdateUserProfileInput, UpdateUserProfilePhotoInput } from '/app/api/userProfile/models';
+import { AvailableCollectionNames, FindCollectionParams } from '/app/api/utils/models';
 import { encodeImageFileAsURL } from '/app/utils';
 import { isModerator } from '/app/utils/checks';
 import { publicRoutes } from '/app/utils/constants/routes';
@@ -25,8 +18,8 @@ import { errorResponse } from '/app/utils/errors';
 
 // mention it is good planning to not fetch sensitive data such as first name and last name unless
 // the user is allowed to see them
-interface MiniUserProfilePageUserProfileModel
-    extends Pick<UserProfileModel, '_id' | 'userId' | 'firstName' | 'lastName' | 'photo'> {}
+interface MiniUserProfilePageUserProfile
+    extends Pick<UserProfile, '_id' | 'userId' | 'firstName' | 'lastName' | 'photo'> {}
 
 const miniUserProfilePageUserProfileFields = {
     _id: 1,
@@ -40,15 +33,15 @@ interface UserProfilePageProps extends BasicSiteProps {}
 
 const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, userRoles }) => {
     const { username } = useParams();
-    const [location, navigate] = useLocation();
+    const [, navigate] = useLocation();
 
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState<MiniUserProfilePageUserProfileModel | undefined>();
+    const [user, setUser] = useState<MiniUserProfilePageUserProfile | undefined>();
     const [profilePhoto, setProfilePhoto] = useState<string | undefined>();
 
     const fetchProfilePhoto = async (key: string) => {
         try {
-            const data: MethodGetAWSFileFromS3Model = {
+            const data: GetAwsFileInput = {
                 key: key,
             };
 
@@ -64,7 +57,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, userRoles }) 
         if (!username) return;
 
         try {
-            const findData: MethodUtilMethodsFindCollectionModel = {
+            const findData: FindCollectionParams = {
                 collection: AvailableCollectionNames.USER_PROFILE,
                 selector: {
                     username,
@@ -75,7 +68,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, userRoles }) 
                 onlyOne: true,
             };
 
-            const res: MiniUserProfilePageUserProfileModel | undefined = await Meteor.callAsync(
+            const res: MiniUserProfilePageUserProfile | undefined = await Meteor.callAsync(
                 'utilMethods.findCollection',
                 findData,
             );
@@ -130,7 +123,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, userRoles }) 
 
         // delete existing image
         if (oldImageKey) {
-            const deleteData: MethodSetAwsDeleteFileModel = {
+            const deleteData: DeleteFileInput = {
                 key: oldImageKey,
             };
 
@@ -152,7 +145,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, userRoles }) 
 
         const key = Random.id();
 
-        const data: MethodSetAwsUploadFileModel = {
+    const data: UploadFileInput = {
             buffer: base64Image,
             contentType: newFile.type,
             key,
@@ -163,7 +156,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, userRoles }) 
         } catch (error) {
             console.error(error);
             // if an upload fails, we need to try to delete all uploaded images
-            const deleteData: MethodSetAwsDeleteFileModel = {
+            const deleteData: DeleteFileInput = {
                 key,
             };
 
@@ -191,7 +184,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, userRoles }) 
 
     const handleUpdateUserInfo = async (option: AvailableUpdateUserInfoOptions, value: string) => {
         // todo mention how doing client side checks is a smart idea instead of just sending it to the server
-        const data: MethodSetUserProfileUpdateModel = {
+    const data: UpdateUserProfileInput = {
             userId: user.userId,
             update: {
                 [`${option}`]: value,
@@ -224,12 +217,12 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, userRoles }) 
                 listType="picture-circle"
                 className="avatar-uploader"
                 showUploadList={false}
-                customRequest={async ({ file, onError, onSuccess }) => {
+                customRequest={async ({ file }) => {
                     const key = await handleUploadSingleImage(file, user.photo?.key);
 
                     if (key) {
                         try {
-                            const data: MethodSetUserProfileUpdateProfilePhotoModel = {
+                            const data: UpdateUserProfilePhotoInput = {
                                 key,
                                 userId: user.userId,
                             };

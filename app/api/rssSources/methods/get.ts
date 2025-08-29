@@ -1,10 +1,10 @@
 import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import RssSourcesCollection from '../rssSources';
-import { MethodGetRssSourcesListModel, ResultGetRssSourcesListModel } from '../models';
+import { GetRssSourcesListInput, GetRssSourcesListResult } from '../models';
 
 Meteor.methods({
-    'get.rssSources.list': async ({ category, enabledOnly = true }: MethodGetRssSourcesListModel) => {
+    'get.rssSources.list': async ({ category, enabledOnly = true }: GetRssSourcesListInput) => {
         check(category, Match.Maybe(String));
         check(enabledOnly, Match.Maybe(Boolean));
 
@@ -13,7 +13,7 @@ Meteor.methods({
         if (enabledOnly) query.enabled = { $ne: false };
 
         const sources = await RssSourcesCollection.find(query, { sort: { name: 1 } }).fetchAsync();
-        const res: ResultGetRssSourcesListModel = { sources };
+    const res: GetRssSourcesListResult = { sources };
         return res;
     },
 });
