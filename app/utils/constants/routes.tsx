@@ -1,5 +1,6 @@
 import React from "react";
 import BrowsePage from "../../ui/BrowsePage";
+import CreateContentPage from "/app/ui/CreateContentPage/index";
 import LoginPage from "/app/ui/LoginPage";
 import NotFoundPage from "/app/ui/NotFoundPage";
 import SignupPage from "/app/ui/SignupPage";
@@ -35,7 +36,12 @@ export const publicRoutes = {
 /**
  * User has to be logged in to view these routes
  */
-export const protectedRoutes = {};
+export const protectedRoutes = {
+	createContent: {
+		path: "/criar-conteudo",
+		element: (<CreateContentPage />) as React.ReactElement,
+	},
+};
 
 // NOTE: Do not add a home path here to prevent children routes from being blocked
 export type RouteDef = { path: string; element: React.ReactElement };

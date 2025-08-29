@@ -1,6 +1,7 @@
 import { Meteor } from 'meteor/meteor';
 import { Mongo } from 'meteor/mongo';
 import UserProfileCollection from '../../userProfile/userProfile';
+import ContentsCollection from '../../contents/contents';
 import { AvailableCollectionNames, MethodUtilMethodsFindCollectionModel } from '../models';
 import { MongoDBSelector } from '/app/types/interfaces';
 import { internalServerError } from '/app/utils/serverErrors';
@@ -17,6 +18,7 @@ Meteor.methods({
         const collectionMap: Record<AvailableCollectionNames, any> = {
             [AvailableCollectionNames.USER_PROFILE]: UserProfileCollection,
             [AvailableCollectionNames.USERS]: Meteor.users,
+            [AvailableCollectionNames.CONTENTS]: ContentsCollection,
         } as any;
 
         const collectionInstance = collectionMap[collection];

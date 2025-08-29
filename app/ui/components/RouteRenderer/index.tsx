@@ -1,4 +1,4 @@
-import { AreaChartOutlined, HomeOutlined, LoginOutlined, LogoutOutlined, ProfileOutlined } from '@ant-design/icons';
+import { AreaChartOutlined, HomeOutlined, LoginOutlined, LogoutOutlined, PlusOutlined, ProfileOutlined } from '@ant-design/icons';
 import { limitText, removeUndefinedFromArray } from '@netsu/js-utils';
 import { Avatar, Dropdown, Image, Layout, Menu, theme } from 'antd';
 import { Content, Footer, Header } from 'antd/es/layout/layout';
@@ -9,7 +9,7 @@ import { useLocation } from 'wouter';
 import { BasicSiteProps } from '../../App';
 import { AvailableUserRoles } from '/app/api/roles/models';
 import { SITE_NAME } from '/app/utils/constants';
-import { adminRoutes, publicRoutes } from '/app/utils/constants/routes';
+import { adminRoutes, publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 
 interface RouteRendererProps extends BasicSiteProps {}
 
@@ -45,6 +45,12 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
     }
 
     if (userId && userProfile) {
+        items.push({
+            key: 'create-content',
+            icon: <PlusOutlined />,
+            label: 'Criar conteúdo',
+            onClick: () => navigate(protectedRoutes.createContent.path),
+        });
         items.push({
             key: 'login',
             style: { marginLeft: 'auto' },

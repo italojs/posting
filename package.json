@@ -18,6 +18,7 @@
         "meteor-node-stubs": "^1.2.5",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
+        "rss-parser": "^3.13.0",
         "wouter": "^3.6.0"
     },
     "devDependencies": {
