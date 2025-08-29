@@ -7,10 +7,6 @@ import { UserModel } from '/app/api/users/models';
 import '/app/startup/imports';
 
 Meteor.startup(async () => {
-    console.log('Creating collection indexes');
-    // Post like indexes removed as post feature deleted
-    console.log('[DONE] Creating collection indexes');
-
     // Deny all client-side updates to user documents (security layer)
     console.log('Denying all client-side database updates');
     denyClientSideDatabaseActions();
