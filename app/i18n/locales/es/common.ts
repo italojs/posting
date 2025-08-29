@@ -20,6 +20,15 @@ const common = {
     needAtLeastOneUrl: "Proporcione al menos una URL de RSS",
     listTitle: "Elementos cargados",
     historyTitle: "Tu historial",
+  listEmpty: "Sin elementos",
+  loadError: "No se pudo cargar RSS",
+  saveError: "No se pudo guardar el contenido",
+  saved: "Contenido guardado",
+  favoritesTitle: "Favoritos",
+  favoritesHelp: "Haz clic en un favorito para seleccionarlo; cierra para añadir al campo de arriba. Usa la estrella para (des)favorito.",
+  favoritesAdded: "Añadido a favoritos",
+  favoritesRemoved: "Eliminado de favoritos",
+  favoritesError: "No se pudieron actualizar los favoritos",
   },
   home: {
     createCta: "Crear contenido",
@@ -43,6 +52,10 @@ const common = {
     selectAtLeastOne: "Selecciona al menos un RSS para mostrar los elementos",
     empty: "Sin elementos",
     loadError: "No se pudo cargar RSS",
+  onlyFavorites: "Solo favoritos",
+  favoritesAdded: "Añadido a favoritos",
+  favoritesRemoved: "Eliminado de favoritos",
+  favoritesError: "No se pudieron actualizar los favoritos",
   },
 };
 export default common;

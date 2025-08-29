@@ -25,6 +25,11 @@ const common = {
     loadError: "Failed to load RSS",
     saveError: "Couldn't save content",
     saved: "Content saved",
+  favoritesTitle: "Favorites",
+  favoritesHelp: "Click a favorite to select; close to append to the field above. Use the star to (un)favorite.",
+  favoritesAdded: "Added to favorites",
+  favoritesRemoved: "Removed from favorites",
+  favoritesError: "Couldn't update favorites",
   },
   home: {
     createCta: "Create content",
@@ -54,6 +59,10 @@ const common = {
     selectAtLeastOne: "Select at least one RSS to display items",
     empty: "No items found",
     loadError: "Failed to load RSS",
+  onlyFavorites: "Only favorites",
+  favoritesAdded: "Added to favorites",
+  favoritesRemoved: "Removed from favorites",
+  favoritesError: "Couldn't update favorites",
   },
 };
 export default common;

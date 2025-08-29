@@ -23,6 +23,11 @@ interface UserProfileModel {
      */
     username: string;
     photo?: PhotoModel;
+
+    /**
+     * User's favorite RSS feed URLs
+     */
+    favoritesRssUrls?: string[];
 }
 
 export default UserProfileModel;
@@ -38,4 +43,17 @@ export interface MethodSetUserProfileUpdateModel {
 export interface MethodSetUserProfileUpdateProfilePhotoModel {
     key: string;
     userId: string;
+}
+
+// ---- FAVORITES (RSS) GET/SET MODELS ----
+export interface ResultGetUserProfileRssFavoritesModel {
+    urls: string[];
+}
+
+export interface MethodSetUserProfileAddRssFavoritesModel {
+    urls: string[]; // absolute URLs
+}
+
+export interface MethodSetUserProfileRemoveRssFavoritesModel {
+    urls: string[]; // absolute URLs
 }

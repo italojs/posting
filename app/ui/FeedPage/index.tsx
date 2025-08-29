@@ -1,5 +1,5 @@
-import { AppstoreOutlined, CheckSquareOutlined, GlobalOutlined, ReadOutlined } from '@ant-design/icons';
-import { Card, Checkbox, Col, Empty, List, Row, Segmented, Space, Spin, Typography, message } from 'antd';
+import { AppstoreOutlined, CheckSquareOutlined, GlobalOutlined, ReadOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+import { Button, Card, Checkbox, Col, Empty, List, Row, Segmented, Space, Spin, Typography, message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Meteor } from 'meteor/meteor';
 import { BasicSiteProps } from '../App';
@@ -29,6 +29,8 @@ const FeedPage: React.FC<FeedPageProps> = () => {
     const [loading, setLoading] = useState(false);
     const [items, setItems] = useState<RssItemModel[]>([]);
     const [sources, setSources] = useState<RssSourceModel[]>([]);
+    const [favoriteUrls, setFavoriteUrls] = useState<string[]>([]);
+    const [showOnlyFavorites, setShowOnlyFavorites] = useState<boolean>(false);
 
     // Load sources from server when category changes (or initial)
     useEffect(() => {
@@ -47,12 +49,20 @@ const FeedPage: React.FC<FeedPageProps> = () => {
             } catch (e) {
                 // silently ignore
             }
+            try {
+                const fav = (await Meteor.callAsync('get.userProfiles.rssFavorites')) as { urls: string[] };
+                setFavoriteUrls(fav.urls || []);
+            } catch (e) {}
         };
         run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [category]);
 
-    const filteredSources = useMemo(() => sources, [sources]);
+    const filteredSources = useMemo(() => {
+        if (!showOnlyFavorites) return sources;
+        const favSet = new Set(favoriteUrls);
+        return sources.filter((s) => favSet.has(s.url));
+    }, [sources, showOnlyFavorites, favoriteUrls]);
 
     const selectedUrls = useMemo(() => {
         const idSet = new Set(selectedIds);
@@ -93,6 +103,26 @@ const FeedPage: React.FC<FeedPageProps> = () => {
     else setSelectedIds((prev) => prev.filter((id) => !filteredSources.find((s) => (s._id || s.url) === id)));
     };
 
+    const isFavorited = (url: string) => favoriteUrls.includes(url);
+    const toggleFavorite = async (url: string) => {
+        try {
+            if (isFavorited(url)) {
+                await Meteor.callAsync('set.userProfile.removeRssFavorites', { urls: [url] });
+                setFavoriteUrls((prev) => prev.filter((u) => u !== url));
+                message.success(t('feed.favoritesRemoved'));
+            } else {
+                await Meteor.callAsync('set.userProfile.addRssFavorites', { urls: [url] });
+                setFavoriteUrls((prev) => Array.from(new Set([...
+                    prev,
+                    url,
+                ])));
+                message.success(t('feed.favoritesAdded'));
+            }
+        } catch (e) {
+            message.error(t('feed.favoritesError'));
+        }
+    };
+
     return (
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
             <div>
@@ -127,13 +157,19 @@ const FeedPage: React.FC<FeedPageProps> = () => {
                         size="small"
                         style={{ marginTop: 12 }}
                         extra={
-                            <Checkbox
-                                indeterminate={selectedIds.length > 0 && selectedIds.length < filteredSources.length}
-                                checked={filteredSources.length > 0 && selectedIds.length >= filteredSources.length}
-                                onChange={(e) => toggleSelectAll(e.target.checked)}
-                            >
-                                {t('feed.selectAll')}
-                            </Checkbox>
+                            <Space>
+                                <Checkbox
+                                    indeterminate={selectedIds.length > 0 && selectedIds.length < filteredSources.length}
+                                    checked={filteredSources.length > 0 && selectedIds.length >= filteredSources.length}
+                                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                                >
+                                    {t('feed.selectAll')}
+                                </Checkbox>
+                                <Button size="small" type={showOnlyFavorites ? 'primary' : 'default'} onClick={() => setShowOnlyFavorites((v) => !v)}>
+                                    {showOnlyFavorites ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+                                    &nbsp;{t('feed.onlyFavorites')}
+                                </Button>
+                            </Space>
                         }
                     >
                         <div style={{ maxHeight: 360, overflow: 'auto' }}>
@@ -146,7 +182,15 @@ const FeedPage: React.FC<FeedPageProps> = () => {
                                     dataSource={filteredSources}
                                     renderItem={(s) => (
                                         <List.Item style={{ paddingInline: 8 }}>
-                                            <Checkbox value={s._id || s.url}>{s.name}</Checkbox>
+                                            <Space>
+                                                <Checkbox value={s._id || s.url}>{s.name}</Checkbox>
+                                                <Button
+                                                    size="small"
+                                                    type="text"
+                                                    onClick={() => toggleFavorite(s.url)}
+                                                    icon={isFavorited(s.url) ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+                                                />
+                                            </Space>
                                         </List.Item>
                                     )}
                                 />

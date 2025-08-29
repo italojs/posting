@@ -5,6 +5,8 @@ import { MethodGetRolesUserRolesModel, ResultGetRolesUserRolesModel } from '../.
 import UserProfileModel, {
     MethodSetUserProfileUpdateModel,
     MethodSetUserProfileUpdateProfilePhotoModel,
+    MethodSetUserProfileAddRssFavoritesModel,
+    MethodSetUserProfileRemoveRssFavoritesModel,
 } from '../models';
 import UserProfileCollection from '../userProfile';
 import { isModerator, stringContainsOnlyLettersAndNumbers } from '/app/utils/checks';
@@ -127,5 +129,50 @@ Meteor.methods({
         );
 
     // system logs removed
+    },
+
+    'set.userProfile.addRssFavorites': async ({ urls }: MethodSetUserProfileAddRssFavoritesModel) => {
+        check(urls, [String]);
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+
+        const cleaned = (urls || [])
+            .map((u) => (typeof u === 'string' ? u.trim() : ''))
+            .filter(Boolean);
+        if (cleaned.length === 0) return clientContentError('No RSS URLs provided');
+
+        const profile = await UserProfileCollection.findOneAsync({ userId: user._id });
+        const current = new Set((profile?.favoritesRssUrls || []).filter(Boolean));
+        cleaned.forEach((u) => current.add(u));
+
+        await UserProfileCollection.updateAsync(
+            { userId: user._id },
+            { $set: { favoritesRssUrls: Array.from(current) } },
+            { upsert: true } as any,
+        );
+
+        return { ok: true };
+    },
+
+    'set.userProfile.removeRssFavorites': async ({ urls }: MethodSetUserProfileRemoveRssFavoritesModel) => {
+        check(urls, [String]);
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+
+        const cleaned = (urls || [])
+            .map((u) => (typeof u === 'string' ? u.trim() : ''))
+            .filter(Boolean);
+        if (cleaned.length === 0) return clientContentError('No RSS URLs provided');
+
+        const profile = await UserProfileCollection.findOneAsync({ userId: user._id });
+        const remaining = (profile?.favoritesRssUrls || []).filter((u) => !cleaned.includes(u));
+
+        await UserProfileCollection.updateAsync(
+            { userId: user._id },
+            { $set: { favoritesRssUrls: remaining } },
+            { upsert: true } as any,
+        );
+
+        return { ok: true };
     },
 });
