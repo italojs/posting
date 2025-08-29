@@ -1,0 +1,42 @@
+import React from "react";
+import BrowsePage from "../../ui/BrowsePage";
+import LoginPage from "/app/ui/LoginPage";
+import NotFoundPage from "/app/ui/NotFoundPage";
+import SignupPage from "/app/ui/SignupPage";
+import UserProfilePage from "/app/ui/UserProfilePage";
+
+/**
+ * User does not have to be logged in to view these routes
+ */
+export const publicRoutes = {
+	// NOTE: Route order matters, root routes should be below their children
+	login: {
+		path: "/login",
+		element: (<LoginPage />) as React.ReactElement,
+	},
+	signup: {
+		path: "/signup",
+		element: (<SignupPage />) as React.ReactElement,
+	},
+	userProfile: {
+		path: "/profile/:username",
+		element: (<UserProfilePage />) as React.ReactElement,
+	},
+	home: {
+		path: "/",
+		element: (<BrowsePage />) as React.ReactElement,
+	},
+	default: {
+		path: "*",
+		element: (<NotFoundPage />) as React.ReactElement,
+	},
+};
+
+/**
+ * User has to be logged in to view these routes
+ */
+export const protectedRoutes = {};
+
+// NOTE: Do not add a home path here to prevent children routes from being blocked
+export type RouteDef = { path: string; element: React.ReactElement };
+export const adminRoutes: Record<string, RouteDef> = {};
