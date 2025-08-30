@@ -61,4 +61,101 @@ Meteor.methods({
         const _id = await ContentsCollection.insertAsync(doc as any);
         return { _id };
     },
+    'set.contents.updateBasic': async ({ _id, name, audience, goal }: { _id: string; name: string; audience?: string; goal?: string }) => {
+        check(_id, String);
+        check(name, String);
+        check(audience, Match.Maybe(String));
+        check(goal, Match.Maybe(String));
+
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+
+        const cleanedName = name.trim();
+        const cleanedAudience = (audience ?? '').trim();
+        const cleanedGoal = (goal ?? '').trim();
+        if (!cleanedName) return clientContentError('Nome do conteúdo é obrigatório');
+
+        const existing = await ContentsCollection.findOneAsync({ _id, userId: user._id });
+        if (!existing) return clientContentError('Conteúdo não encontrado');
+
+        await ContentsCollection.updateAsync(
+            { _id, userId: user._id },
+            {
+                $set: {
+                    name: cleanedName,
+                    audience: cleanedAudience || undefined,
+                    goal: cleanedGoal || undefined,
+                },
+            },
+        );
+        return { _id };
+    },
+    'set.contents.delete': async ({ _id }: { _id: string }) => {
+        check(_id, String);
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+        const existing = await ContentsCollection.findOneAsync({ _id, userId: user._id });
+        if (!existing) return clientContentError('Conteúdo não encontrado');
+        await ContentsCollection.removeAsync({ _id, userId: user._id });
+        return { _id };
+    },
+    'set.contents.update': async ({ _id, name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput & { _id: string }) => {
+        check(_id, String);
+        check(name, String);
+        check(audience, Match.Maybe(String));
+        check(goal, Match.Maybe(String));
+        check(rssUrls, [String]);
+        check(rssItems, [Object]);
+        check(networks, Object);
+        check((networks as any).newsletter, Match.Maybe(Boolean));
+        check((networks as any).instagram, Match.Maybe(Boolean));
+        check((networks as any).twitter, Match.Maybe(Boolean));
+        check((networks as any).tiktok, Match.Maybe(Boolean));
+        check((networks as any).linkedin, Match.Maybe(Boolean));
+        check(newsletterSections, Match.Maybe([Object]));
+
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+
+        const existing = await ContentsCollection.findOneAsync({ _id, userId: user._id });
+        if (!existing) return clientContentError('Conteúdo não encontrado');
+
+        const cleanedName = name.trim();
+        const cleanedAudience = (audience ?? '').trim();
+        const cleanedGoal = (goal ?? '').trim();
+        if (!cleanedName) return clientContentError('Nome do conteúdo é obrigatório');
+        const cleanedUrls = rssUrls.map((u) => u.trim()).filter(Boolean);
+        if (cleanedUrls.length === 0) return clientContentError('Informe pelo menos um RSS');
+
+        const normalizedSections: NewsletterSection[] | undefined = (newsletterSections || [])
+            .map((s: any) => ({
+                id: typeof s.id === 'string' ? s.id : undefined,
+                title: typeof s.title === 'string' ? s.title.trim() : '',
+                description: typeof s.description === 'string' ? s.description.trim() : undefined,
+                rssItems: Array.isArray(s.rssItems) ? (s.rssItems as RssItem[]) : [],
+            }))
+            .filter((s) => !!s.title);
+
+        await ContentsCollection.updateAsync(
+            { _id, userId: user._id },
+            {
+                $set: {
+                    name: cleanedName,
+                    audience: cleanedAudience || undefined,
+                    goal: cleanedGoal || undefined,
+                    rssUrls: cleanedUrls,
+                    rssItems: rssItems ?? [],
+                    networks: {
+                        newsletter: !!networks.newsletter,
+                        instagram: !!(networks as any).instagram,
+                        twitter: !!(networks as any).twitter,
+                        tiktok: !!(networks as any).tiktok,
+                        linkedin: !!(networks as any).linkedin,
+                    },
+                    newsletterSections: normalizedSections && normalizedSections.length > 0 ? normalizedSections : undefined,
+                },
+            },
+        );
+        return { _id };
+    },
 });

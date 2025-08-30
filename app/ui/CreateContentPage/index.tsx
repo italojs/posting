@@ -2,7 +2,7 @@ import { LoadingOutlined, SendOutlined, StarFilled, StarOutlined } from '@ant-de
 import { Button, Card, Checkbox, Col, Divider, Form, Input, List, Row, Space, Tag, Typography, message, Tabs, Badge } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, useRoute } from 'wouter';
 import { BasicSiteProps } from '../App';
 import { RssItem, NewsletterSection } from '/app/api/contents/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
@@ -16,6 +16,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const { t } = useTranslation('common');
     const [, navigate] = useLocation();
     const [loading, setLoading] = useState(false);
+    const [isEdit, params] = useRoute(protectedRoutes.editContent.path);
+    const editingId = isEdit ? (params as any)?.id as string : undefined;
     const [rssItems, setRssItems] = useState<RssItem[]>([]);
     const [selectedItemLinks, setSelectedItemLinks] = useState<Set<string>>(new Set());
     const [favoriteUrls, setFavoriteUrls] = useState<string[]>([]);
@@ -37,12 +39,38 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 if (urls.length > 0) {
                     setSelectedFavorites((prev) => (prev.length > 0 ? prev : [urls[0]]));
                 }
+                // If editing, load existing content and populate
+                if (editingId) {
+                    const doc = (await Meteor.callAsync('get.contents.byId', { _id: editingId })) as any;
+                    if (doc) {
+                        form.setFieldsValue({
+                            name: doc.name,
+                            audience: doc.audience,
+                            goal: doc.goal,
+                            newsletter: !!doc.networks?.newsletter,
+                            instagram: !!doc.networks?.instagram,
+                            twitter: !!doc.networks?.twitter,
+                            tiktok: !!doc.networks?.tiktok,
+                            linkedin: !!doc.networks?.linkedin,
+                        });
+                        // Preselect favorites that exist in doc.rssUrls
+                        const preset = (doc.rssUrls || []).filter((u: string) => urls.includes(u));
+                        setSelectedFavorites(preset.length ? preset : urls.slice(0, 1));
+                        // Preload sections and selected items
+                        const docSections = (doc.newsletterSections || []) as NewsletterSection[];
+                        setSections(docSections);
+                        setActiveSectionIndex(docSections.length ? 0 : -1);
+                        // For general (non-newsletter), mark selectedItemLinks from doc.rssItems
+                        const selectedLinks = new Set<string>((doc.rssItems || []).map((it: RssItem) => it.link || it.title || ''));
+                        setSelectedItemLinks(selectedLinks);
+                    }
+                }
             } catch (err) {
                 // ignore
             }
         };
         run();
-    }, []);
+    }, [editingId]);
 
     // manual URL input removed; only favorites are used
 
@@ -100,7 +128,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 }));
             }
             setLoading(true);
-            await Meteor.callAsync('set.contents.create', {
+            const method = editingId ? 'set.contents.update' : 'set.contents.create';
+            const payload: any = {
+                ...(editingId ? { _id: editingId } : {}),
                 name: values.name,
                 audience: values.audience,
                 goal: values.goal,
@@ -114,7 +144,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     linkedin: !!values.linkedin,
                 },
                 newsletterSections,
-            });
+            };
+            await Meteor.callAsync(method, payload);
             message.success(t('createContent.saved'));
             navigate(publicRoutes.home.path);
         } catch (error) {
@@ -178,6 +209,22 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     initialValues={{ newsletter: false, instagram: false, twitter: false, tiktok: false, linkedin: false }}
                     onValuesChange={(_, all) => {
                         const any = !!(all?.newsletter || all?.instagram || all?.twitter || all?.tiktok || all?.linkedin);
+                        // Enforce newsletter-exclusive mode
+                        if (all?.newsletter) {
+                            if (all?.instagram || all?.twitter || all?.tiktok || all?.linkedin) {
+                                form.setFieldsValue({ instagram: false, twitter: false, tiktok: false, linkedin: false });
+                            }
+                            // Ensure at least one section exists and is active
+                            if (!sections.length) {
+                                const first = { id: Math.random().toString(36).slice(2, 9), title: '', description: '', rssItems: [] };
+                                setSections([first]);
+                                setActiveSectionIndex(0);
+                            }
+                        }
+                        // If newsletter turned off and no other networks, clear section focus; keep sections data
+                        if (!all?.newsletter && !(all?.instagram || all?.twitter || all?.tiktok || all?.linkedin)) {
+                            setActiveSectionIndex(-1);
+                        }
                         if (any) {
                             handleFetchRss(true);
                         } else {
@@ -205,23 +252,30 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             <Divider />
                             <Typography.Text strong>{t('createContent.networksTitle')}</Typography.Text>
                             <div style={{ marginTop: 8, marginBottom: 8 }}>
-                                <Space wrap>
-                                    <Form.Item name="newsletter" valuePropName="checked" noStyle>
-                                        <Checkbox>{t('createContent.newsletter')}</Checkbox>
-                                    </Form.Item>
-                                    <Form.Item name="instagram" valuePropName="checked" noStyle>
-                                        <Checkbox>{t('createContent.instagram')}</Checkbox>
-                                    </Form.Item>
-                                    <Form.Item name="twitter" valuePropName="checked" noStyle>
-                                        <Checkbox>{t('createContent.twitter')}</Checkbox>
-                                    </Form.Item>
-                                    <Form.Item name="tiktok" valuePropName="checked" noStyle>
-                                        <Checkbox>{t('createContent.tiktok')}</Checkbox>
-                                    </Form.Item>
-                                    <Form.Item name="linkedin" valuePropName="checked" noStyle>
-                                        <Checkbox>{t('createContent.linkedin')}</Checkbox>
-                                    </Form.Item>
-                                </Space>
+                                <Form.Item shouldUpdate noStyle>
+                                    {({ getFieldValue }) => {
+                                        const isNewsletter = !!getFieldValue('newsletter');
+                                        return (
+                                            <Space wrap>
+                                                <Form.Item name="newsletter" valuePropName="checked" noStyle>
+                                                    <Checkbox>{t('createContent.newsletter')}</Checkbox>
+                                                </Form.Item>
+                                                <Form.Item name="instagram" valuePropName="checked" noStyle>
+                                                    <Checkbox disabled={isNewsletter}>{t('createContent.instagram')}</Checkbox>
+                                                </Form.Item>
+                                                <Form.Item name="twitter" valuePropName="checked" noStyle>
+                                                    <Checkbox disabled={isNewsletter}>{t('createContent.twitter')}</Checkbox>
+                                                </Form.Item>
+                                                <Form.Item name="tiktok" valuePropName="checked" noStyle>
+                                                    <Checkbox disabled={isNewsletter}>{t('createContent.tiktok')}</Checkbox>
+                                                </Form.Item>
+                                                <Form.Item name="linkedin" valuePropName="checked" noStyle>
+                                                    <Checkbox disabled={isNewsletter}>{t('createContent.linkedin')}</Checkbox>
+                                                </Form.Item>
+                                            </Space>
+                                        );
+                                    }}
+                                </Form.Item>
                             </div>
 
                             {/* Newsletter Sections UI moved to the right column Tabs for clarity */}
@@ -304,58 +358,69 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                             <Typography.Text type="secondary">
                                                 {t('createContent.itemsFound', { count: rssCount })}
                                             </Typography.Text>
-                                        <Tabs
-                                            type="editable-card"
-                                            hideAdd
-                                            activeKey={activeSectionIndex >= 0 && sections[activeSectionIndex] ? sections[activeSectionIndex].id! : 'general'}
-                                            onChange={(key) => {
-                                                if (key === 'general') return setActiveSectionIndex(-1);
-                                                const idx = sections.findIndex((s) => s.id === key);
-                                                setActiveSectionIndex(idx >= 0 ? idx : -1);
-                                            }}
-                                            onEdit={(targetKey, action) => {
-                                                if (action === 'add') {
-                                                    const newSection: NewsletterSection = {
-                                                        id: Math.random().toString(36).slice(2, 9),
-                                                        title: '',
-                                                        description: '',
-                                                        rssItems: [],
-                                                    };
-                                                    setSections((prev) => [...prev, newSection]);
-                                                    setActiveSectionIndex(sections.length);
-                                                }
-                                                if (action === 'remove' && typeof targetKey === 'string') {
-                                                    const removeIdx = sections.findIndex((s) => s.id === targetKey);
-                                                    if (removeIdx >= 0) {
-                                                        setSections((prev) => prev.filter((s) => s.id !== targetKey));
-                                                        if (activeSectionIndex === removeIdx) setActiveSectionIndex(-1);
-                                                        else if (activeSectionIndex > removeIdx) setActiveSectionIndex((i) => i - 1);
-                                                    }
-                                                }
-                                            }}
-                                            items={[
-                                                {
-                                                    key: 'general',
-                                                    label: (
-                                                        <Space size={6}>
-                                                            {t('createContent.generalTab', 'Geral')}
-                                                            <Badge count={selectedItemLinks.size} overflowCount={99} />
-                                                        </Space>
-                                                    ),
-                                                    closable: false,
-                                                } as any,
-                                                ...sections.map((s, idx) => ({
-                                                    key: s.id!,
-                                                    label: (
-                                                        <Space size={6}>
-                                                            {s.title || `${t('createContent.section', 'Seção')} ${idx + 1}`}
-                                                            <Badge count={(s.rssItems || []).length} overflowCount={99} />
-                                                        </Space>
-                                                    ),
-                                                    closable: true,
-                                                } as any)),
-                                            ]}
-                                        />
+                                        {(() => {
+                                            const isNewsletter = !!getFieldValue('newsletter');
+                                            const items = isNewsletter
+                                                ? sections.map((s, idx) => ({
+                                                      key: s.id!,
+                                                      label: (
+                                                          <Space size={6}>
+                                                              {s.title || `${t('createContent.section', 'Seção')} ${idx + 1}`}
+                                                              <Badge count={(s.rssItems || []).length} overflowCount={99} />
+                                                          </Space>
+                                                      ),
+                                                      closable: true,
+                                                  }))
+                                                : [
+                                                      {
+                                                          key: 'general',
+                                                          label: (
+                                                              <Space size={6}>
+                                                                  {t('createContent.generalTab', 'Geral')}
+                                                                  <Badge count={selectedItemLinks.size} overflowCount={99} />
+                                                              </Space>
+                                                          ),
+                                                          closable: false,
+                                                      } as any,
+                                                  ];
+                                            const activeKey = isNewsletter
+                                                ? sections[activeSectionIndex]?.id || sections[0]?.id || 'general'
+                                                : 'general';
+                                            return (
+                                                <Tabs
+                                                    type="editable-card"
+                                                    hideAdd={!isNewsletter}
+                                                    activeKey={activeKey}
+                                                    onChange={(key) => {
+                                                        if (!isNewsletter) return setActiveSectionIndex(-1);
+                                                        const idx = sections.findIndex((s) => s.id === key);
+                                                        setActiveSectionIndex(idx >= 0 ? idx : -1);
+                                                    }}
+                                                    onEdit={(targetKey, action) => {
+                                                        if (!isNewsletter) return;
+                                                        if (action === 'add') {
+                                                            const newSection: NewsletterSection = {
+                                                                id: Math.random().toString(36).slice(2, 9),
+                                                                title: '',
+                                                                description: '',
+                                                                rssItems: [],
+                                                            };
+                                                            setSections((prev) => [...prev, newSection]);
+                                                            setActiveSectionIndex(sections.length);
+                                                        }
+                                                        if (action === 'remove' && typeof targetKey === 'string') {
+                                                            const removeIdx = sections.findIndex((s) => s.id === targetKey);
+                                                            if (removeIdx >= 0) {
+                                                                setSections((prev) => prev.filter((s) => s.id !== targetKey));
+                                                                if (activeSectionIndex === removeIdx) setActiveSectionIndex(-1);
+                                                                else if (activeSectionIndex > removeIdx) setActiveSectionIndex((i) => i - 1);
+                                                            }
+                                                        }
+                                                    }}
+                                                    items={items as any}
+                                                />
+                                            );
+                                        })()}
                                         {getFieldValue('newsletter') && activeSectionIndex >= 0 && sections[activeSectionIndex] && (
                                             <div style={{ marginBottom: 8 }}>
                                                 <Input
@@ -391,9 +456,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                 />
                                             </div>
                                         )}
-                                        <div style={{ marginBottom: 4 }}>
+                    <div style={{ marginBottom: 4 }}>
                                             <Typography.Text>
-                                                {activeSectionIndex >= 0 && sections[activeSectionIndex]
+                        {getFieldValue('newsletter') && activeSectionIndex >= 0 && sections[activeSectionIndex]
                                                     ? t('createContent.selectingForSection', {
                                                           title:
                                                               sections[activeSectionIndex].title ||

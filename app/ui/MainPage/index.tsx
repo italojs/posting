@@ -1,5 +1,5 @@
 import { LoadingOutlined, ThunderboltOutlined, ReadOutlined, LinkOutlined, ClockCircleOutlined, CheckCircleOutlined, SafetyCertificateOutlined, ArrowRightOutlined } from '@ant-design/icons';
-import { Button, Card, Col, Empty, Image, List, Row, Space, Tag, Typography } from 'antd';
+import { Button, Card, Col, Empty, Image, List, Row, Space, Tag, Typography, Popconfirm, message } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState } from 'react';
 import { BasicSiteProps } from '../App';
@@ -26,10 +26,8 @@ type MainPageProps = BasicSiteProps;
 export type FetchDataType = (silent?: boolean) => Promise<void>;
 
 // Landing page para visitantes (não logados)
-const LandingPageContent: React.FC<{ onPrimaryCta: () => void; onSecondaryCta: () => void }> = ({
-  onPrimaryCta,
-  onSecondaryCta,
-}) => {
+type LandingPageProps = { onPrimaryCta: () => void; onSecondaryCta: () => void };
+function LandingPageContent({ onPrimaryCta, onSecondaryCta }: LandingPageProps) {
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       {/* Hero */}
@@ -198,7 +196,7 @@ const LandingPageContent: React.FC<{ onPrimaryCta: () => void; onSecondaryCta: (
       </Card>
     </Space>
   );
-};
+}
 
 const MainPage: React.FC<MainPageProps> = ({ userId }) => {
   const { t } = useTranslation('common');
@@ -206,6 +204,7 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
   const [loading, setLoading] = useState<boolean>(!!userId);
   const [userProfiles, setUserProfiles] = useState<MiniMainPageUserProfile[]>([]);
   const [contents, setContents] = useState<Content[]>([]);
+  
   const [, navigate] = useLocation();
 
   const fetchData: FetchDataType = async (silent) => {
@@ -264,6 +263,7 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
   if (loading) return <LoadingOutlined />;
 
   return (
+    <>
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       {userId && (
         <Card>
@@ -288,7 +288,27 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
               <Row gutter={[16, 16]}>
                 {contents.map((c) => (
                   <Col xs={24} sm={12} md={8} lg={6} key={c._id}>
-                    <Card hoverable>
+                    <Card hoverable actions={[
+                      <Button key="edit" size="small" onClick={() => navigate(`${protectedRoutes.editContent.path.replace(':id', c._id)}`)}>Editar</Button>,
+                      <Popconfirm
+                        key="delete"
+                        title="Excluir este conteúdo?"
+                        okText="Excluir"
+                        okButtonProps={{ danger: true }}
+                        cancelText="Cancelar"
+                        onConfirm={async () => {
+                          try {
+                            await Meteor.callAsync('set.contents.delete', { _id: c._id });
+                            message.success('Conteúdo excluído');
+                            fetchData(true);
+                          } catch (e) {
+                            errorResponse(e as Meteor.Error, 'Falha ao excluir');
+                          }
+                        }}
+                      >
+                        <Button size="small" danger>Excluir</Button>
+                      </Popconfirm>
+                    ]}>
                       <Typography.Text strong>{c.name}</Typography.Text>
                       <div style={{ marginTop: 8 }}>
                         <Typography.Text type="secondary">
@@ -338,7 +358,9 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
         )}
       </Space>
       </Card>
-    </Space>
+  </Space>
+    
+  </>
   );
 };
 

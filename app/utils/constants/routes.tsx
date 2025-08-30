@@ -46,6 +46,10 @@ export const protectedRoutes = {
 		path: "/criar-conteudo",
 		element: (<CreateContentPage />) as React.ReactElement,
 	},
+	editContent: {
+		path: "/editar-conteudo/:id",
+		element: (<CreateContentPage />) as React.ReactElement,
+	},
 };
 
 // NOTE: Do not add a home path here to prevent children routes from being blocked
