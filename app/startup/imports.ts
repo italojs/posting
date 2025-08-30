@@ -1,3 +1,4 @@
+// TODO: move this import for index.js inside "app"
 // methods
 import '/app/api/aws/methods';
 import '/app/api/roles/methods';

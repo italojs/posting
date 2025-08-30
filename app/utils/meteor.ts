@@ -11,5 +11,6 @@ import { AppUser } from "../api/users/models";
  * @returns user email
  */
 export const getUserEmail = (user: Pick<AppUser, "emails"> | undefined) => {
+	// TODO: remove lodash
 	return _.first(user?.emails)?.address;
 };

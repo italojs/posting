@@ -14,6 +14,7 @@ import React from "react";
  * @param setErrorPopupText Set to true to set the error popup text
  */
 // eslint-disable-next-line import/prefer-default-export
+// TODO: move it to server
 export const errorResponse = (
 	err: Meteor.Error,
 	backupReason: string,
