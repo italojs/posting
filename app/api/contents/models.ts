@@ -6,6 +6,13 @@ export interface RssItem {
     contentSnippet?: string;
 }
 
+export interface NewsletterSection {
+    id?: string;
+    title: string;
+    description?: string;
+    rssItems: RssItem[];
+}
+
 export interface Content {
     _id: string;
     userId: string;
@@ -23,6 +30,8 @@ export interface Content {
         tiktok?: boolean;
         linkedin?: boolean;
     };
+    /** Specific sections for newsletter content; each section can pick its own RSS items */
+    newsletterSections?: NewsletterSection[];
     createdAt: Date;
 }
 
@@ -49,4 +58,6 @@ export interface CreateContentInput {
         tiktok?: boolean;
         linkedin?: boolean;
     };
+    /** Optional sections for newsletter, enabling per-section item selection */
+    newsletterSections?: NewsletterSection[];
 }

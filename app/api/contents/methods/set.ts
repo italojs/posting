@@ -1,12 +1,12 @@
 import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import ContentsCollection from '../contents';
-import { Content, CreateContentInput } from '../models';
+import { Content, CreateContentInput, NewsletterSection, RssItem } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 
 Meteor.methods({
-    'set.contents.create': async ({ name, audience, goal, rssUrls, rssItems, networks }: CreateContentInput) => {
+    'set.contents.create': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput) => {
         check(name, String);
         check(audience, Match.Maybe(String));
         check(goal, Match.Maybe(String));
@@ -18,6 +18,17 @@ Meteor.methods({
     check((networks as any).twitter, Match.Maybe(Boolean));
     check((networks as any).tiktok, Match.Maybe(Boolean));
     check((networks as any).linkedin, Match.Maybe(Boolean));
+
+        // Newsletter sections are optional; if present, do a light validation
+        check(newsletterSections, Match.Maybe([Object]));
+        const normalizedSections: NewsletterSection[] | undefined = (newsletterSections || [])
+            .map((s: any) => ({
+                id: typeof s.id === 'string' ? s.id : undefined,
+                title: typeof s.title === 'string' ? s.title.trim() : '',
+                description: typeof s.description === 'string' ? s.description.trim() : undefined,
+                rssItems: Array.isArray(s.rssItems) ? (s.rssItems as RssItem[]) : [],
+            }))
+            .filter((s) => !!s.title);
 
         const user = await currentUserAsync();
         if (!user) return noAuthError();
@@ -43,6 +54,7 @@ Meteor.methods({
                 tiktok: !!(networks as any).tiktok,
                 linkedin: !!(networks as any).linkedin,
             },
+            newsletterSections: normalizedSections && normalizedSections.length > 0 ? normalizedSections : undefined,
             createdAt: new Date(),
         };
 
