@@ -18,6 +18,7 @@ const common = {
   goalLabel: "Objetivo",
   goalPlaceholder: "Ej.: actualizar sobre tendencias, educar, involucrar, convertir...",
     loadRss: "Cargar RSS",
+    generateAISuggestion: "✨ Generar Sugerencia con IA",
   newsletter: "Boletín",
   networksTitle: "Redes sociales",
   sectionsTitle: "Secciones del boletín",

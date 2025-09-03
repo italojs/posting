@@ -18,6 +18,7 @@ const common = {
   goalLabel: "Goal",
   goalPlaceholder: "e.g., update on trends, educate, engage, convert...",
     loadRss: "Load RSS",
+    generateAISuggestion: "✨ Generate AI Suggestion",
   newsletter: "Newsletter",
   networksTitle: "Social networks",
   sectionsTitle: "Newsletter sections",

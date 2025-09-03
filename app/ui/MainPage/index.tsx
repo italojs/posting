@@ -45,12 +45,12 @@ function LandingPageContent({ onPrimaryCta, onSecondaryCta }: LandingPageProps) 
                 Crie newsletters profissionais em minutos, não horas
               </Typography.Title>
               <Typography.Paragraph type="secondary" style={{ fontSize: 16 }}>
-                Transforme qualquer tema em conteúdo estruturado usando suas fontes favoritas.
+                Transform any topic into structured content using your favorite sources.
                 Automatize a pesquisa, a curadoria e a geração para manter consistência e qualidade.
               </Typography.Paragraph>
               <Space size="middle" wrap>
                 <Button type="primary" size="large" onClick={onPrimaryCta} icon={<ArrowRightOutlined />}>
-                  Criar Minha Primeira Newsletter
+                  Create My First Newsletter
                 </Button>
                 <Button size="large" onClick={onSecondaryCta}>Ver como funciona</Button>
               </Space>
@@ -73,7 +73,7 @@ function LandingPageContent({ onPrimaryCta, onSecondaryCta }: LandingPageProps) 
             <Typography.Title level={3} style={{ marginBottom: 0 }}>
               Como funciona (3 passos)
             </Typography.Title>
-            <Typography.Text type="secondary">Simples, rápido e eficaz para o seu fluxo de conteúdo</Typography.Text>
+            <Typography.Text type="secondary">Simple, fast and effective for your content workflow</Typography.Text>
           </div>
           <Row gutter={[16, 16]}>
             <Col xs={24} md={8}>

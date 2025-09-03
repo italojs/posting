@@ -13,10 +13,10 @@ type CreateContentPageProps = BasicSiteProps;
 
 const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [form] = Form.useForm();
-    const { t } = useTranslation('common');
+    const { t, i18n } = useTranslation('common');
     const [, navigate] = useLocation();
     const [loading, setLoading] = useState(false);
-    const [aiLoading, setAiLoading] = useState(false);
+    const [AILoading, setAILoading] = useState(false);
     const [isEdit, params] = useRoute(protectedRoutes.editContent.path);
     const editingId = isEdit ? (params as any)?.id as string : undefined;
     const [rssItems, setRssItems] = useState<RssItem[]>([]);
@@ -157,8 +157,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
     const handleGenerateAISuggestion = async () => {
         try {
-            const values = form.getFieldsValue(['newsletter', 'instagram', 'twitter', 'tiktok', 'linkedin']);
-            const anyNetwork = !!(values?.newsletter || values?.instagram || values?.twitter || values?.tiktok || values?.linkedin);
+            const networkValues = form.getFieldsValue(['newsletter', 'instagram', 'twitter', 'tiktok', 'linkedin']);
+            const anyNetwork = !!(networkValues?.newsletter || networkValues?.instagram || networkValues?.twitter || networkValues?.tiktok || networkValues?.linkedin);
             if (!anyNetwork) {
                 message.warning(t('createContent.selectNetworkPrompt'));
                 return;
@@ -166,26 +166,25 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
             const formValues = await form.validateFields(['name', 'audience', 'goal']);
             
-            setAiLoading(true);
+            setAILoading(true);
             
-            const contentTemplate = {
-                name: formValues.name,
-                audience: formValues.audience,
-                goal: formValues.goal
-            };
-
             const numberOfSections = 3;
+            
+            // Get current language from i18n
+            const currentLanguage = i18n.language.startsWith('pt') ? 'pt' : 
+                                  i18n.language.startsWith('es') ? 'es' : 'en';
 
             const result = (await Meteor.callAsync('get.contents.generateSuggestion', {
-                contentTemplate,
-                numberOfSections
+                contentTemplate: formValues,
+                numberOfSections,
+                language: currentLanguage
             })) as GenerateSuggestionResult;
 
             form.setFieldsValue({
                 name: result.title
             });
 
-            if (values.newsletter) {
+            if (networkValues.newsletter) {
                 const newSections: NewsletterSection[] = result.sections.map((section, index) => ({
                     id: sections[index]?.id || Math.random().toString(36).slice(2, 9),
                     title: section.title,
@@ -196,12 +195,12 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 setActiveSectionIndex(0);
             }
 
-            message.success(`✨ Sugestão gerada! ${result.sections.length} seções criadas automaticamente.`);
+            message.success(`✨ Suggestion generated! ${result.sections.length} sections created automatically.`);
 
         } catch (error) {
-            errorResponse(error as Meteor.Error, 'Erro ao gerar sugestão com IA. Tente novamente.');
+            errorResponse(error as Meteor.Error, 'Error generating AI suggestion. Please try again.');
         } finally {
-            setAiLoading(false);
+            setAILoading(false);
         }
     };
 
@@ -475,7 +474,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                         {getFieldValue('newsletter') && activeSectionIndex >= 0 && sections[activeSectionIndex] && (
                                             <div style={{ marginBottom: 8 }}>
                                                 <Input
-                                                    placeholder={t('createContent.sectionTitlePlaceholder', 'Título da seção') as string}
+                                                    placeholder={t('createContent.sectionTitlePlaceholder', 'Section title') as string}
                                                     value={sections[activeSectionIndex]?.title}
                                                     onChange={(e) => {
                                                         const v = e.target.value;
@@ -492,7 +491,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                     placeholder={
                                                         t(
                                                             'createContent.sectionDescriptionPlaceholder',
-                                                            'Descrição (opcional) da seção',
+                                                            'Section description (optional)',
                                                         ) as string
                                                     }
                                                     value={sections[activeSectionIndex]?.description}
@@ -613,7 +612,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                     {it.title || it.link}
                                                                 </a>
                                                             ) : (
-                                                                it.title || 'Sem título'
+                                                                it.title || 'No title'
                                                             )}
                                                         </Space>
                                                     }
@@ -636,10 +635,10 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                 type="default" 
                                 icon={<RobotOutlined />} 
                                 onClick={handleGenerateAISuggestion} 
-                                loading={aiLoading}
+                                loading={AILoading}
                                 style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
                             >
-                                ✨ Gerar Sugestão com IA
+                                {t('createContent.generateAISuggestion')}
                             </Button>
                             <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
                                 {t('createContent.generate')}

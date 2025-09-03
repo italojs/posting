@@ -14,7 +14,7 @@ Meteor.methods({
         if (!user) return noAuthError();
         if (typeof _id !== 'string' || !_id) return clientContentError('ID inválido');
         const doc = (await ContentsCollection.findOneAsync({ _id, userId: user._id })) as Content | undefined;
-        if (!doc) return clientContentError('Conteúdo não encontrado');
+        if (!doc) return clientContentError('Content not found');
         return doc;
     },
     'get.contents.fetchRss': async ({ urls }: FetchRssInput) => {
@@ -44,7 +44,7 @@ Meteor.methods({
 
         return res;
     },
-    'get.contents.generateSuggestion': async ({ contentTemplate, numberOfSections }: GenerateSuggestionInput) => {
+    'get.contents.generateSuggestion': async ({ contentTemplate, numberOfSections, language }: GenerateSuggestionInput) => {
         const user = await currentUserAsync();
         if (!user) return noAuthError();
 
@@ -53,23 +53,25 @@ Meteor.methods({
         const openaiApiKey = Meteor.settings.private?.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
         
         if (!openaiApiKey) {
-            throw new Meteor.Error('api-key-missing', 'OpenAI API key não configurada');
+            throw new Meteor.Error('api-key-missing', 'OpenAI API key not configured');
         }
 
-        const prompt = `Baseado no seguinte conteúdo:
-- Nome: ${name}
-- Público-alvo: ${audience || 'não especificado'}
-- Objetivo: ${goal || 'não especificado'}
+        const prompt = `Based on the following content:
+- Name: ${name}
+- Target audience: ${audience || 'not specified'}
+- Goal: ${goal || 'not specified'}
 
-Gere ${numberOfSections} seções para uma newsletter, cada uma com:
-1. Um título criativo e atrativo
-2. Uma breve descrição (máximo 30 palavras)
+Generate ${numberOfSections} sections for a newsletter, each with:
+1. A creative and attractive title
+2. A brief description (maximum 30 words)
 
-Responda apenas em formato JSON com esta estrutura:
+Generate all answers in ${language} language. All titles and descriptions must be in ${language}.
+
+Respond only in JSON format with this structure:
 {
-  "title": "título sugerido para a newsletter",
+  "title": "suggested newsletter title",
   "sections": [
-    {"title": "título da seção", "description": "descrição breve"}
+    {"title": "section title", "description": "brief description"}
   ]
 }`;
 
@@ -80,7 +82,7 @@ Responda apenas em formato JSON com esta estrutura:
                 'Authorization': `Bearer ${openaiApiKey}`,
             },
             body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
+                model: 'gpt-4o-mini',
                 messages: [{ role: 'user', content: prompt }],
                 max_tokens: 500,
                 temperature: 0.7,

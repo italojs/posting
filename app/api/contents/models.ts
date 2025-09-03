@@ -47,6 +47,7 @@ export interface FetchRssResult {
 export interface GenerateSuggestionInput {
     contentTemplate: Pick<CreateContentInput, 'name' | 'audience' | 'goal'>;
     numberOfSections: number;
+    language: string;
 }
 
 export interface GenerateSuggestionResult {
