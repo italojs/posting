@@ -1,10 +1,10 @@
-import { LoadingOutlined, SendOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+import { LoadingOutlined, SendOutlined, StarFilled, StarOutlined, RobotOutlined } from '@ant-design/icons';
 import { Button, Card, Checkbox, Col, Divider, Form, Input, List, Row, Space, Tag, Typography, message, Tabs, Badge } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { BasicSiteProps } from '../App';
-import { RssItem, NewsletterSection } from '/app/api/contents/models';
+import { RssItem, NewsletterSection, GenerateSuggestionResult } from '/app/api/contents/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const { t } = useTranslation('common');
     const [, navigate] = useLocation();
     const [loading, setLoading] = useState(false);
+    const [aiLoading, setAiLoading] = useState(false);
     const [isEdit, params] = useRoute(protectedRoutes.editContent.path);
     const editingId = isEdit ? (params as any)?.id as string : undefined;
     const [rssItems, setRssItems] = useState<RssItem[]>([]);
@@ -152,6 +153,56 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             errorResponse(error as Meteor.Error, t('createContent.saveError'));
         }
         setLoading(false);
+    };
+
+    const handleGenerateAISuggestion = async () => {
+        try {
+            const values = form.getFieldsValue(['newsletter', 'instagram', 'twitter', 'tiktok', 'linkedin']);
+            const anyNetwork = !!(values?.newsletter || values?.instagram || values?.twitter || values?.tiktok || values?.linkedin);
+            if (!anyNetwork) {
+                message.warning(t('createContent.selectNetworkPrompt'));
+                return;
+            }
+
+            const formValues = await form.validateFields(['name', 'audience', 'goal']);
+            
+            setAiLoading(true);
+            
+            const contentTemplate = {
+                name: formValues.name,
+                audience: formValues.audience,
+                goal: formValues.goal
+            };
+
+            const numberOfSections = 3;
+
+            const result = (await Meteor.callAsync('get.contents.generateSuggestion', {
+                contentTemplate,
+                numberOfSections
+            })) as GenerateSuggestionResult;
+
+            form.setFieldsValue({
+                name: result.title
+            });
+
+            if (values.newsletter) {
+                const newSections: NewsletterSection[] = result.sections.map((section, index) => ({
+                    id: sections[index]?.id || Math.random().toString(36).slice(2, 9),
+                    title: section.title,
+                    description: section.description,
+                    rssItems: []
+                }));
+                setSections(newSections);
+                setActiveSectionIndex(0);
+            }
+
+            message.success(`✨ Sugestão gerada! ${result.sections.length} seções criadas automaticamente.`);
+
+        } catch (error) {
+            errorResponse(error as Meteor.Error, 'Erro ao gerar sugestão com IA. Tente novamente.');
+        } finally {
+            setAiLoading(false);
+        }
     };
 
     const isFavorited = (url: string) => favoriteUrls.includes(url);
@@ -580,9 +631,20 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     </Row>
 
                     <div style={{ marginTop: 16 }}>
-                        <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                            {t('createContent.generate')}
-                        </Button>
+                        <Space>
+                            <Button 
+                                type="default" 
+                                icon={<RobotOutlined />} 
+                                onClick={handleGenerateAISuggestion} 
+                                loading={aiLoading}
+                                style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
+                            >
+                                ✨ Gerar Sugestão com IA
+                            </Button>
+                            <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
+                                {t('createContent.generate')}
+                            </Button>
+                        </Space>
                     </div>
                 </Form>
             </Card>

@@ -44,6 +44,19 @@ export interface FetchRssResult {
     items: RssItem[];
 }
 
+export interface GenerateSuggestionInput {
+    contentTemplate: Pick<CreateContentInput, 'name' | 'audience' | 'goal'>;
+    numberOfSections: number;
+}
+
+export interface GenerateSuggestionResult {
+    title: string;
+    sections: {
+        title: string;
+        description: string;
+    }[];
+}
+
 // ---- SET METHOD MODELS ----
 export interface CreateContentInput {
     name: string;
