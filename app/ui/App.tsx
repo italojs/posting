@@ -43,7 +43,7 @@ export interface BasicSiteProps extends BaseProps {
 }
 
 const App: React.FC = () => {
-    const { i18n } = useTranslation();
+    const { i18n, t } = useTranslation('common');
     const userId: AppUserId = useTracker(() => Meteor.userId());
     /**
      * Basic public profile data that is required by most pages (reduces fetch requests)
@@ -66,7 +66,7 @@ const App: React.FC = () => {
 
             return res;
         } catch (error) {
-            errorResponse(error as Meteor.Error, 'Could not get roles');
+            errorResponse(error as Meteor.Error, t('errors.couldNotGetRoles'));
         }
 
         return undefined;
@@ -96,7 +96,7 @@ const App: React.FC = () => {
 
             return res;
         } catch (error) {
-            errorResponse(error as Meteor.Error, 'Could not get users');
+            errorResponse(error as Meteor.Error, t('errors.couldNotGetUsers'));
         }
 
         return undefined;
@@ -112,7 +112,7 @@ const App: React.FC = () => {
 
             setProfilePhoto(res);
         } catch (error) {
-            errorResponse(error as Meteor.Error, 'Could not get some images');
+            errorResponse(error as Meteor.Error, t('errors.couldNotGetImages'));
         }
     };
 

@@ -1,2 +1,7 @@
 node_modules/
 settings.json
+.env
+
+# MongoDB Playground files
+playground-1.mongodb.js
+Playground Result

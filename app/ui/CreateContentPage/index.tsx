@@ -1,10 +1,10 @@
-import { LoadingOutlined, SendOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+import { LoadingOutlined, SendOutlined, StarFilled, StarOutlined, RobotOutlined } from '@ant-design/icons';
 import { Button, Card, Checkbox, Col, Divider, Form, Input, List, Row, Space, Tag, Typography, message, Tabs, Badge } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { BasicSiteProps } from '../App';
-import { RssItem, NewsletterSection } from '/app/api/contents/models';
+import { RssItem, NewsletterSection, GenerateSuggestionResult } from '/app/api/contents/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -13,9 +13,10 @@ type CreateContentPageProps = BasicSiteProps;
 
 const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [form] = Form.useForm();
-    const { t } = useTranslation('common');
+    const { t, i18n } = useTranslation('common');
     const [, navigate] = useLocation();
     const [loading, setLoading] = useState(false);
+    const [AILoading, setAILoading] = useState(false);
     const [isEdit, params] = useRoute(protectedRoutes.editContent.path);
     const editingId = isEdit ? (params as any)?.id as string : undefined;
     const [rssItems, setRssItems] = useState<RssItem[]>([]);
@@ -152,6 +153,54 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             errorResponse(error as Meteor.Error, t('createContent.saveError'));
         }
         setLoading(false);
+    };
+
+    const handleGenerateAISuggestion = async () => {
+        try {
+            const networkValues = form.getFieldsValue(['newsletter', 'instagram', 'twitter', 'tiktok', 'linkedin']);
+            const anyNetwork = !!(networkValues?.newsletter || networkValues?.instagram || networkValues?.twitter || networkValues?.tiktok || networkValues?.linkedin);
+            if (!anyNetwork) {
+                message.warning(t('createContent.selectNetworkPrompt'));
+                return;
+            }
+
+            const formValues = await form.validateFields(['name', 'audience', 'goal']);
+            
+            setAILoading(true);
+            
+            const numberOfSections = 3;
+            
+            // Get current language from i18n
+            const currentLanguage = i18n.language;
+
+            const result = (await Meteor.callAsync('get.contents.generateSuggestion', {
+                contentTemplate: formValues,
+                numberOfSections,
+                language: currentLanguage
+            })) as GenerateSuggestionResult;
+
+            form.setFieldsValue({
+                name: result.title
+            });
+
+            if (networkValues.newsletter) {
+                const newSections: NewsletterSection[] = result.sections.map((section, index) => ({
+                    id: sections[index]?.id || Math.random().toString(36).slice(2, 9),
+                    title: section.title,
+                    description: section.description,
+                    rssItems: []
+                }));
+                setSections(newSections);
+                setActiveSectionIndex(0);
+            }
+
+            message.success(`✨ Suggestion generated! ${result.sections.length} sections created automatically.`);
+
+        } catch (error) {
+            errorResponse(error as Meteor.Error, 'Error generating AI suggestion. Please try again.');
+        } finally {
+            setAILoading(false);
+        }
     };
 
     const isFavorited = (url: string) => favoriteUrls.includes(url);
@@ -424,7 +473,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                         {getFieldValue('newsletter') && activeSectionIndex >= 0 && sections[activeSectionIndex] && (
                                             <div style={{ marginBottom: 8 }}>
                                                 <Input
-                                                    placeholder={t('createContent.sectionTitlePlaceholder', 'Título da seção') as string}
+                                                    placeholder={t('createContent.sectionTitlePlaceholder', 'Section title') as string}
                                                     value={sections[activeSectionIndex]?.title}
                                                     onChange={(e) => {
                                                         const v = e.target.value;
@@ -441,7 +490,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                     placeholder={
                                                         t(
                                                             'createContent.sectionDescriptionPlaceholder',
-                                                            'Descrição (opcional) da seção',
+                                                            'Section description (optional)',
                                                         ) as string
                                                     }
                                                     value={sections[activeSectionIndex]?.description}
@@ -562,7 +611,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                     {it.title || it.link}
                                                                 </a>
                                                             ) : (
-                                                                it.title || 'Sem título'
+                                                                it.title || 'No title'
                                                             )}
                                                         </Space>
                                                     }
@@ -580,9 +629,20 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     </Row>
 
                     <div style={{ marginTop: 16 }}>
-                        <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                            {t('createContent.generate')}
-                        </Button>
+                        <Space>
+                            <Button 
+                                type="default" 
+                                icon={<RobotOutlined />} 
+                                onClick={handleGenerateAISuggestion} 
+                                loading={AILoading}
+                                style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
+                            >
+                                {t('createContent.generateAISuggestion')}
+                            </Button>
+                            <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
+                                {t('createContent.generate')}
+                            </Button>
+                        </Space>
                     </div>
                 </Form>
             </Card>
