@@ -6,8 +6,10 @@ import { useLocation } from 'wouter';
 import { CreateUserInput } from '/app/api/users/models';
 import { publicRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
+import { useTranslation } from 'react-i18next';
 
 const SignupPage: React.FC = () => {
+    const { t } = useTranslation('common');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loggingIn, setLoggingIn] = useState(false);
@@ -22,10 +24,10 @@ const SignupPage: React.FC = () => {
         const cleanedFirstName = firstName.trim();
         const cleanedLastName = lastName.trim();
 
-        if (!emailRegex.test(cleanedEmail)) return message.error('Email is invalid');
-        if (password.length < 8) return message.error('Password is too short');
-        if (cleanedUsername.length < 3) return message.error('Username is too short');
-        if (checkStrEmpty(cleanedFirstName)) return message.error('First name is required');
+        if (!emailRegex.test(cleanedEmail)) return message.error(t('auth.emailInvalid'));
+        if (password.length < 8) return message.error(t('auth.passwordTooShort'));
+        if (cleanedUsername.length < 3) return message.error(t('auth.usernameTooShort'));
+        if (checkStrEmpty(cleanedFirstName)) return message.error(t('auth.firstNameRequired'));
 
         setLoggingIn(true);
 
@@ -41,12 +43,12 @@ const SignupPage: React.FC = () => {
             await Meteor.callAsync('set.user.create', data);
         } catch (error) {
             setLoggingIn(false);
-            return errorResponse(error as Meteor.Error, 'Could not create account');
+            return errorResponse(error as Meteor.Error, t('auth.createAccountError'));
         }
 
         Meteor.loginWithPassword(cleanedEmail, password, (error: Meteor.Error) => {
             setLoggingIn(false);
-            if (error) return errorResponse(error, 'Could not log in');
+            if (error) return errorResponse(error, t('auth.loginError'));
             navigate(publicRoutes.home.path);
         });
     };
@@ -57,44 +59,44 @@ const SignupPage: React.FC = () => {
                 <Space direction="vertical" style={{ width: '100%' }} size="large">
                     <div>
                         <Typography.Title level={3} style={{ marginBottom: 8 }}>
-                            Create your account
+                            {t('auth.createAccountTitle')}
                         </Typography.Title>
-                        <Typography.Text type="secondary">Join the community in a few steps</Typography.Text>
+                        <Typography.Text type="secondary">{t('auth.createAccountSubtitle')}</Typography.Text>
                     </div>
 
                     <Space direction="vertical" style={{ width: '100%' }}>
-                        <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+                        <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('auth.emailPlaceholder')} />
                         <Input
                             addonBefore="@"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Username"
+                            placeholder={t('auth.usernamePlaceholder')}
                         />
                         <Input
                             value={firstName}
                             onChange={(e) => setFirstName(e.target.value)}
-                            placeholder="First Name"
+                            placeholder={t('auth.firstNamePlaceholder')}
                         />
                         <Input
                             value={lastName}
                             onChange={(e) => setLastName(e.target.value)}
-                            placeholder="Last Name (optional)"
+                            placeholder={t('auth.lastNamePlaceholder')}
                         />
                         <Input.Password
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Password"
+                            placeholder={t('auth.passwordPlaceholder')}
                         />
                     </Space>
 
                     <Button type="primary" onClick={handleSubmit} loading={loggingIn} block>
-                        Sign up
+                        {t('auth.signUp')}
                     </Button>
 
                     <Typography.Paragraph style={{ marginBottom: 0 }}>
-                        Already have an account?{' '}
+                        {t('auth.alreadyHaveAccount')}{' '}
                         <Button type="link" onClick={() => navigate(publicRoutes.login.path)}>
-                            Log in
+                            {t('auth.logIn')}
                         </Button>
                     </Typography.Paragraph>
                 </Space>

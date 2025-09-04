@@ -36,7 +36,7 @@ const common = {
   tiktok: "TikTok",
   linkedin: "LinkedIn",
     generate: "Generate newsletter (save)",
-  // manual URL input removed
+
     needAtLeastOneUrl: "Provide at least one RSS URL",
     listTitle: "Loaded items",
     historyTitle: "Your history",
@@ -56,10 +56,49 @@ const common = {
     historyTitle: "Your history",
     recentSaved: "Recently saved contents",
   },
+  landing: {
+    heroTitle: "Create professional newsletters in minutes, not hours",
+    heroSubtitle: "Transform any topic into structured content using your favorite sources. Automate research, curation and generation to maintain consistency and quality.",
+    primaryCta: "Create My First Newsletter",
+    secondaryCta: "See how it works",
+    howItWorksTitle: "How it works (3 steps)",
+    howItWorksSubtitle: "Simple, fast and effective for your content workflow",
+    step1Title: "1. Choose your topic",
+    step1Description: "Define the subject and tone of your newsletter to guide generation.",
+    step2Title: "2. Select your RSS sources",
+    step2Description: "Connect trusted feeds and let the platform find the best content.",
+    step3Title: "3. Generate content automatically",
+    step3Description: "Get a structured draft ready for adjustments and sending.",
+    benefitsTitle: "Benefits",
+    benefitsSubtitle: "Made for creators, marketers and small businesses",
+    benefit1Title: "Save hours of research and writing",
+    benefit1Description: "Reduce repetitive manual work and focus on what matters.",
+    benefit2Title: "Maintain content consistency",
+    benefit2Description: "Language aligned with your style and predictable cadence.",
+    benefit3Title: "Use your trusted sources",
+    benefit3Description: "Connect the feeds and sites you already follow.",
+    socialProofTitle: "What they're saying",
+    socialProofSubtitle: "Coming soon: user testimonials and case studies",
+    finalCtaTitle: "Start for Free",
+    finalCtaSubtitle: "Try now and create your first newsletter in minutes.",
+    finalCtaButton: "Try Now",
+    platformPreview: "Platform preview"
+  },
   browse: {
     communityTitle: "Community",
     communitySubtitle: "Browse user profiles",
     noUsers: "No users yet",
+  },
+  content: {
+    edit: "Edit",
+    delete: "Delete",
+    cancel: "Cancel",
+    deleteConfirm: "Delete this content?",
+    deleteSuccess: "Content deleted",
+    deleteError: "Failed to delete",
+    audience: "Audience",
+    goal: "Goal",
+    items: "Items"
   },
   feed: {
     title: "Feed",
@@ -79,10 +118,54 @@ const common = {
     selectAtLeastOne: "Select at least one RSS to display items",
     empty: "No items found",
     loadError: "Failed to load RSS",
-  onlyFavorites: "Only favorites",
-  favoritesAdded: "Added to favorites",
-  favoritesRemoved: "Removed from favorites",
-  favoritesError: "Couldn't update favorites",
+    onlyFavorites: "Only favorites",
+    favoritesAdded: "Added to favorites",
+    favoritesRemoved: "Removed from favorites",
+    favoritesError: "Couldn't update favorites",
+  },
+  
+  // Authentication translations
+  auth: {
+    // Login page
+    welcomeBack: "Welcome back",
+    signInSubtitle: "Sign in to your account",
+    dontHaveAccount: "Don't have an account?",
+    createOne: "Create one",
+    
+    // Signup page
+    createAccountTitle: "Create your account",
+    createAccountSubtitle: "Join the community in a few steps",
+    alreadyHaveAccount: "Already have an account?",
+    
+    // Form fields
+    emailPlaceholder: "Email",
+    usernamePlaceholder: "Username",
+    passwordPlaceholder: "Password",
+    firstNamePlaceholder: "First Name",
+    lastNamePlaceholder: "Last Name (optional)",
+    
+    // Actions
+    logIn: "Log in",
+    signUp: "Sign up",
+    
+    // Validation messages
+    emailInvalid: "Email is invalid",
+    passwordTooShort: "Password is too short",
+    usernameTooShort: "Username is too short",
+    firstNameRequired: "First name is required",
+    
+    // Error messages
+    loginError: "Could not log in",
+    createAccountError: "Could not create account"
+  },
+  
+  // System error messages
+  errors: {
+    couldNotGetUsers: "Could not get users",
+    couldNotGetImages: "Could not get some images",
+    couldNotGetRoles: "Could not get roles",
+    couldNotUpdateProfile: "Could not update profile",
+    couldNotSavePhoto: "Could not save new profile photo"
   },
 };
 export default common;

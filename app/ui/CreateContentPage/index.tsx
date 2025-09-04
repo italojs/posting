@@ -171,8 +171,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             const numberOfSections = 3;
             
             // Get current language from i18n
-            const currentLanguage = i18n.language.startsWith('pt') ? 'pt' : 
-                                  i18n.language.startsWith('es') ? 'es' : 'en';
+            const currentLanguage = i18n.language;
 
             const result = (await Meteor.callAsync('get.contents.generateSuggestion', {
                 contentTemplate: formValues,
