@@ -12,6 +12,11 @@ const common = {
   },
   createContent: {
     title: "Criar conteúdo",
+    subtitle: "Configure suas preferências de criação de conteúdo",
+    card1Tittle: "Definição",
+    rssSourcesCard: "Fontes RSS e Seleção de Conteúdo",
+    newsletterSectionsCard: "Seções do Newsletter",
+    newsFeedCard: "Feed de Notícias",
     nameLabel: "Nome do conteúdo",
     audienceLabel: "Público-alvo",
     audiencePlaceholder: "Ex.: Devs iniciantes, PMs, comunidade local...",

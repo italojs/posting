@@ -12,6 +12,11 @@ const common = {
   },
   createContent: {
     title: "Crear contenido",
+    subtitle: "Configurar preferencias de creación de contenido",
+    card1Tittle: "Definición",
+    rssSourcesCard: "Fuentes RSS y Selección de Contenido",
+    newsletterSectionsCard: "Secciones del Newsletter",
+    newsFeedCard: "Feed de Noticias",
     nameLabel: "Nombre del contenido",
     audienceLabel: "Audiencia",
     audiencePlaceholder: "Ej.: devs principiantes, PMs, comunidad local...",
@@ -36,7 +41,6 @@ const common = {
     tiktok: "TikTok",
     linkedin: "LinkedIn",
     generate: "Generar boletín (guardar)",
-    
     needAtLeastOneUrl: "Proporcione al menos una URL de RSS",
     listTitle: "Elementos cargados",
     historyTitle: "Tu historial",
@@ -99,6 +103,7 @@ const common = {
     audience: "Audiencia",
     goal: "Objetivo",
     items: "Elementos"
+  },
   feed: {
     title: "Feed",
     subtitle: "Elige categorías y fuentes RSS para ver un feed consolidado",
@@ -168,4 +173,3 @@ const common = {
   },
 };
 export default common;
-

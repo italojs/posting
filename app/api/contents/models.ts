@@ -4,6 +4,10 @@ export interface RssItem {
     isoDate?: string;
     pubDate?: string;
     contentSnippet?: string;
+    creator?: string;
+    author?: string;
+    source?: string;
+    guid?: string;
 }
 
 export interface NewsletterSection {

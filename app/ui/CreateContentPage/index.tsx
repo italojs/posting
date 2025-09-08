@@ -1,5 +1,5 @@
-import { LoadingOutlined, SendOutlined, StarFilled, StarOutlined, RobotOutlined } from '@ant-design/icons';
-import { Button, Card, Checkbox, Col, Divider, Form, Input, List, Row, Space, Tag, Typography, message, Tabs, Badge } from 'antd';
+import { LoadingOutlined, SendOutlined, StarFilled, RobotOutlined, EditOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useRoute } from 'wouter';
@@ -17,6 +17,28 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [, navigate] = useLocation();
     const [loading, setLoading] = useState(false);
     const [AILoading, setAILoading] = useState(false);
+    
+    // Custom CSS for Collapse
+    const collapseStyles = `
+        .custom-collapse .ant-collapse-item {
+            border: 1px solid #e9ecef !important;
+            border-radius: 8px !important;
+            margin-bottom: 12px !important;
+            overflow: hidden !important;
+        }
+        .custom-collapse .ant-collapse-header {
+            background-color: #f8f9fa !important;
+            border: none !important;
+            padding: 12px 16px !important;
+        }
+        .custom-collapse .ant-collapse-content {
+            border-top: none !important;
+            background-color: #ffffff !important;
+        }
+        .custom-collapse .ant-collapse-content-box {
+            padding: 16px !important;
+        }
+    `;
     const [isEdit, params] = useRoute(protectedRoutes.editContent.path);
     const editingId = isEdit ? (params as any)?.id as string : undefined;
     const [rssItems, setRssItems] = useState<RssItem[]>([]);
@@ -234,6 +256,23 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     // no manual input; removed addFavoriteToInput
     const selectableFavorites = useMemo(() => favoriteUrls, [favoriteUrls]);
 
+    // function to group news by RSS source
+    const groupedRssItems = useMemo(() => {
+        const groups: { [key: string]: RssItem[] } = {};
+        
+        rssItems.forEach(item => {
+            const sourceName = item.source || 'Unknown';
+            
+            if (!groups[sourceName]) {
+                groups[sourceName] = [];
+            }
+            
+            groups[sourceName].push(item);
+        });
+        
+        return Object.entries(groups).map(([name, items]) => ({ name, items }));
+    }, [rssItems]);
+
     if (!userId) {
         // fallback guard
         navigate(protectedRoutes.createContent.path);
@@ -241,94 +280,245 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     }
 
     return (
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <div>
-                <Typography.Title level={3} style={{ marginBottom: 0 }}>
+        <>
+            <style>{collapseStyles}</style>
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <div style={{ textAlign: 'center' }}>
+                <Typography.Title level={3}>
                     {t('createContent.title')}
                 </Typography.Title>
                 <Typography.Text type="secondary">
-                    {/* optional subtitle; keeping UI clean */}
+                    {t('createContent.subtitle')}
                 </Typography.Text>
             </div>
 
-            <Card>
-                <Form
-                    form={form}
-                    layout="vertical"
-                    initialValues={{ newsletter: false, instagram: false, twitter: false, tiktok: false, linkedin: false }}
-                    onValuesChange={(_, all) => {
-                        const any = !!(all?.newsletter || all?.instagram || all?.twitter || all?.tiktok || all?.linkedin);
-                        // Enforce newsletter-exclusive mode
-                        if (all?.newsletter) {
-                            if (all?.instagram || all?.twitter || all?.tiktok || all?.linkedin) {
-                                form.setFieldsValue({ instagram: false, twitter: false, tiktok: false, linkedin: false });
-                            }
-                            // Ensure at least one section exists and is active
-                            if (!sections.length) {
-                                const first = { id: Math.random().toString(36).slice(2, 9), title: '', description: '', rssItems: [] };
-                                setSections([first]);
-                                setActiveSectionIndex(0);
-                            }
+            {/* Grid Layout: Same Width, Same Height */}
+            <div 
+                style={{ 
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '20px',
+                    alignItems: 'start',
+                    minHeight: '600px'
+                }}
+            >
+                {/* Sidebar - Configuration Cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '600px' }}>
+                    {/* Card 1: Basic Config */}
+                    <Card 
+                        title={
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ 
+                                    backgroundColor: '#5B5BD6', 
+                                    color: 'white', 
+                                    borderRadius: '50%', 
+                                    width: '32px', 
+                                    height: '32px', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold'
+                                }}>
+                                    1
+                                </div>
+                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                    {t('createContent.card1Tittle')}
+                                </span>
+                            </div>
                         }
-                        // If newsletter turned off and no other networks, clear section focus; keep sections data
-                        if (!all?.newsletter && !(all?.instagram || all?.twitter || all?.tiktok || all?.linkedin)) {
-                            setActiveSectionIndex(-1);
-                        }
-                        if (any) {
-                            handleFetchRss(true);
-                        } else {
-                            setRssItems([]);
-                            setSelectedItemLinks(new Set());
-                        }
-                    }}
-                >
-                    <Row gutter={[16, 16]}>
-                        <Col xs={24} md={12}>
-                            <Form.Item name="name" label={t('createContent.nameLabel')} rules={[{ required: true }]}> 
-                                <Input placeholder="Newsletter" allowClear />
+                        styles={{
+                            header: { borderBottom: 'none' },
+                            body: { paddingTop: 0 }
+                        }}
+                    >
+                        <Form
+                            form={form}
+                            layout="vertical"
+                            initialValues={{ newsletter: false, instagram: false, twitter: false, tiktok: false, linkedin: false }}
+                            style={{ padding: '8px 0' }}
+                            onValuesChange={(_, all) => {
+                                const any = !!(all?.newsletter || all?.instagram || all?.twitter || all?.tiktok || all?.linkedin);
+                                // Enforce newsletter-exclusive mode
+                                if (all?.newsletter) {
+                                    if (all?.instagram || all?.twitter || all?.tiktok || all?.linkedin) {
+                                        form.setFieldsValue({ instagram: false, twitter: false, tiktok: false, linkedin: false });
+                                    }
+                                    // Ensure at least one section exists and is active
+                                    if (!sections.length) {
+                                        const first = { id: Math.random().toString(36).slice(2, 9), title: '', description: '', rssItems: [] };
+                                        setSections([first]);
+                                        setActiveSectionIndex(0);
+                                    }
+                                }
+                                // If newsletter turned off and no other networks, clear section focus; keep sections data
+                                if (!all?.newsletter && !(all?.instagram || all?.twitter || all?.tiktok || all?.linkedin)) {
+                                    setActiveSectionIndex(-1);
+                                }
+                                if (any) {
+                                    handleFetchRss(true);
+                                } else {
+                                    setRssItems([]);
+                                    setSelectedItemLinks(new Set());
+                                }
+                            }}
+                        >
+                            <Form.Item 
+                                name="name" 
+                                label={<span style={{ fontWeight: '600', fontSize: '14px' }}>{t('createContent.nameLabel')}</span>} 
+                                rules={[{ required: true }]}
+                            > 
+                                <Input 
+                                    placeholder="Newsletter" 
+                                    allowClear 
+                                    style={{ 
+                                        borderRadius: '8px',
+                                        padding: '8px 12px',
+                                        fontSize: '14px'
+                                    }}
+                                />
                             </Form.Item>
 
-                            <Form.Item name="audience" label={t('createContent.audienceLabel')}>
-                                <Input placeholder={t('createContent.audiencePlaceholder') as string} allowClear />
-                            </Form.Item>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <Form.Item 
+                                    name="audience" 
+                                    label={<span style={{ fontWeight: '600', fontSize: '14px' }}>{t('createContent.audienceLabel')}</span>}
+                                >
+                                    <Input 
+                                        placeholder={t('createContent.audiencePlaceholder') as string} 
+                                        allowClear 
+                                        style={{ 
+                                            borderRadius: '8px',
+                                            padding: '8px 12px',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </Form.Item>
 
-                            <Form.Item name="goal" label={t('createContent.goalLabel')}>
-                                <Input.TextArea rows={3} placeholder={t('createContent.goalPlaceholder') as string} />
-                            </Form.Item>
+                                <Form.Item 
+                                    name="goal" 
+                                    label={<span style={{ fontWeight: '600', fontSize: '14px' }}>{t('createContent.goalLabel')}</span>}
+                                >
+                                    <Input.TextArea 
+                                        rows={3} 
+                                        placeholder={t('createContent.goalPlaceholder') as string}
+                                        style={{ 
+                                            borderRadius: '8px',
+                                            padding: '8px 12px',
+                                            fontSize: '14px',
+                                            resize: 'none'
+                                        }}
+                                    />
+                                </Form.Item>
+                            </div>
 
-                            {/* Manual URL entry removed: only favorites are used */}
-
-                            <Divider />
-                            <Typography.Text strong>{t('createContent.networksTitle')}</Typography.Text>
-                            <div style={{ marginTop: 8, marginBottom: 8 }}>
+                            <div>
+                                <Typography.Text 
+                                    strong 
+                                    style={{ 
+                                        fontSize: '14px', 
+                                        fontWeight: '600',
+                                        display: 'block'
+                                    }}
+                                >
+                                    {t('createContent.networksTitle')}
+                                </Typography.Text>
                                 <Form.Item shouldUpdate noStyle>
                                     {({ getFieldValue }) => {
                                         const isNewsletter = !!getFieldValue('newsletter');
                                         return (
-                                            <Space wrap>
+                                            <Space size={[4, 4]}>
                                                 <Form.Item name="newsletter" valuePropName="checked" noStyle>
-                                                    <Checkbox>{t('createContent.newsletter')}</Checkbox>
+                                                    <Checkbox 
+                                                        style={{ 
+                                                            fontSize: '13px',
+                                                            padding: '4px 8px'
+                                                        }}
+                                                    >
+                                                        {t('createContent.newsletter')}
+                                                    </Checkbox>
                                                 </Form.Item>
                                                 <Form.Item name="instagram" valuePropName="checked" noStyle>
-                                                    <Checkbox disabled={isNewsletter}>{t('createContent.instagram')}</Checkbox>
+                                                    <Checkbox 
+                                                        disabled={isNewsletter}
+                                                        style={{ 
+                                                            fontSize: '13px',
+                                                            padding: '4px 2px'
+                                                        }}
+                                                    >
+                                                        {t('createContent.instagram')}
+                                                    </Checkbox>
                                                 </Form.Item>
                                                 <Form.Item name="twitter" valuePropName="checked" noStyle>
-                                                    <Checkbox disabled={isNewsletter}>{t('createContent.twitter')}</Checkbox>
+                                                    <Checkbox 
+                                                        disabled={isNewsletter}
+                                                        style={{ 
+                                                            fontSize: '13px',
+                                                            padding: '4px 2px'
+                                                        }}
+                                                    >
+                                                        {t('createContent.twitter')}
+                                                    </Checkbox>
                                                 </Form.Item>
                                                 <Form.Item name="tiktok" valuePropName="checked" noStyle>
-                                                    <Checkbox disabled={isNewsletter}>{t('createContent.tiktok')}</Checkbox>
+                                                    <Checkbox 
+                                                        disabled={isNewsletter}
+                                                        style={{ 
+                                                            fontSize: '13px',
+                                                            padding: '4px 2px'
+                                                        }}
+                                                    >
+                                                        {t('createContent.tiktok')}
+                                                    </Checkbox>
                                                 </Form.Item>
                                                 <Form.Item name="linkedin" valuePropName="checked" noStyle>
-                                                    <Checkbox disabled={isNewsletter}>{t('createContent.linkedin')}</Checkbox>
+                                                    <Checkbox 
+                                                        disabled={isNewsletter}
+                                                        style={{ 
+                                                            fontSize: '13px',
+                                                            padding: '4px 2px'
+                                                        }}
+                                                    >
+                                                        {t('createContent.linkedin')}
+                                                    </Checkbox>
                                                 </Form.Item>
                                             </Space>
                                         );
                                     }}
                                 </Form.Item>
                             </div>
+                        </Form>
+                    </Card>
 
-                            {/* Newsletter Sections UI moved to the right column Tabs for clarity */}
-
+                    {/* Card 2: Sources RSS */}
+                    <Card 
+                        title={
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ 
+                                    backgroundColor: '#5B5BD6', 
+                                    color: 'white', 
+                                    borderRadius: '50%', 
+                                    width: '32px', 
+                                    height: '32px', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold'
+                                }}>
+                                    2
+                                </div>
+                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                    {t('createContent.rssSourcesCard')}
+                                </span>
+                            </div>
+                        }
+                        styles={{
+                            header: { borderBottom: 'none' },
+                            body: { paddingTop: 0 }
+                        }}
+                    >
+                        <Form form={form} style={{ padding: '8px 0' }}>
                             <Form.Item shouldUpdate noStyle>
                                 {({ getFieldValue }) => {
                                     const any = !!(
@@ -341,50 +531,89 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                     if (!any) return null;
                                     return (
                                         selectableFavorites.length > 0 && (
-                                            <>
-                                                <Divider />
-                                                <Typography.Text strong>{t('createContent.favoritesTitle')}</Typography.Text>
-                                                <div style={{ marginTop: 8, marginBottom: 8 }}>
+                                            <div>
+                                                <Typography.Text 
+                                                    strong 
+                                                    style={{ 
+                                                        fontWeight: '600', 
+                                                        fontSize: '14px',
+                                                        display: 'block'
+                                                    }}
+                                                >
+                                                    {t('createContent.favoritesTitle')}
+                                                </Typography.Text>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                     {selectableFavorites.map((url) => {
                                                         const selected = selectedFavorites.includes(url);
-                                                        const starred = isFavorited(url);
                                                         return (
-                                                            <Tag
+                                                            <div
                                                                 key={url}
-                                                                color={selected ? 'geekblue' : 'default'}
-                                                                style={{ marginBottom: 8, userSelect: 'none' }}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'space-between',
+                                                                    padding: '4px 6px',
+                                                                    border: '1px solid #d9d9d9',
+                                                                    borderRadius: '6px',
+                                                                    backgroundColor: selected ? '#f0f2ff' : '#ffffff',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s',
+                                                                    minHeight: '40px'
+                                                                }}
                                                                 onClick={() =>
                                                                     setSelectedFavorites((prev) =>
                                                                         prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url],
                                                                     )
                                                                 }
                                                             >
-                                                                <Space size={6}>
-                                                                    <span>{url}</span>
-                                                                    <Button
-                                                                        size="small"
-                                                                        type="text"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            toggleFavorite(url);
-                                                                        }}
-                                                                        icon={starred ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
-                                                                    />
-                                                                </Space>
-                                                            </Tag>
+                                                                <span style={{ 
+                                                                    fontSize: '14px',
+                                                                    color: '#333',
+                                                                    flex: 1,
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                    marginRight: '12px'
+                                                                }}>
+                                                                    {url}
+                                                                </span>
+                                                                <Button
+                                                                    size="small"
+                                                                    type="text"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        toggleFavorite(url);
+                                                                    }}
+                                                                    style={{
+                                                                        border: 'none',
+                                                                        boxShadow: 'none',
+                                                                        padding: '2px',
+                                                                        width: '24px',
+                                                                        height: '24px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        backgroundColor: '#FCD34D',
+                                                                        borderRadius: '4px'
+                                                                    }}
+                                                                    icon={<StarFilled style={{ color: '#ffffff', fontSize: '12px' }} />}
+                                                                />
+                                                            </div>
                                                         );
                                                     })}
                                                 </div>
-                                                <Typography.Text type="secondary">
+                                                <Typography.Text 
+                                                    type="secondary"
+                                                    style={{ fontSize: '12px', lineHeight: '1.4' }}
+                                                >
                                                     {t('createContent.favoritesHelp')}
                                                 </Typography.Text>
-                                            </>
+                                            </div>
                                         )
                                     );
                                 }}
                             </Form.Item>
-                        </Col>
-                        <Col xs={24} md={12}>
+
                             <Form.Item shouldUpdate noStyle>
                                 {({ getFieldValue }) => {
                                     const anyNetwork = !!(
@@ -396,58 +625,122 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                     );
                                     if (!anyNetwork)
                                         return (
-                                            <div style={{ marginTop: 8 }}>
-                                                <Typography.Text type="secondary">
+                                            <div style={{ 
+                                                textAlign: 'center', 
+                                                padding: '20px 16px',
+                                                background: '#fafafa',
+                                                borderRadius: '8px',
+                                                border: '1px solid #f0f0f0'
+                                            }}>
+                                                <Typography.Text 
+                                                    type="secondary"
+                                                    style={{ fontSize: '14px' }}
+                                                >
                                                     {t('createContent.selectNetworkPrompt')}
                                                 </Typography.Text>
                                             </div>
                                         );
                                     return (
-                                        <div style={{ marginTop: 8 }}>
-                                            <Typography.Text type="secondary">
+                                        <div style={{ 
+                                            textAlign: 'center',
+                                            padding: '16px',
+                                            background: '#f6f8fa',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e8eaed'
+                                        }}>
+                                            <Typography.Text 
+                                                strong
+                                                style={{ 
+                                                    fontSize: '14px',
+                                                    color: '#1f2937',
+                                                    display: 'block'
+                                                }}
+                                            >
                                                 {t('createContent.itemsFound', { count: rssCount })}
                                             </Typography.Text>
-                                        {(() => {
-                                            const isNewsletter = !!getFieldValue('newsletter');
-                                            const items = isNewsletter
-                                                ? sections.map((s, idx) => ({
-                                                      key: s.id!,
-                                                      label: (
-                                                          <Space size={6}>
-                                                              {s.title || `${t('createContent.section', 'Seção')} ${idx + 1}`}
-                                                              <Badge count={(s.rssItems || []).length} overflowCount={99} />
-                                                          </Space>
-                                                      ),
-                                                      closable: true,
-                                                  }))
-                                                : [
-                                                      {
-                                                          key: 'general',
-                                                          label: (
-                                                              <Space size={6}>
-                                                                  {t('createContent.generalTab', 'Geral')}
-                                                                  <Badge count={selectedItemLinks.size} overflowCount={99} />
-                                                              </Space>
-                                                          ),
-                                                          closable: false,
-                                                      } as any,
-                                                  ];
-                                            const activeKey = isNewsletter
-                                                ? sections[activeSectionIndex]?.id || sections[0]?.id || 'general'
-                                                : 'general';
-                                            return (
-                                                <Tabs
-                                                    type="editable-card"
-                                                    hideAdd={!isNewsletter}
-                                                    activeKey={activeKey}
-                                                    onChange={(key) => {
-                                                        if (!isNewsletter) return setActiveSectionIndex(-1);
-                                                        const idx = sections.findIndex((s) => s.id === key);
-                                                        setActiveSectionIndex(idx >= 0 ? idx : -1);
-                                                    }}
-                                                    onEdit={(targetKey, action) => {
-                                                        if (!isNewsletter) return;
-                                                        if (action === 'add') {
+                                            {getFieldValue('newsletter') && activeSectionIndex >= 0 && sections[activeSectionIndex] && (
+                                                <div style={{ 
+                                                    padding: '8px 12px', 
+                                                    background: '#f0f2f5', 
+                                                    borderRadius: '6px' 
+                                                }}>
+                                                    <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
+                                                        {t('createContent.selectingForSection', {
+                                                            title:
+                                                                sections[activeSectionIndex].title ||
+                                                                `${t('createContent.section', 'Seção')} ${activeSectionIndex + 1}`,
+                                                        })}
+                                                    </Typography.Text>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }}
+                            </Form.Item>
+                        </Form>
+                    </Card>
+
+                    {/* Card 3: Content Generation */}
+                    <Form form={form}>
+                        <Form.Item shouldUpdate noStyle>
+                            {({ getFieldValue }) => {
+                                const isNewsletter = !!getFieldValue('newsletter');
+                                if (!isNewsletter) return null;
+                                
+                                return (
+                                    <Card 
+                                        title={
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ 
+                                                    backgroundColor: '#5B5BD6', 
+                                                    color: 'white', 
+                                                    borderRadius: '50%', 
+                                                    width: '32px', 
+                                                    height: '32px', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    3
+                                                </div>
+                                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                                    Geração de Conteúdo
+                                                </span>
+                                            </div>
+                                        }
+                                        styles={{
+                                            header: { borderBottom: 'none' },
+                                            body: { paddingTop: 0 }
+                                        }}
+                                    >
+                                        <div style={{ padding: '8px 0' }}>
+                                            <div style={{ marginBottom: '16px' }}>
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'space-between',
+                                                    marginBottom: '12px'
+                                                }}>
+                                                    <Typography.Text 
+                                                        strong 
+                                                        style={{ 
+                                                            fontWeight: '600', 
+                                                            fontSize: '14px'
+                                                        }}
+                                                    >
+                                                        Seções da Newsletter:
+                                                    </Typography.Text>
+                                                    <Button
+                                                        type="link"
+                                                        style={{ 
+                                                            color: '#5B5BD6',
+                                                            fontSize: '14px',
+                                                            padding: 0,
+                                                            height: 'auto'
+                                                        }}
+                                                        onClick={() => {
                                                             const newSection: NewsletterSection = {
                                                                 id: Math.random().toString(36).slice(2, 9),
                                                                 title: '',
@@ -456,197 +749,432 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                             };
                                                             setSections((prev) => [...prev, newSection]);
                                                             setActiveSectionIndex(sections.length);
-                                                        }
-                                                        if (action === 'remove' && typeof targetKey === 'string') {
-                                                            const removeIdx = sections.findIndex((s) => s.id === targetKey);
-                                                            if (removeIdx >= 0) {
-                                                                setSections((prev) => prev.filter((s) => s.id !== targetKey));
-                                                                if (activeSectionIndex === removeIdx) setActiveSectionIndex(-1);
-                                                                else if (activeSectionIndex > removeIdx) setActiveSectionIndex((i) => i - 1);
-                                                            }
-                                                        }
-                                                    }}
-                                                    items={items as any}
-                                                />
-                                            );
-                                        })()}
-                                        {getFieldValue('newsletter') && activeSectionIndex >= 0 && sections[activeSectionIndex] && (
-                                            <div style={{ marginBottom: 8 }}>
-                                                <Input
-                                                    placeholder={t('createContent.sectionTitlePlaceholder', 'Section title') as string}
-                                                    value={sections[activeSectionIndex]?.title}
-                                                    onChange={(e) => {
-                                                        const v = e.target.value;
-                                                        setSections((prev) => {
-                                                            const next = [...prev];
-                                                            next[activeSectionIndex] = { ...next[activeSectionIndex], title: v };
-                                                            return next;
-                                                        });
-                                                    }}
-                                                    style={{ marginBottom: 6 }}
-                                                />
-                                                <Input.TextArea
-                                                    rows={2}
-                                                    placeholder={
-                                                        t(
-                                                            'createContent.sectionDescriptionPlaceholder',
-                                                            'Section description (optional)',
-                                                        ) as string
-                                                    }
-                                                    value={sections[activeSectionIndex]?.description}
-                                                    onChange={(e) => {
-                                                        const v = e.target.value;
-                                                        setSections((prev) => {
-                                                            const next = [...prev];
-                                                            next[activeSectionIndex] = { ...next[activeSectionIndex], description: v };
-                                                            return next;
-                                                        });
-                                                    }}
-                                                />
+                                                        }}
+                                                    >
+                                                        + Adicionar Seção
+                                                    </Button>
+                                                </div>
                                             </div>
-                                        )}
-                    <div style={{ marginBottom: 4 }}>
-                                            <Typography.Text>
-                        {getFieldValue('newsletter') && activeSectionIndex >= 0 && sections[activeSectionIndex]
-                                                    ? t('createContent.selectingForSection', {
-                                                          title:
-                                                              sections[activeSectionIndex].title ||
-                                                              `${t('createContent.section', 'Seção')} ${activeSectionIndex + 1}`,
-                                                      })
-                                                    : t('createContent.selectingForGeneral', 'Selecionando para: Geral')}
-                                            </Typography.Text>
+
+                                            {/* List of Saved Sections */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {sections.map((section, idx) => {
+                                                    if (!section.title && !section.description) return null;
+                                                    
+                                                    return (
+                                                        <div
+                                                            key={section.id}
+                                                            style={{
+                                                                backgroundColor: '#f8f9fa',
+                                                                border: '1px solid #e9ecef',
+                                                                borderRadius: '8px',
+                                                                padding: '12px 16px',
+                                                                position: 'relative'
+                                                            }}
+                                                        >
+                                                            <div style={{ 
+                                                                display: 'flex', 
+                                                                alignItems: 'flex-start', 
+                                                                justifyContent: 'space-between',
+                                                                marginBottom: '4px'
+                                                            }}>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <Typography.Text 
+                                                                        strong 
+                                                                        style={{ 
+                                                                            fontSize: '14px',
+                                                                            color: '#1a1a1a',
+                                                                            display: 'block',
+                                                                            marginBottom: '4px'
+                                                                        }}
+                                                                    >
+                                                                        {section.title}
+                                                                    </Typography.Text>
+                                                                    <Typography.Text 
+                                                                        type="secondary" 
+                                                                        style={{ 
+                                                                            fontSize: '12px',
+                                                                            lineHeight: '1.4'
+                                                                        }}
+                                                                    >
+                                                                        {section.description}
+                                                                    </Typography.Text>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                                    <div style={{ 
+                                                                        backgroundColor: '#5B5BD6', 
+                                                                        color: 'white', 
+                                                                        borderRadius: '50%', 
+                                                                        width: '20px', 
+                                                                        height: '20px', 
+                                                                        display: 'flex', 
+                                                                        alignItems: 'center', 
+                                                                        justifyContent: 'center',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: 'bold',
+                                                                        flexShrink: 0
+                                                                    }}>
+                                                                        {idx + 1}
+                                                                    </div>
+                                                                    <Button
+                                                                        type="text"
+                                                                        size="small"
+                                                                        icon={<EditOutlined />}
+                                                                        style={{ 
+                                                                            width: '24px',
+                                                                            height: '24px',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center'
+                                                                        }}
+                                                                        onClick={() => setActiveSectionIndex(idx)}
+                                                                    />
+                                                                    <Button
+                                                                        type="text"
+                                                                        size="small"
+                                                                        icon={<DeleteOutlined />}
+                                                                        style={{ 
+                                                                            width: '24px',
+                                                                            height: '24px',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            color: '#ff4d4f'
+                                                                        }}
+                                                                        onClick={() => {
+                                                                            if (sections.length > 1) {
+                                                                                setSections((prev) => prev.filter((s) => s.id !== section.id));
+                                                                                if (activeSectionIndex === idx) {
+                                                                                    setActiveSectionIndex(0);
+                                                                                } else if (activeSectionIndex > idx) {
+                                                                                    setActiveSectionIndex((i) => i - 1);
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Edit Form */}
+                                            {activeSectionIndex >= 0 && sections[activeSectionIndex] && (
+                                                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e9ecef' }}>
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'space-between',
+                                                        marginBottom: '12px'
+                                                    }}>
+                                                        <Typography.Text 
+                                                            strong 
+                                                            style={{ 
+                                                                fontSize: '14px'
+                                                            }}
+                                                        >
+                                                            Editando Seção {activeSectionIndex + 1}:
+                                                        </Typography.Text>
+                                                        <Button
+                                                            type="text"
+                                                            size="small"
+                                                            icon={<SaveOutlined />}
+                                                            style={{ 
+                                                                width: '24px',
+                                                                height: '24px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                color: '#5B5BD6'
+                                                            }}
+                                                            onClick={() => setActiveSectionIndex(-1)}
+                                                            title="Fechar edição"
+                                                        />
+                                                    </div>
+                                                    <Space direction="vertical" style={{ width: '100%' }}>
+                                                        <Input
+                                                            placeholder="Título da seção"
+                                                            value={sections[activeSectionIndex]?.title}
+                                                            onChange={(e) => {
+                                                                const v = e.target.value;
+                                                                setSections((prev) => {
+                                                                    const next = [...prev];
+                                                                    next[activeSectionIndex] = { ...next[activeSectionIndex], title: v };
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            style={{ 
+                                                                borderRadius: '6px',
+                                                                fontSize: '14px'
+                                                            }}
+                                                        />
+                                                        <Input.TextArea
+                                                            rows={3}
+                                                            placeholder="Descrição da seção"
+                                                            value={sections[activeSectionIndex]?.description}
+                                                            onChange={(e) => {
+                                                                const v = e.target.value;
+                                                                setSections((prev) => {
+                                                                    const next = [...prev];
+                                                                    next[activeSectionIndex] = { ...next[activeSectionIndex], description: v };
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            style={{ 
+                                                                borderRadius: '6px',
+                                                                fontSize: '14px',
+                                                                resize: 'none'
+                                                            }}
+                                                        />
+                                                    </Space>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                    );
-                                }}
-                            </Form.Item>
-                            <Form.Item shouldUpdate noStyle>
-                                {({ getFieldValue }) => {
-                                    const any = !!(
-                                        getFieldValue('newsletter') ||
-                                        getFieldValue('instagram') ||
-                                        getFieldValue('twitter') ||
-                                        getFieldValue('tiktok') ||
-                                        getFieldValue('linkedin')
-                                    );
-                                    if (!any) return null;
-                                    return (
-                                        <div style={{ maxHeight: 420, overflow: 'auto', marginTop: 8 }}>
-                                            <List
-                                                dataSource={rssItems}
-                                                locale={{ emptyText: t('createContent.listEmpty') }}
-                                                renderItem={(it) => {
-                                        const linkKey = it.link || it.title || '';
-                                        // General selection or section-specific selection
-                                        let checked = linkKey ? selectedItemLinks.has(linkKey) : true;
-                                        const newsletterChecked = (() => {
-                                            if (activeSectionIndex < 0 || !sections[activeSectionIndex]) return undefined;
-                                            const current = sections[activeSectionIndex];
-                                            const exists = current.rssItems.find((r) => (r.link || r.title) === (it.link || it.title));
-                                            return !!exists;
-                                        })();
-                                        if (newsletterChecked !== undefined) checked = newsletterChecked;
-                                        return (
-                                            <List.Item
-                                                onClick={() => {
-                                                    if (!linkKey) return;
-                                                    // If a newsletter section is active, toggle within that section. Otherwise toggle general selection
-                                                    if (activeSectionIndex >= 0 && sections[activeSectionIndex]) {
-                                                        setSections((prev) => {
-                                                            const next = [...prev];
-                                                            const s = next[activeSectionIndex];
-                                                            const existsIdx = s.rssItems.findIndex(
-                                                                (r) => (r.link || r.title) === (it.link || it.title),
-                                                            );
-                                                            if (existsIdx >= 0) s.rssItems.splice(existsIdx, 1);
-                                                            else s.rssItems.push(it);
-                                                            next[activeSectionIndex] = { ...s };
-                                                            return next;
-                                                        });
-                                                    } else {
-                                                        setSelectedItemLinks((prev) => {
-                                                            const next = new Set(prev);
-                                                            if (next.has(linkKey)) next.delete(linkKey);
-                                                            else next.add(linkKey);
-                                                            return next;
-                                                        });
-                                                    }
-                                                }}
-                                            >
-                                                <List.Item.Meta
-                                                    title={
-                                                        <Space>
-                                                            {linkKey && (
-                                                                <Checkbox
-                                                                    checked={checked}
-                                                                    onChange={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const isC = e.target.checked;
-                                                                        if (activeSectionIndex >= 0 && sections[activeSectionIndex]) {
-                                                                            setSections((prev) => {
-                                                                                const next = [...prev];
-                                                                                const s = next[activeSectionIndex];
-                                                                                const existsIdx = s.rssItems.findIndex(
-                                                                                    (r) => (r.link || r.title) === (it.link || it.title),
-                                                                                );
-                                                                                const present = existsIdx >= 0;
-                                                                                if (isC && !present) s.rssItems.push(it);
-                                                                                if (!isC && present) s.rssItems.splice(existsIdx, 1);
-                                                                                next[activeSectionIndex] = { ...s };
-                                                                                return next;
-                                                                            });
-                                                                        } else {
-                                                                            setSelectedItemLinks((prev) => {
-                                                                                const next = new Set(prev);
-                                                                                if (isC) next.add(linkKey);
-                                                                                else next.delete(linkKey);
-                                                                                return next;
-                                                                            });
-                                                                        }
+                                    </Card>
+                                );
+                            }}
+                        </Form.Item>
+                    </Form>
+                </div>
+
+                {/* Main Content - News Feed */}
+                <div>
+                    {/* Card 4: News Feed */}
+                    <Form form={form}>
+                        <Form.Item shouldUpdate noStyle>
+                            {({ getFieldValue }) => {
+                                const any = !!(
+                                    getFieldValue('newsletter') ||
+                                    getFieldValue('instagram') ||
+                                    getFieldValue('twitter') ||
+                                    getFieldValue('tiktok') ||
+                                    getFieldValue('linkedin')
+                                );
+                                if (!any) return null;
+                                
+                                return (
+                                    <Card 
+                                        title={
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ 
+                                                    backgroundColor: '#5B5BD6', 
+                                                    color: 'white', 
+                                                    borderRadius: '50%', 
+                                                    width: '32px', 
+                                                    height: '32px', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    4
+                                                </div>
+                                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                                    {t('createContent.newsFeedCard')}
+                                                </span>
+                                            </div>
+                                        }
+                                        style={{ height: 'fit-content' }}
+                                        styles={{
+                                            header: { borderBottom: 'none' },
+                                            body: { paddingTop: 0 }
+                                        }}
+                                    >
+                                        <div 
+                                            style={{ 
+                                                gridTemplateColumns: '1fr 1fr',
+                                                gap: '20px',
+                                                alignItems: 'start',
+                                                minHeight: '500px'
+                                            }}
+                                        >
+                                           
+
+                                            {/* Main content - List of news items grouped by source */}
+                                            <div style={{ maxHeight: 600, overflow: 'auto' }}>
+                                                {groupedRssItems.length === 0 ? (
+                                                    <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                                                        {t('createContent.listEmpty')}
+                                                    </div>
+                                                ) : (
+                                                    <Collapse
+                                                        items={groupedRssItems.map(group => ({
+                                                            key: group.name,
+                                                            label: (
+                                                                <div style={{ 
+                                                                    display: 'flex', 
+                                                                    justifyContent: 'space-between', 
+                                                                    alignItems: 'center', 
+                                                                    width: '100%'
+                                                                }}>
+                                                                    <span style={{ fontWeight: '600', fontSize: '15px', color: '#1f2937' }}>
+                                                                        {group.name}
+                                                                    </span>
+                                                                    <Badge 
+                                                                        count={group.items.length} 
+                                                                        overflowCount={99}
+                                                                        style={{ backgroundColor: '#6366f1' }}
+                                                                    />
+                                                                </div>
+                                                            ),
+                                                            children: (
+                                                                <div style={{ paddingTop: '0px' }}>
+                                                                    <List
+                                                                        dataSource={group.items}
+                                                                        split={false}
+                                                                        renderItem={(it) => {
+                                                                        const linkKey = it.link || it.title || '';
+                                                                        // General selection or section-specific selection
+                                                                        let checked = linkKey ? selectedItemLinks.has(linkKey) : true;
+                                                                        const newsletterChecked = (() => {
+                                                                            if (activeSectionIndex < 0 || !sections[activeSectionIndex]) return undefined;
+                                                                            const current = sections[activeSectionIndex];
+                                                                            const exists = current.rssItems.find((r) => (r.link || r.title) === (it.link || it.title));
+                                                                            return !!exists;
+                                                                        })();
+                                                                        if (newsletterChecked !== undefined) checked = newsletterChecked;
+                                                                        
+                                                                        return (
+                                                                            <List.Item
+                                                                                style={{
+                                                                                    background: 'transparent',
+                                                                                    border: 'none',
+                                                                                    borderRadius: '0px',
+                                                                                    marginBottom: '16px',
+                                                                                    padding: '8px 0px',
+                                                                                    cursor: 'pointer',
+                                                                                    transition: 'all 0.2s ease'
+                                                                                }}
+                                                                                onClick={() => {
+                                                                                    if (!linkKey) return;
+                                                                                    // If a newsletter section is active, toggle within that section. Otherwise toggle general selection
+                                                                                    if (activeSectionIndex >= 0 && sections[activeSectionIndex]) {
+                                                                                        setSections((prev) => {
+                                                                                            const next = [...prev];
+                                                                                            const s = next[activeSectionIndex];
+                                                                                            const existsIdx = s.rssItems.findIndex(
+                                                                                                (r) => (r.link || r.title) === (it.link || it.title),
+                                                                                            );
+                                                                                            if (existsIdx >= 0) s.rssItems.splice(existsIdx, 1);
+                                                                                            else s.rssItems.push(it);
+                                                                                            next[activeSectionIndex] = { ...s };
+                                                                                            return next;
+                                                                                        });
+                                                                                    } else {
+                                                                                        setSelectedItemLinks((prev) => {
+                                                                                            const next = new Set(prev);
+                                                                                            if (next.has(linkKey)) next.delete(linkKey);
+                                                                                            else next.add(linkKey);
+                                                                                            return next;
+                                                                                        });
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <List.Item.Meta
+                                                                                    avatar={
+                                                                                        <Checkbox
+                                                                                            checked={checked}
+                                                                                            onChange={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                const isC = e.target.checked;
+                                                                                                if (activeSectionIndex >= 0 && sections[activeSectionIndex]) {
+                                                                                                    setSections((prev) => {
+                                                                                                        const next = [...prev];
+                                                                                                        const s = next[activeSectionIndex];
+                                                                                                        const existsIdx = s.rssItems.findIndex(
+                                                                                                            (r) => (r.link || r.title) === (it.link || it.title),
+                                                                                                        );
+                                                                                                        const present = existsIdx >= 0;
+                                                                                                        if (isC && !present) s.rssItems.push(it);
+                                                                                                        if (!isC && present) s.rssItems.splice(existsIdx, 1);
+                                                                                                        next[activeSectionIndex] = { ...s };
+                                                                                                        return next;
+                                                                                                    });
+                                                                                                } else {
+                                                                                                    setSelectedItemLinks((prev) => {
+                                                                                                        const next = new Set(prev);
+                                                                                                        if (isC) next.add(linkKey);
+                                                                                                        else next.delete(linkKey);
+                                                                                                        return next;
+                                                                                                    });
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                    }
+                                                                                    title={
+                                                                                        it.link ? (
+                                                                                            <a href={it.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                                                                {it.title || it.link}
+                                                                                            </a>
+                                                                                        ) : (
+                                                                                            it.title || 'No title'
+                                                                                        )
+                                                                                    }
+                                                                                    description={
+                                                                                        <div>
+                                                                                            <div style={{ 
+                                                                                                marginBottom: 4,
+                                                                                                overflow: 'hidden',
+                                                                                                display: '-webkit-box',
+                                                                                                WebkitLineClamp: 2,
+                                                                                                WebkitBoxOrient: 'vertical',
+                                                                                                fontSize: '13px',
+                                                                                                color: '#666',
+                                                                                                lineHeight: '1.4'
+                                                                                            }}>
+                                                                                                {it.contentSnippet || 'Sem descrição disponível'}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    }
+                                                                                />
+                                                                            </List.Item>
+                                                                        );
                                                                     }}
                                                                 />
-                                                            )}
-                                                            {it.link ? (
-                                                                <a href={it.link} target="_blank" rel="noreferrer">
-                                                                    {it.title || it.link}
-                                                                </a>
-                                                            ) : (
-                                                                it.title || 'No title'
-                                                            )}
-                                                        </Space>
-                                                    }
-                                                    description={it.contentSnippet}
-                                                />
-                                            </List.Item>
-                                        );
-                                                }}
-                                            />
+                                                                </div>
+                                                            )
+                                                        }))}
+                                                        style={{ 
+                                                            backgroundColor: 'transparent',
+                                                            border: 'none'
+                                                        }}
+                                                        expandIconPosition="end"
+                                                        ghost
+                                                        size="large"
+                                                        className="custom-collapse"
+                                                    />
+                                                )}
+                                            </div>
                                         </div>
-                                    );
-                                }}
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                                    </Card>
+                                );
+                            }}
+                        </Form.Item>
+                    </Form>
+                </div>
+            </div>
 
-                    <div style={{ marginTop: 16 }}>
-                        <Space>
-                            <Button 
-                                type="default" 
-                                icon={<RobotOutlined />} 
-                                onClick={handleGenerateAISuggestion} 
-                                loading={AILoading}
-                                style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
-                            >
-                                {t('createContent.generateAISuggestion')}
-                            </Button>
-                            <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                                {t('createContent.generate')}
-                            </Button>
-                        </Space>
-                    </div>
-                </Form>
-            </Card>
+            {/* Action Buttons */}
+            <div style={{ textAlign: 'center' }}>
+                <Space>
+                    <Button 
+                        type="default" 
+                        icon={<RobotOutlined />} 
+                        onClick={handleGenerateAISuggestion} 
+                        loading={AILoading}
+                        style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
+                    >
+                        {t('createContent.generateAISuggestion')}
+                    </Button>
+                    <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
+                        {t('createContent.generate')}
+                    </Button>
+                </Space>
+            </div>
         </Space>
+        </>
     );
 };
 

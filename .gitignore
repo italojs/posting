@@ -2,6 +2,9 @@ node_modules/
 settings.json
 .env
 
+# TypeScript build info
+tsconfig.tsbuildinfo
+
 # MongoDB Playground files
 playground-1.mongodb.js
 Playground Result
