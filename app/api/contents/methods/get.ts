@@ -5,6 +5,7 @@ import { Content, FetchRssInput, FetchRssResult, RssItem, GenerateSuggestionInpu
 import ContentsCollection from '../contents';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
+import RssSourcesCollection from '../../rssSources/rssSources';
 
 const parser = new Parser();
 
@@ -25,15 +26,25 @@ Meteor.methods({
         for (const url of urls) {
             try {
                 const feed = await parser.parseURL(url);
+                
+                // search for feeds name @ MongoDB
+                const rssSource = await RssSourcesCollection.findOneAsync({ url });
+                const feedSource = rssSource?.name || feed.title || feed.description || url;
+
                 const items = (feed.items || []).map((it: any) => ({
                     title: it.title,
                     link: it.link,
                     isoDate: (it as any).isoDate,
                     pubDate: it.pubDate,
                     contentSnippet: it.contentSnippet,
+                    creator: it.creator || it['dc:creator'],
+                    author: it.author,
+                    source: feedSource,
+                    guid: it.guid || it.id,
                 })) as RssItem[];
                 allItems.push(...items);
             } catch (e) {
+                console.log(`Failed to fetch RSS from ${url}:`, e);
                 // ignore single feed failure; continue others
             }
         }
@@ -91,7 +102,20 @@ Respond only in JSON format with this structure:
 
         const data = await response.json();
         const aiResponse = data.choices?.[0]?.message?.content;
-        const parsedResponse = JSON.parse(aiResponse);
+        
+        // Limpa a resposta removendo markdown e espaços extras
+        const cleanedResponse = aiResponse
+            .replace(/```json\s*/g, '')
+            .replace(/```\s*/g, '')
+            .trim();
+            
+        let parsedResponse;
+        try {
+            parsedResponse = JSON.parse(cleanedResponse);
+        } catch (parseError) {
+            console.error('Failed to parse AI response:', cleanedResponse);
+            throw new Meteor.Error('ai-response-invalid', 'Invalid response from AI service');
+        }
         
         const result: GenerateSuggestionResult = {
             title: parsedResponse.title || `${name} - Edição Especial`,
