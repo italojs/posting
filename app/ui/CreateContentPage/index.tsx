@@ -1,4 +1,4 @@
-import { LoadingOutlined, SendOutlined, StarFilled, RobotOutlined, EditOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { LoadingOutlined, SendOutlined, RobotOutlined, EditOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -44,7 +44,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [rssItems, setRssItems] = useState<RssItem[]>([]);
     const [selectedItemLinks, setSelectedItemLinks] = useState<Set<string>>(new Set());
     const [favoriteUrls, setFavoriteUrls] = useState<string[]>([]);
-    const [selectedFavorites, setSelectedFavorites] = useState<string[]>([]);
+    // removed per-source manual selection; always use all favorites
     // Newsletter sections: when newsletter is selected, user can create multiple sections and pick items per section
     const [sections, setSections] = useState<NewsletterSection[]>([]);
     const [activeSectionIndex, setActiveSectionIndex] = useState<number>(-1);
@@ -58,10 +58,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 const res = (await Meteor.callAsync('get.userProfiles.rssFavorites')) as { urls: string[] };
                 const urls = (res.urls || []).filter(Boolean);
                 setFavoriteUrls(urls);
-                // auto-select at least one favorite and load items
-                if (urls.length > 0) {
-                    setSelectedFavorites((prev) => (prev.length > 0 ? prev : [urls[0]]));
-                }
+                // sempre usar todos os favoritos
                 // If editing, load existing content and populate
                 if (editingId) {
                     const doc = (await Meteor.callAsync('get.contents.byId', { _id: editingId })) as any;
@@ -76,9 +73,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             tiktok: !!doc.networks?.tiktok,
                             linkedin: !!doc.networks?.linkedin,
                         });
-                        // Preselect favorites that exist in doc.rssUrls
-                        const preset = (doc.rssUrls || []).filter((u: string) => urls.includes(u));
-                        setSelectedFavorites(preset.length ? preset : urls.slice(0, 1));
+                        // ignorar seleções salvas; usar todos os favoritos
                         // Preload sections and selected items
                         const docSections = (doc.newsletterSections || []) as NewsletterSection[];
                         setSections(docSections);
@@ -108,7 +103,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             return;
         }
 
-        const merged = Array.from(new Set(selectedFavorites));
+        const merged = Array.from(new Set(favoriteUrls));
         if (merged.length === 0) {
             if (!auto) message.warning(t('createContent.needAtLeastOneUrl'));
             setRssItems([]);
@@ -127,17 +122,26 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         setLoading(false);
     };
 
-    // auto-load items whenever selected favorites change
+    // Observa valores do formulário para redes sociais (inclusive setFieldsValue)
+    const watchNewsletter = Form.useWatch('newsletter', form);
+    const watchInstagram = Form.useWatch('instagram', form);
+    const watchTwitter = Form.useWatch('twitter', form);
+    const watchTiktok = Form.useWatch('tiktok', form);
+    const watchLinkedin = Form.useWatch('linkedin', form);
+
+    // Auto-carrega itens quando favoritos OU redes mudarem (inclusive quando setadas via setFieldsValue)
     useEffect(() => {
-        // don't auto-fetch on first render until favorites are known; rely on init effect to set selection
+        const any = !!(watchNewsletter || watchInstagram || watchTwitter || watchTiktok || watchLinkedin);
+        if (!any) return;
+        if (favoriteUrls.length === 0) return;
         handleFetchRss(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedFavorites]);
+    }, [favoriteUrls, watchNewsletter, watchInstagram, watchTwitter, watchTiktok, watchLinkedin]);
 
     const handleSave = async () => {
         try {
             const values = await form.validateFields();
-            const urls = Array.from(new Set(selectedFavorites));
+            const urls = Array.from(new Set(favoriteUrls));
             const itemsToSave = rssItems.filter((it) => !it.link || selectedItemLinks.has(it.link));
 
             // If newsletter and sections exist, build per-section items (using selectedItemLinks as selection for the active section)
@@ -225,53 +229,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         }
     };
 
-    const isFavorited = (url: string) => favoriteUrls.includes(url);
-    const toggleFavorite = async (url: string) => {
-        try {
-            if (isFavorited(url)) {
-                await Meteor.callAsync('set.userProfile.removeRssFavorites', { urls: [url] });
-                setFavoriteUrls((prev) => prev.filter((u) => u !== url));
-                // if it was selected, unselect; optionally keep at least one selected if possible
-                setSelectedFavorites((prev) => {
-                    const next = prev.filter((u) => u !== url);
-                    if (next.length === 0 && favoriteUrls.length > 0) {
-                        const remaining = favoriteUrls.filter((u) => u !== url);
-                        if (remaining.length > 0) return [remaining[0]];
-                    }
-                    return next;
-                });
-                message.success(t('createContent.favoritesRemoved'));
-            } else {
-                await Meteor.callAsync('set.userProfile.addRssFavorites', { urls: [url] });
-                setFavoriteUrls((prev) => Array.from(new Set([...prev, url])));
-                // if nothing selected yet, select this one automatically
-                setSelectedFavorites((prev) => (prev.length === 0 ? [url] : prev));
-                message.success(t('createContent.favoritesAdded'));
-            }
-        } catch (error) {
-            errorResponse(error as Meteor.Error, t('createContent.favoritesError'));
-        }
-    };
-
-    // no manual input; removed addFavoriteToInput
-    const selectableFavorites = useMemo(() => favoriteUrls, [favoriteUrls]);
-
-    // function to group news by RSS source
-    const groupedRssItems = useMemo(() => {
-        const groups: { [key: string]: RssItem[] } = {};
-        
-        rssItems.forEach(item => {
-            const sourceName = item.source || 'Unknown';
-            
-            if (!groups[sourceName]) {
-                groups[sourceName] = [];
-            }
-            
-            groups[sourceName].push(item);
-        });
-        
-        return Object.entries(groups).map(([name, items]) => ({ name, items }));
-    }, [rssItems]);
+    
 
     if (!userId) {
         // fallback guard
@@ -292,11 +250,11 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 </Typography.Text>
             </div>
 
-            {/* Grid Layout: Same Width, Same Height */}
+            {/* Layout em uma única coluna */}
             <div 
                 style={{ 
                     display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
+                    gridTemplateColumns: '1fr',
                     gap: '20px',
                     alignItems: 'start',
                     minHeight: '600px'
@@ -490,195 +448,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         </Form>
                     </Card>
 
-                    {/* Card 2: Sources RSS */}
-                    <Card 
-                        title={
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ 
-                                    backgroundColor: '#5B5BD6', 
-                                    color: 'white', 
-                                    borderRadius: '50%', 
-                                    width: '32px', 
-                                    height: '32px', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold'
-                                }}>
-                                    2
-                                </div>
-                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
-                                    {t('createContent.rssSourcesCard')}
-                                </span>
-                            </div>
-                        }
-                        styles={{
-                            header: { borderBottom: 'none' },
-                            body: { paddingTop: 0 }
-                        }}
-                    >
-                        <Form form={form} style={{ padding: '8px 0' }}>
-                            <Form.Item shouldUpdate noStyle>
-                                {({ getFieldValue }) => {
-                                    const any = !!(
-                                        getFieldValue('newsletter') ||
-                                        getFieldValue('instagram') ||
-                                        getFieldValue('twitter') ||
-                                        getFieldValue('tiktok') ||
-                                        getFieldValue('linkedin')
-                                    );
-                                    if (!any) return null;
-                                    return (
-                                        selectableFavorites.length > 0 && (
-                                            <div>
-                                                <Typography.Text 
-                                                    strong 
-                                                    style={{ 
-                                                        fontWeight: '600', 
-                                                        fontSize: '14px',
-                                                        display: 'block'
-                                                    }}
-                                                >
-                                                    {t('createContent.favoritesTitle')}
-                                                </Typography.Text>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    {selectableFavorites.map((url) => {
-                                                        const selected = selectedFavorites.includes(url);
-                                                        return (
-                                                            <div
-                                                                key={url}
-                                                                style={{
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'space-between',
-                                                                    padding: '4px 6px',
-                                                                    border: '1px solid #d9d9d9',
-                                                                    borderRadius: '6px',
-                                                                    backgroundColor: selected ? '#f0f2ff' : '#ffffff',
-                                                                    cursor: 'pointer',
-                                                                    transition: 'all 0.2s',
-                                                                    minHeight: '40px'
-                                                                }}
-                                                                onClick={() =>
-                                                                    setSelectedFavorites((prev) =>
-                                                                        prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url],
-                                                                    )
-                                                                }
-                                                            >
-                                                                <span style={{ 
-                                                                    fontSize: '14px',
-                                                                    color: '#333',
-                                                                    flex: 1,
-                                                                    overflow: 'hidden',
-                                                                    textOverflow: 'ellipsis',
-                                                                    whiteSpace: 'nowrap',
-                                                                    marginRight: '12px'
-                                                                }}>
-                                                                    {url}
-                                                                </span>
-                                                                <Button
-                                                                    size="small"
-                                                                    type="text"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        toggleFavorite(url);
-                                                                    }}
-                                                                    style={{
-                                                                        border: 'none',
-                                                                        boxShadow: 'none',
-                                                                        padding: '2px',
-                                                                        width: '24px',
-                                                                        height: '24px',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                        backgroundColor: '#FCD34D',
-                                                                        borderRadius: '4px'
-                                                                    }}
-                                                                    icon={<StarFilled style={{ color: '#ffffff', fontSize: '12px' }} />}
-                                                                />
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <Typography.Text 
-                                                    type="secondary"
-                                                    style={{ fontSize: '12px', lineHeight: '1.4' }}
-                                                >
-                                                    {t('createContent.favoritesHelp')}
-                                                </Typography.Text>
-                                            </div>
-                                        )
-                                    );
-                                }}
-                            </Form.Item>
-
-                            <Form.Item shouldUpdate noStyle>
-                                {({ getFieldValue }) => {
-                                    const anyNetwork = !!(
-                                        getFieldValue('newsletter') ||
-                                        getFieldValue('instagram') ||
-                                        getFieldValue('twitter') ||
-                                        getFieldValue('tiktok') ||
-                                        getFieldValue('linkedin')
-                                    );
-                                    if (!anyNetwork)
-                                        return (
-                                            <div style={{ 
-                                                textAlign: 'center', 
-                                                padding: '20px 16px',
-                                                background: '#fafafa',
-                                                borderRadius: '8px',
-                                                border: '1px solid #f0f0f0'
-                                            }}>
-                                                <Typography.Text 
-                                                    type="secondary"
-                                                    style={{ fontSize: '14px' }}
-                                                >
-                                                    {t('createContent.selectNetworkPrompt')}
-                                                </Typography.Text>
-                                            </div>
-                                        );
-                                    return (
-                                        <div style={{ 
-                                            textAlign: 'center',
-                                            padding: '16px',
-                                            background: '#f6f8fa',
-                                            borderRadius: '8px',
-                                            border: '1px solid #e8eaed'
-                                        }}>
-                                            <Typography.Text 
-                                                strong
-                                                style={{ 
-                                                    fontSize: '14px',
-                                                    color: '#1f2937',
-                                                    display: 'block'
-                                                }}
-                                            >
-                                                {t('createContent.itemsFound', { count: rssCount })}
-                                            </Typography.Text>
-                                            {getFieldValue('newsletter') && activeSectionIndex >= 0 && sections[activeSectionIndex] && (
-                                                <div style={{ 
-                                                    padding: '8px 12px', 
-                                                    background: '#f0f2f5', 
-                                                    borderRadius: '6px' 
-                                                }}>
-                                                    <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
-                                                        {t('createContent.selectingForSection', {
-                                                            title:
-                                                                sections[activeSectionIndex].title ||
-                                                                `${t('createContent.section', 'Seção')} ${activeSectionIndex + 1}`,
-                                                        })}
-                                                    </Typography.Text>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                }}
-                            </Form.Item>
-                        </Form>
-                    </Card>
+                    
 
                     {/* Card 3: Content Generation */}
                     <Form form={form}>
@@ -703,10 +473,10 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                     fontSize: '16px',
                                                     fontWeight: 'bold'
                                                 }}>
-                                                    3
+                                                    2
                                                 </div>
                                                 <span style={{ fontSize: '16px', fontWeight: '600' }}>
-                                                    Geração de Conteúdo
+                                                    Seções da Newsletter
                                                 </span>
                                             </div>
                                         }
@@ -760,7 +530,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 {sections.map((section, idx) => {
                                                     if (!section.title && !section.description) return null;
-                                                    
+                
                                                     return (
                                                         <div
                                                             key={section.id}
@@ -854,6 +624,29 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                     />
                                                                 </div>
                                                             </div>
+                                                            {(section.rssItems && section.rssItems.length > 0) && (
+                                                                <div style={{ marginTop: 8, background: '#fff', border: '1px solid #e9ecef', borderRadius: 6, padding: '8px 12px' }}>
+                                                                    <Typography.Text strong style={{ fontSize: 13 }}>
+                                                                        Artigos selecionados ({section.rssItems.length})
+                                                                    </Typography.Text>
+                                                                    <List
+                                                                        dataSource={section.rssItems}
+                                                                        split={false}
+                                                                        style={{ marginTop: 6, maxHeight: 200, overflow: 'auto' }}
+                                                                        renderItem={(it) => (
+                                                                            <List.Item style={{ padding: '6px 0' }}>
+                                                                                <Typography.Text style={{ fontSize: 12 }}>
+                                                                                    {it.link ? (
+                                                                                        <a href={it.link} target="_blank" rel="noreferrer">{it.title || it.link}</a>
+                                                                                    ) : (
+                                                                                        it.title || 'No title'
+                                                                                    )}
+                                                                                </Typography.Text>
+                                                                            </List.Item>
+                                                                        )}
+                                                                    />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
@@ -891,6 +684,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                             onClick={() => setActiveSectionIndex(-1)}
                                                             title="Fechar edição"
                                                         />
+                                                        {/* Removido dropdown; seleção agora é uma lista agrupada abaixo */}
                                                     </div>
                                                     <Space direction="vertical" style={{ width: '100%' }}>
                                                         <Input
@@ -927,6 +721,181 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                 resize: 'none'
                                                             }}
                                                         />
+                                                        {(() => {
+                                                            // Lista de artigos por fonte (estilo Card 4), apenas para a seção ativa
+                                                            const getKey = (it: RssItem) => it.link || it.title || '';
+                                                            const selectedInOthers = new Set<string>(
+                                                                sections
+                                                                    .filter((_, idx) => idx !== activeSectionIndex)
+                                                                    .flatMap((s) => (s.rssItems || []).map(getKey))
+                                                            );
+                                                            const groups: { [key: string]: RssItem[] } = {};
+                                                            rssItems.forEach((item) => {
+                                                                const key = getKey(item);
+                                                                if (!key || selectedInOthers.has(key)) return;
+                                                                const sourceName = item.source || 'Unknown';
+                                                                if (!groups[sourceName]) groups[sourceName] = [];
+                                                                groups[sourceName].push(item);
+                                                            });
+                                                            const groupedAvailable = Object.entries(groups).map(([name, items]) => ({ name, items }));
+                                                            return (
+                                                                <>
+                                                                <div style={{ margin: '8px 0 12px' }}>
+                                                                    <Typography.Text strong style={{ fontSize: 13 }}>
+                                                                        Fontes favoritas ({favoriteUrls.length})
+                                                                    </Typography.Text>
+                                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                                                                        {favoriteUrls.map((url) => (
+                                                                            <span key={url} style={{
+                                                                                background: '#f0f2f5',
+                                                                                border: '1px solid #e5e7eb',
+                                                                                borderRadius: 14,
+                                                                                padding: '2px 8px',
+                                                                                fontSize: 12,
+                                                                                color: '#374151',
+                                                                                maxWidth: '100%',
+                                                                                overflow: 'hidden',
+                                                                                textOverflow: 'ellipsis',
+                                                                                whiteSpace: 'nowrap'
+                                                                            }} title={url}>
+                                                                                {url}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                                {groupedAvailable.length === 0 ? (
+                                                                    <div style={{ textAlign: 'center', padding: 12, color: '#999' }}>
+                                                                        {t('createContent.listEmpty')}
+                                                                    </div>
+                                                                ) : (
+                                                                <Collapse
+                                                                    items={groupedAvailable.map(group => ({
+                                                                        key: group.name,
+                                                                        label: (
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                                                                <span style={{ fontWeight: '600', fontSize: '15px', color: '#1f2937' }}>
+                                                                                    {group.name}
+                                                                                </span>
+                                                                                <Badge count={group.items.length} overflowCount={99} style={{ backgroundColor: '#6366f1' }} />
+                                                                            </div>
+                                                                        ),
+                                                                        children: (
+                                                                            <div style={{ paddingTop: '0px' }}>
+                                                                                <List
+                                                                                    dataSource={group.items}
+                                                                                    split={false}
+                                                                                    renderItem={(it) => {
+                                                                                        const linkKey = getKey(it);
+                                                                                        const current = sections[activeSectionIndex];
+                                                                                        const exists = current.rssItems.find((r) => (r.link || r.title) === (it.link || it.title));
+                                                                                        const checked = !!exists;
+                                                                                        return (
+                                                                                            <List.Item
+                                                                                                style={{
+                                                                                                    background: 'transparent',
+                                                                                                    border: 'none',
+                                                                                                    borderRadius: '0px',
+                                                                                                    marginBottom: '16px',
+                                                                                                    padding: '8px 0px',
+                                                                                                    cursor: 'pointer',
+                                                                                                    transition: 'all 0.2s ease'
+                                                                                                }}
+                                                                                                onClick={() => {
+                                                                                                    if (!linkKey) return;
+                                                                                                    setSections((prev) => {
+                                                                                                        const next = [...prev];
+                                                                                                        const s = next[activeSectionIndex];
+                                                                                                        const existsIdx = s.rssItems.findIndex(
+                                                                                                            (r) => (r.link || r.title) === (it.link || it.title),
+                                                                                                        );
+                                                                                                        if (existsIdx >= 0) s.rssItems.splice(existsIdx, 1);
+                                                                                                        else {
+                                                                                                            s.rssItems.push(it);
+                                                                                                            next.forEach((sec, i) => {
+                                                                                                                if (i !== activeSectionIndex) {
+                                                                                                                    const ri = sec.rssItems.findIndex((r) => (r.link || r.title) === linkKey);
+                                                                                                                    if (ri >= 0) sec.rssItems.splice(ri, 1);
+                                                                                                                }
+                                                                                                            });
+                                                                                                        }
+                                                                                                        next[activeSectionIndex] = { ...s };
+                                                                                                        return next;
+                                                                                                    });
+                                                                                                }}
+                                                                                            >
+                                                                                                <List.Item.Meta
+                                                                                                    avatar={
+                                                                                                        <Checkbox
+                                                                                                            checked={checked}
+                                                                                                            onChange={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                const isC = e.target.checked;
+                                                                                                                setSections((prev) => {
+                                                                                                                    const next = [...prev];
+                                                                                                                    const s = next[activeSectionIndex];
+                                                                                                                    const existsIdx = s.rssItems.findIndex(
+                                                                                                                        (r) => (r.link || r.title) === (it.link || it.title),
+                                                                                                                    );
+                                                                                                                    const present = existsIdx >= 0;
+                                                                                                                    if (isC && !present) {
+                                                                                                                        s.rssItems.push(it);
+                                                                                                                        next.forEach((sec, i) => {
+                                                                                                                            if (i !== activeSectionIndex) {
+                                                                                                                                const ri = sec.rssItems.findIndex((r) => (r.link || r.title) === linkKey);
+                                                                                                                                if (ri >= 0) sec.rssItems.splice(ri, 1);
+                                                                                                                            }
+                                                                                                                        });
+                                                                                                                    }
+                                                                                                                    if (!isC && present) s.rssItems.splice(existsIdx, 1);
+                                                                                                                    next[activeSectionIndex] = { ...s };
+                                                                                                                    return next;
+                                                                                                                });
+                                                                                                            }}
+                                                                                                        />
+                                                                                                    }
+                                                                                                    title={
+                                                                                                        it.link ? (
+                                                                                                            <a href={it.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                                                                                {it.title || it.link}
+                                                                                                            </a>
+                                                                                                        ) : (
+                                                                                                            it.title || 'No title'
+                                                                                                        )
+                                                                                                    }
+                                                                                                    description={
+                                                                                                        <div>
+                                                                                                            <div style={{ 
+                                                                                                                marginBottom: 4,
+                                                                                                                overflow: 'hidden',
+                                                                                                                display: '-webkit-box',
+                                                                                                                WebkitLineClamp: 2,
+                                                                                                                WebkitBoxOrient: 'vertical',
+                                                                                                                fontSize: '13px',
+                                                                                                                color: '#666',
+                                                                                                                lineHeight: '1.4'
+                                                                                                            }}>
+                                                                                                                {it.contentSnippet || 'Sem descrição disponível'}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    }
+                                                                                                />
+                                                                                            </List.Item>
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        )
+                                                                    }))}
+                                                                    style={{ backgroundColor: 'transparent', border: 'none' }}
+                                                                    expandIconPosition="end"
+                                                                    ghost
+                                                                    size="large"
+                                                                    className="custom-collapse"
+                                                                />
+                                                                )}
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </Space>
                                                 </div>
                                             )}
@@ -938,222 +907,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     </Form>
                 </div>
 
-                {/* Main Content - News Feed */}
-                <div>
-                    {/* Card 4: News Feed */}
-                    <Form form={form}>
-                        <Form.Item shouldUpdate noStyle>
-                            {({ getFieldValue }) => {
-                                const any = !!(
-                                    getFieldValue('newsletter') ||
-                                    getFieldValue('instagram') ||
-                                    getFieldValue('twitter') ||
-                                    getFieldValue('tiktok') ||
-                                    getFieldValue('linkedin')
-                                );
-                                if (!any) return null;
-                                
-                                return (
-                                    <Card 
-                                        title={
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <div style={{ 
-                                                    backgroundColor: '#5B5BD6', 
-                                                    color: 'white', 
-                                                    borderRadius: '50%', 
-                                                    width: '32px', 
-                                                    height: '32px', 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    justifyContent: 'center',
-                                                    fontSize: '16px',
-                                                    fontWeight: 'bold'
-                                                }}>
-                                                    4
-                                                </div>
-                                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
-                                                    {t('createContent.newsFeedCard')}
-                                                </span>
-                                            </div>
-                                        }
-                                        style={{ height: 'fit-content' }}
-                                        styles={{
-                                            header: { borderBottom: 'none' },
-                                            body: { paddingTop: 0 }
-                                        }}
-                                    >
-                                        <div 
-                                            style={{ 
-                                                gridTemplateColumns: '1fr 1fr',
-                                                gap: '20px',
-                                                alignItems: 'start',
-                                                minHeight: '500px'
-                                            }}
-                                        >
-                                           
-
-                                            {/* Main content - List of news items grouped by source */}
-                                            <div style={{ maxHeight: 600, overflow: 'auto' }}>
-                                                {groupedRssItems.length === 0 ? (
-                                                    <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                                                        {t('createContent.listEmpty')}
-                                                    </div>
-                                                ) : (
-                                                    <Collapse
-                                                        items={groupedRssItems.map(group => ({
-                                                            key: group.name,
-                                                            label: (
-                                                                <div style={{ 
-                                                                    display: 'flex', 
-                                                                    justifyContent: 'space-between', 
-                                                                    alignItems: 'center', 
-                                                                    width: '100%'
-                                                                }}>
-                                                                    <span style={{ fontWeight: '600', fontSize: '15px', color: '#1f2937' }}>
-                                                                        {group.name}
-                                                                    </span>
-                                                                    <Badge 
-                                                                        count={group.items.length} 
-                                                                        overflowCount={99}
-                                                                        style={{ backgroundColor: '#6366f1' }}
-                                                                    />
-                                                                </div>
-                                                            ),
-                                                            children: (
-                                                                <div style={{ paddingTop: '0px' }}>
-                                                                    <List
-                                                                        dataSource={group.items}
-                                                                        split={false}
-                                                                        renderItem={(it) => {
-                                                                        const linkKey = it.link || it.title || '';
-                                                                        // General selection or section-specific selection
-                                                                        let checked = linkKey ? selectedItemLinks.has(linkKey) : true;
-                                                                        const newsletterChecked = (() => {
-                                                                            if (activeSectionIndex < 0 || !sections[activeSectionIndex]) return undefined;
-                                                                            const current = sections[activeSectionIndex];
-                                                                            const exists = current.rssItems.find((r) => (r.link || r.title) === (it.link || it.title));
-                                                                            return !!exists;
-                                                                        })();
-                                                                        if (newsletterChecked !== undefined) checked = newsletterChecked;
-                                                                        
-                                                                        return (
-                                                                            <List.Item
-                                                                                style={{
-                                                                                    background: 'transparent',
-                                                                                    border: 'none',
-                                                                                    borderRadius: '0px',
-                                                                                    marginBottom: '16px',
-                                                                                    padding: '8px 0px',
-                                                                                    cursor: 'pointer',
-                                                                                    transition: 'all 0.2s ease'
-                                                                                }}
-                                                                                onClick={() => {
-                                                                                    if (!linkKey) return;
-                                                                                    // If a newsletter section is active, toggle within that section. Otherwise toggle general selection
-                                                                                    if (activeSectionIndex >= 0 && sections[activeSectionIndex]) {
-                                                                                        setSections((prev) => {
-                                                                                            const next = [...prev];
-                                                                                            const s = next[activeSectionIndex];
-                                                                                            const existsIdx = s.rssItems.findIndex(
-                                                                                                (r) => (r.link || r.title) === (it.link || it.title),
-                                                                                            );
-                                                                                            if (existsIdx >= 0) s.rssItems.splice(existsIdx, 1);
-                                                                                            else s.rssItems.push(it);
-                                                                                            next[activeSectionIndex] = { ...s };
-                                                                                            return next;
-                                                                                        });
-                                                                                    } else {
-                                                                                        setSelectedItemLinks((prev) => {
-                                                                                            const next = new Set(prev);
-                                                                                            if (next.has(linkKey)) next.delete(linkKey);
-                                                                                            else next.add(linkKey);
-                                                                                            return next;
-                                                                                        });
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                <List.Item.Meta
-                                                                                    avatar={
-                                                                                        <Checkbox
-                                                                                            checked={checked}
-                                                                                            onChange={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                const isC = e.target.checked;
-                                                                                                if (activeSectionIndex >= 0 && sections[activeSectionIndex]) {
-                                                                                                    setSections((prev) => {
-                                                                                                        const next = [...prev];
-                                                                                                        const s = next[activeSectionIndex];
-                                                                                                        const existsIdx = s.rssItems.findIndex(
-                                                                                                            (r) => (r.link || r.title) === (it.link || it.title),
-                                                                                                        );
-                                                                                                        const present = existsIdx >= 0;
-                                                                                                        if (isC && !present) s.rssItems.push(it);
-                                                                                                        if (!isC && present) s.rssItems.splice(existsIdx, 1);
-                                                                                                        next[activeSectionIndex] = { ...s };
-                                                                                                        return next;
-                                                                                                    });
-                                                                                                } else {
-                                                                                                    setSelectedItemLinks((prev) => {
-                                                                                                        const next = new Set(prev);
-                                                                                                        if (isC) next.add(linkKey);
-                                                                                                        else next.delete(linkKey);
-                                                                                                        return next;
-                                                                                                    });
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                    }
-                                                                                    title={
-                                                                                        it.link ? (
-                                                                                            <a href={it.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                                                                                {it.title || it.link}
-                                                                                            </a>
-                                                                                        ) : (
-                                                                                            it.title || 'No title'
-                                                                                        )
-                                                                                    }
-                                                                                    description={
-                                                                                        <div>
-                                                                                            <div style={{ 
-                                                                                                marginBottom: 4,
-                                                                                                overflow: 'hidden',
-                                                                                                display: '-webkit-box',
-                                                                                                WebkitLineClamp: 2,
-                                                                                                WebkitBoxOrient: 'vertical',
-                                                                                                fontSize: '13px',
-                                                                                                color: '#666',
-                                                                                                lineHeight: '1.4'
-                                                                                            }}>
-                                                                                                {it.contentSnippet || 'Sem descrição disponível'}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    }
-                                                                                />
-                                                                            </List.Item>
-                                                                        );
-                                                                    }}
-                                                                />
-                                                                </div>
-                                                            )
-                                                        }))}
-                                                        style={{ 
-                                                            backgroundColor: 'transparent',
-                                                            border: 'none'
-                                                        }}
-                                                        expandIconPosition="end"
-                                                        ghost
-                                                        size="large"
-                                                        className="custom-collapse"
-                                                    />
-                                                )}
-                                            </div>
-                                        </div>
-                                    </Card>
-                                );
-                            }}
-                        </Form.Item>
-                    </Form>
-                </div>
+                
             </div>
 
             {/* Action Buttons */}
