@@ -138,17 +138,26 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         try {
             const values = await form.validateFields();
             const urls = Array.from(new Set(selectedFavorites));
-            const itemsToSave = rssItems.filter((it) => !it.link || selectedItemLinks.has(it.link));
-
-            // If newsletter and sections exist, build per-section items (using selectedItemLinks as selection for the active section)
+            
+            // For newsletter mode, items are organized within sections
+            // For other modes, collect all articles from all sections
+            let itemsToSave: RssItem[] = [];
             let newsletterSections: NewsletterSection[] | undefined = undefined;
+            
             if (values.newsletter && sections.length > 0) {
+                // Newsletter mode: use sections with their articles
                 newsletterSections = sections.map((s, idx) => ({
                     id: s.id,
-                    title: s.title?.trim() || `Seção ${idx + 1}`,
+                    title: s.title?.trim() || `${t('createContent.section', 'Seção')} ${idx + 1}`,
                     description: s.description?.trim() || undefined,
                     rssItems: s.rssItems || [],
                 }));
+                
+                // For newsletter, itemsToSave includes all articles from all sections
+                itemsToSave = sections.flatMap(s => s.rssItems || []);
+            } else {
+                // Non-newsletter mode: use old logic with selectedItemLinks
+                itemsToSave = rssItems.filter((it) => !it.link || selectedItemLinks.has(it.link));
             }
             setLoading(true);
             const method = editingId ? 'set.contents.update' : 'set.contents.create';
@@ -273,6 +282,52 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         return Object.entries(groups).map(([name, items]) => ({ name, items }));
     }, [rssItems]);
 
+    // Function to check if an article is already in any section
+    const isArticleInAnySection = (article: RssItem) => {
+        const articleKey = article.link || article.title || '';
+        return sections.some(section => 
+            section.rssItems.some(item => (item.link || item.title || '') === articleKey)
+        );
+    };
+
+    // Function to add article to active section
+    const addArticleToActiveSection = (article: RssItem) => {
+        if (activeSectionIndex < 0 || !sections[activeSectionIndex]) return;
+        
+        setSections((prev) => {
+            const next = [...prev];
+            const section = next[activeSectionIndex];
+            const articleKey = article.link || article.title || '';
+            
+            // Check if it already exists in the section
+            const exists = section.rssItems.find(item => (item.link || item.title || '') === articleKey);
+            if (!exists) {
+                section.rssItems.push(article);
+                next[activeSectionIndex] = { ...section };
+            }
+            
+            return next;
+        });
+    };
+
+    // Function to remove article from active section
+    const removeArticleFromActiveSection = (article: RssItem) => {
+        if (activeSectionIndex < 0 || !sections[activeSectionIndex]) return;
+        
+        setSections((prev) => {
+            const next = [...prev];
+            const section = next[activeSectionIndex];
+            const articleKey = article.link || article.title || '';
+            
+            section.rssItems = section.rssItems.filter(item => 
+                (item.link || item.title || '') !== articleKey
+            );
+            next[activeSectionIndex] = { ...section };
+            
+            return next;
+        });
+    };
+
     if (!userId) {
         // fallback guard
         navigate(protectedRoutes.createContent.path);
@@ -299,7 +354,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     gridTemplateColumns: '1fr 1fr',
                     gap: '20px',
                     alignItems: 'start',
-                    minHeight: '600px'
+                    minHeight: '600px',
+                    maxWidth: '100%',
+                    width: '100%'
                 }}
             >
                 {/* Sidebar - Configuration Cards */}
@@ -706,7 +763,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                     3
                                                 </div>
                                                 <span style={{ fontSize: '16px', fontWeight: '600' }}>
-                                                    Geração de Conteúdo
+                                                    {t('createContent.contentGenerationCard')}
                                                 </span>
                                             </div>
                                         }
@@ -730,7 +787,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                             fontSize: '14px'
                                                         }}
                                                     >
-                                                        Seções da Newsletter:
+                                                        {t('createContent.newsletterSectionsTitle')}
                                                     </Typography.Text>
                                                     <Button
                                                         type="link"
@@ -751,185 +808,301 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                             setActiveSectionIndex(sections.length);
                                                         }}
                                                     >
-                                                        + Adicionar Seção
+                                                        {t('createContent.addSectionButton')}
                                                     </Button>
                                                 </div>
                                             </div>
 
-                                            {/* List of Saved Sections */}
+                                            {/* Sections List - Interactive Cards */}
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 {sections.map((section, idx) => {
-                                                    if (!section.title && !section.description) return null;
+                                                    const isEditing = activeSectionIndex === idx;
+                                                    const hasContent = section.title || section.description;
                                                     
                                                     return (
                                                         <div
                                                             key={section.id}
                                                             style={{
-                                                                backgroundColor: '#f8f9fa',
-                                                                border: '1px solid #e9ecef',
+                                                                backgroundColor: isEditing ? '#f0f2ff' : '#f8f9fa',
+                                                                border: `1px solid ${isEditing ? '#5B5BD6' : '#e9ecef'}`,
                                                                 borderRadius: '8px',
                                                                 padding: '12px 16px',
-                                                                position: 'relative'
+                                                                position: 'relative',
+                                                                transition: 'all 0.3s ease'
                                                             }}
                                                         >
-                                                            <div style={{ 
-                                                                display: 'flex', 
-                                                                alignItems: 'flex-start', 
-                                                                justifyContent: 'space-between',
-                                                                marginBottom: '4px'
-                                                            }}>
-                                                                <div style={{ flex: 1 }}>
-                                                                    <Typography.Text 
-                                                                        strong 
-                                                                        style={{ 
-                                                                            fontSize: '14px',
-                                                                            color: '#1a1a1a',
-                                                                            display: 'block',
-                                                                            marginBottom: '4px'
-                                                                        }}
-                                                                    >
-                                                                        {section.title}
-                                                                    </Typography.Text>
-                                                                    <Typography.Text 
-                                                                        type="secondary" 
-                                                                        style={{ 
-                                                                            fontSize: '12px',
-                                                                            lineHeight: '1.4'
-                                                                        }}
-                                                                    >
-                                                                        {section.description}
-                                                                    </Typography.Text>
+                                                            {!isEditing && hasContent ? (
+                                                                // View Mode (Mini Card)
+                                                                <div style={{ 
+                                                                    display: 'flex', 
+                                                                    alignItems: 'flex-start', 
+                                                                    justifyContent: 'space-between',
+                                                                    gap: '12px'
+                                                                }}>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                                                            <div style={{ 
+                                                                                backgroundColor: '#5B5BD6', 
+                                                                                color: 'white', 
+                                                                                borderRadius: '50%', 
+                                                                                width: '20px', 
+                                                                                height: '20px', 
+                                                                                display: 'flex', 
+                                                                                alignItems: 'center', 
+                                                                                justifyContent: 'center',
+                                                                                fontSize: '12px',
+                                                                                fontWeight: 'bold',
+                                                                                flexShrink: 0
+                                                                            }}>
+                                                                                {idx + 1}
+                                                                            </div>
+                                                                            <Typography.Text 
+                                                                                strong 
+                                                                                style={{ 
+                                                                                    fontSize: '14px',
+                                                                                    color: '#1a1a1a'
+                                                                                }}
+                                                                            >
+                                                                                {section.title}
+                                                                            </Typography.Text>
+                                                                        </div>
+                                                                        <Typography.Text 
+                                                                            type="secondary" 
+                                                                            style={{ 
+                                                                                fontSize: '12px',
+                                                                                lineHeight: '1.4',
+                                                                                display: 'block',
+                                                                                marginLeft: '28px'
+                                                                            }}
+                                                                        >
+                                                                            {section.description}
+                                                                        </Typography.Text>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-start' }}>
+                                                                        <Button
+                                                                            type="text"
+                                                                            size="small"
+                                                                            icon={<EditOutlined />}
+                                                                            style={{ 
+                                                                                width: '24px',
+                                                                                height: '24px',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center'
+                                                                            }}
+                                                                            onClick={() => setActiveSectionIndex(idx)}
+                                                                        />
+                                                                        <Button
+                                                                            type="text"
+                                                                            size="small"
+                                                                            icon={<DeleteOutlined />}
+                                                                            style={{ 
+                                                                                width: '24px',
+                                                                                height: '24px',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center',
+                                                                                color: '#ff4d4f'
+                                                                            }}
+                                                                            onClick={() => {
+                                                                                if (sections.length > 1) {
+                                                                                    setSections((prev) => prev.filter((s) => s.id !== section.id));
+                                                                                    if (activeSectionIndex === idx) {
+                                                                                        setActiveSectionIndex(-1);
+                                                                                    } else if (activeSectionIndex > idx) {
+                                                                                        setActiveSectionIndex((i) => i - 1);
+                                                                                    }
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </div>
                                                                 </div>
-                                                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                            ) : (
+                                                                // Edit Mode (Inline Form)
+                                                                <div>
                                                                     <div style={{ 
-                                                                        backgroundColor: '#5B5BD6', 
-                                                                        color: 'white', 
-                                                                        borderRadius: '50%', 
-                                                                        width: '20px', 
-                                                                        height: '20px', 
                                                                         display: 'flex', 
                                                                         alignItems: 'center', 
-                                                                        justifyContent: 'center',
-                                                                        fontSize: '12px',
-                                                                        fontWeight: 'bold',
-                                                                        flexShrink: 0
+                                                                        justifyContent: 'space-between',
+                                                                        marginBottom: '12px'
                                                                     }}>
-                                                                        {idx + 1}
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                            <div style={{ 
+                                                                                backgroundColor: '#5B5BD6', 
+                                                                                color: 'white', 
+                                                                                borderRadius: '50%', 
+                                                                                width: '20px', 
+                                                                                height: '20px', 
+                                                                                display: 'flex', 
+                                                                                alignItems: 'center', 
+                                                                                justifyContent: 'center',
+                                                                                fontSize: '12px',
+                                                                                fontWeight: 'bold'
+                                                                            }}>
+                                                                                {idx + 1}
+                                                                            </div>
+                                                                            <Typography.Text 
+                                                                                strong 
+                                                                                style={{ 
+                                                                                    fontSize: '14px',
+                                                                                    color: '#5B5BD6'
+                                                                                }}
+                                                                            >
+                                                                                {hasContent ? t('createContent.editingSection') : t('createContent.newSection')}
+                                                                            </Typography.Text>
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                                            <Button
+                                                                                type="text"
+                                                                                size="small"
+                                                                                icon={<SaveOutlined />}
+                                                                                style={{ 
+                                                                                    width: '24px',
+                                                                                    height: '24px',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent: 'center',
+                                                                                    color: '#52c41a'
+                                                                                }}
+                                                                                onClick={() => setActiveSectionIndex(-1)}
+                                                                                title={t('createContent.saveAndClose')}
+                                                                            />
+                                                                            <Button
+                                                                                type="text"
+                                                                                size="small"
+                                                                                icon={<DeleteOutlined />}
+                                                                                style={{ 
+                                                                                    width: '24px',
+                                                                                    height: '24px',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent: 'center',
+                                                                                    color: '#ff4d4f'
+                                                                                }}
+                                                                                onClick={() => {
+                                                                                    if (sections.length > 1) {
+                                                                                        setSections((prev) => prev.filter((s) => s.id !== section.id));
+                                                                                        setActiveSectionIndex(-1);
+                                                                                    }
+                                                                                }}
+                                                                            />
+                                                                        </div>
                                                                     </div>
-                                                                    <Button
-                                                                        type="text"
-                                                                        size="small"
-                                                                        icon={<EditOutlined />}
-                                                                        style={{ 
-                                                                            width: '24px',
-                                                                            height: '24px',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            justifyContent: 'center'
-                                                                        }}
-                                                                        onClick={() => setActiveSectionIndex(idx)}
-                                                                    />
-                                                                    <Button
-                                                                        type="text"
-                                                                        size="small"
-                                                                        icon={<DeleteOutlined />}
-                                                                        style={{ 
-                                                                            width: '24px',
-                                                                            height: '24px',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            justifyContent: 'center',
-                                                                            color: '#ff4d4f'
-                                                                        }}
-                                                                        onClick={() => {
-                                                                            if (sections.length > 1) {
-                                                                                setSections((prev) => prev.filter((s) => s.id !== section.id));
-                                                                                if (activeSectionIndex === idx) {
-                                                                                    setActiveSectionIndex(0);
-                                                                                } else if (activeSectionIndex > idx) {
-                                                                                    setActiveSectionIndex((i) => i - 1);
-                                                                                }
-                                                                            }
-                                                                        }}
-                                                                    />
+                                                                    <Space direction="vertical" style={{ width: '100%' }}>
+                                                                        <Input
+                                                                            placeholder={t('createContent.sectionTitlePlaceholder')}
+                                                                            value={section.title}
+                                                                            onChange={(e) => {
+                                                                                const v = e.target.value;
+                                                                                setSections((prev) => {
+                                                                                    const next = [...prev];
+                                                                                    next[idx] = { ...next[idx], title: v };
+                                                                                    return next;
+                                                                                });
+                                                                            }}
+                                                                            style={{ 
+                                                                                borderRadius: '6px',
+                                                                                fontSize: '14px'
+                                                                            }}
+                                                                        />
+                                                                        <Input.TextArea
+                                                                            rows={3}
+                                                                            placeholder={t('createContent.sectionDescriptionPlaceholder')}
+                                                                            value={section.description}
+                                                                            onChange={(e) => {
+                                                                                const v = e.target.value;
+                                                                                setSections((prev) => {
+                                                                                    const next = [...prev];
+                                                                                    next[idx] = { ...next[idx], description: v };
+                                                                                    return next;
+                                                                                });
+                                                                            }}
+                                                                            style={{ 
+                                                                                borderRadius: '6px',
+                                                                                fontSize: '14px',
+                                                                                resize: 'none'
+                                                                            }}
+                                                                        />
+                                                                        
+                                                                        {/* Section Articles List */}
+                                                                        {section.rssItems && section.rssItems.length > 0 && (
+                                                                            <div style={{ marginTop: '16px' }}>
+                                                                                <Typography.Text 
+                                                                                    strong 
+                                                                                    style={{ 
+                                                                                        fontSize: '13px',
+                                                                                        display: 'block',
+                                                                                        marginBottom: '8px',
+                                                                                        color: '#5B5BD6'
+                                                                                    }}
+                                                                                >
+                                                                                    {t('createContent.articlesInSection')} ({section.rssItems.length})
+                                                                                </Typography.Text>
+                                                                                <div>
+                                                                                    {section.rssItems.map((article, articleIdx) => (
+                                                                                        <div
+                                                                                            key={`${article.link || article.title}-${articleIdx}`}
+                                                                                            style={{
+                                                                                                border: '1px solid #f0f0f0',
+                                                                                                borderRadius: '6px',
+                                                                                                padding: '8px 12px',
+                                                                                                marginBottom: '8px',
+                                                                                                backgroundColor: '#fafafa',
+                                                                                                display: 'flex',
+                                                                                                alignItems: 'flex-start',
+                                                                                                gap: '8px',
+                                                                                                maxWidth: '100%',
+                                                                                                overflow: 'hidden'
+                                                                                            }}
+                                                                                        >
+                                                                                            <div style={{ flex: '0 1 auto', minWidth: 0 }}>
+                                                                                                <div style={{ 
+                                                                                                    fontSize: '13px',
+                                                                                                    fontWeight: '500'                                                                                                    
+                                                                                                }}>
+                                                                                                    {article.title}
+                                                                                                </div>
+                                                                                                <div style={{ 
+                                                                                                    fontSize: '12px',
+                                                                                                    color: '#666',
+                                                                                                    overflow: 'hidden',
+                                                                                                    display: '-webkit-box',
+                                                                                                    WebkitLineClamp: 2,
+                                                                                                    WebkitBoxOrient: 'vertical'
+                                                                                                }}>
+                                                                                                    {article.contentSnippet}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <Button
+                                                                                                type="primary"
+                                                                                                size="small"
+                                                                                                danger
+                                                                                                icon={<span style={{ fontSize: '12px' }}>→</span>}
+                                                                                                onClick={() => removeArticleFromActiveSection(article)}
+                                                                                                style={{
+                                                                                                    width: '24px',
+                                                                                                    height: '24px',
+                                                                                                    display: 'flex',
+                                                                                                    alignItems: 'center',
+                                                                                                    justifyContent: 'center',
+                                                                                                    flexShrink: 0
+                                                                                                }}
+                                                                                                title={t('createContent.removeFromSection')}
+                                                                                            />
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </Space>
                                                                 </div>
-                                                            </div>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
                                             </div>
 
-                                            {/* Edit Form */}
-                                            {activeSectionIndex >= 0 && sections[activeSectionIndex] && (
-                                                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e9ecef' }}>
-                                                    <div style={{ 
-                                                        display: 'flex', 
-                                                        alignItems: 'center', 
-                                                        justifyContent: 'space-between',
-                                                        marginBottom: '12px'
-                                                    }}>
-                                                        <Typography.Text 
-                                                            strong 
-                                                            style={{ 
-                                                                fontSize: '14px'
-                                                            }}
-                                                        >
-                                                            Editando Seção {activeSectionIndex + 1}:
-                                                        </Typography.Text>
-                                                        <Button
-                                                            type="text"
-                                                            size="small"
-                                                            icon={<SaveOutlined />}
-                                                            style={{ 
-                                                                width: '24px',
-                                                                height: '24px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                color: '#5B5BD6'
-                                                            }}
-                                                            onClick={() => setActiveSectionIndex(-1)}
-                                                            title="Fechar edição"
-                                                        />
-                                                    </div>
-                                                    <Space direction="vertical" style={{ width: '100%' }}>
-                                                        <Input
-                                                            placeholder="Título da seção"
-                                                            value={sections[activeSectionIndex]?.title}
-                                                            onChange={(e) => {
-                                                                const v = e.target.value;
-                                                                setSections((prev) => {
-                                                                    const next = [...prev];
-                                                                    next[activeSectionIndex] = { ...next[activeSectionIndex], title: v };
-                                                                    return next;
-                                                                });
-                                                            }}
-                                                            style={{ 
-                                                                borderRadius: '6px',
-                                                                fontSize: '14px'
-                                                            }}
-                                                        />
-                                                        <Input.TextArea
-                                                            rows={3}
-                                                            placeholder="Descrição da seção"
-                                                            value={sections[activeSectionIndex]?.description}
-                                                            onChange={(e) => {
-                                                                const v = e.target.value;
-                                                                setSections((prev) => {
-                                                                    const next = [...prev];
-                                                                    next[activeSectionIndex] = { ...next[activeSectionIndex], description: v };
-                                                                    return next;
-                                                                });
-                                                            }}
-                                                            style={{ 
-                                                                borderRadius: '6px',
-                                                                fontSize: '14px',
-                                                                resize: 'none'
-                                                            }}
-                                                        />
-                                                    </Space>
-                                                </div>
-                                            )}
+
                                         </div>
                                     </Card>
                                 );
@@ -1000,7 +1173,13 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                     </div>
                                                 ) : (
                                                     <Collapse
-                                                        items={groupedRssItems.map(group => ({
+                                                        items={groupedRssItems
+                                                            .map(group => ({
+                                                                ...group,
+                                                                items: group.items.filter(item => !isArticleInAnySection(item))
+                                                            }))
+                                                            .filter(group => group.items.length > 0)
+                                                            .map(group => ({
                                                             key: group.name,
                                                             label: (
                                                                 <div style={{ 
@@ -1013,7 +1192,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                         {group.name}
                                                                     </span>
                                                                     <Badge 
-                                                                        count={group.items.length} 
+                                                                        count={group.items.filter(item => !isArticleInAnySection(item)).length} 
                                                                         overflowCount={99}
                                                                         style={{ backgroundColor: '#6366f1' }}
                                                                     />
@@ -1022,112 +1201,88 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                             children: (
                                                                 <div style={{ paddingTop: '0px' }}>
                                                                     <List
-                                                                        dataSource={group.items}
+                                                                        dataSource={group.items.filter(item => !isArticleInAnySection(item))}
                                                                         split={false}
                                                                         renderItem={(it) => {
-                                                                        const linkKey = it.link || it.title || '';
-                                                                        // General selection or section-specific selection
-                                                                        let checked = linkKey ? selectedItemLinks.has(linkKey) : true;
-                                                                        const newsletterChecked = (() => {
-                                                                            if (activeSectionIndex < 0 || !sections[activeSectionIndex]) return undefined;
-                                                                            const current = sections[activeSectionIndex];
-                                                                            const exists = current.rssItems.find((r) => (r.link || r.title) === (it.link || it.title));
-                                                                            return !!exists;
-                                                                        })();
-                                                                        if (newsletterChecked !== undefined) checked = newsletterChecked;
-                                                                        
-                                                                        return (
-                                                                            <List.Item
-                                                                                style={{
-                                                                                    background: 'transparent',
-                                                                                    border: 'none',
-                                                                                    borderRadius: '0px',
-                                                                                    marginBottom: '16px',
-                                                                                    padding: '8px 0px',
-                                                                                    cursor: 'pointer',
-                                                                                    transition: 'all 0.2s ease'
-                                                                                }}
-                                                                                onClick={() => {
-                                                                                    if (!linkKey) return;
-                                                                                    // If a newsletter section is active, toggle within that section. Otherwise toggle general selection
-                                                                                    if (activeSectionIndex >= 0 && sections[activeSectionIndex]) {
-                                                                                        setSections((prev) => {
-                                                                                            const next = [...prev];
-                                                                                            const s = next[activeSectionIndex];
-                                                                                            const existsIdx = s.rssItems.findIndex(
-                                                                                                (r) => (r.link || r.title) === (it.link || it.title),
-                                                                                            );
-                                                                                            if (existsIdx >= 0) s.rssItems.splice(existsIdx, 1);
-                                                                                            else s.rssItems.push(it);
-                                                                                            next[activeSectionIndex] = { ...s };
-                                                                                            return next;
-                                                                                        });
-                                                                                    } else {
-                                                                                        setSelectedItemLinks((prev) => {
-                                                                                            const next = new Set(prev);
-                                                                                            if (next.has(linkKey)) next.delete(linkKey);
-                                                                                            else next.add(linkKey);
-                                                                                            return next;
-                                                                                        });
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                <List.Item.Meta
-                                                                                    avatar={
-                                                                                        <Checkbox
-                                                                                            checked={checked}
-                                                                                            onChange={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                const isC = e.target.checked;
-                                                                                                if (activeSectionIndex >= 0 && sections[activeSectionIndex]) {
-                                                                                                    setSections((prev) => {
-                                                                                                        const next = [...prev];
-                                                                                                        const s = next[activeSectionIndex];
-                                                                                                        const existsIdx = s.rssItems.findIndex(
-                                                                                                            (r) => (r.link || r.title) === (it.link || it.title),
-                                                                                                        );
-                                                                                                        const present = existsIdx >= 0;
-                                                                                                        if (isC && !present) s.rssItems.push(it);
-                                                                                                        if (!isC && present) s.rssItems.splice(existsIdx, 1);
-                                                                                                        next[activeSectionIndex] = { ...s };
-                                                                                                        return next;
-                                                                                                    });
-                                                                                                } else {
-                                                                                                    setSelectedItemLinks((prev) => {
-                                                                                                        const next = new Set(prev);
-                                                                                                        if (isC) next.add(linkKey);
-                                                                                                        else next.delete(linkKey);
-                                                                                                        return next;
-                                                                                                    });
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                    }
-                                                                                    title={
-                                                                                        it.link ? (
-                                                                                            <a href={it.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                                                                                {it.title || it.link}
-                                                                                            </a>
-                                                                                        ) : (
-                                                                                            it.title || 'No title'
-                                                                                        )
-                                                                                    }
-                                                                                    description={
-                                                                                        <div>
-                                                                                            <div style={{ 
-                                                                                                marginBottom: 4,
-                                                                                                overflow: 'hidden',
-                                                                                                display: '-webkit-box',
-                                                                                                WebkitLineClamp: 2,
-                                                                                                WebkitBoxOrient: 'vertical',
-                                                                                                fontSize: '13px',
-                                                                                                color: '#666',
-                                                                                                lineHeight: '1.4'
-                                                                                            }}>
-                                                                                                {it.contentSnippet || 'Sem descrição disponível'}
+                                                                            const canAdd = activeSectionIndex >= 0 && sections[activeSectionIndex];
+                                                                            
+                                                                            return (
+                                                                                <List.Item
+                                                                                    style={{
+                                                                                        background: 'transparent',
+                                                                                        border: 'none',
+                                                                                        marginBottom: '12px',
+                                                                                        padding: '8px 0',
+                                                                                        transition: 'all 0.2s ease'
+                                                                                    }}
+                                                                                >
+                                                                                    <List.Item.Meta
+                                                                                        avatar={
+                                                                                            canAdd ? (
+                                                                                                <Button
+                                                                                                    type="primary"
+                                                                                                    size="small"
+                                                                                                    icon={<span style={{ fontSize: '12px' }}>←</span>}
+                                                                                                    onClick={() => addArticleToActiveSection(it)}
+                                                                                                    style={{
+                                                                                                        backgroundColor: '#52c41a',
+                                                                                                        borderColor: '#52c41a',
+                                                                                                        width: '28px',
+                                                                                                        height: '28px',
+                                                                                                        display: 'flex',
+                                                                                                        alignItems: 'center',
+                                                                                                        justifyContent: 'center'
+                                                                                                    }}
+                                                                                                    title={t('createContent.addToActiveSection')}
+                                                                                                />
+                                                                                            ) : (
+                                                                                                <div style={{
+                                                                                                    width: '28px',
+                                                                                                    height: '28px',
+                                                                                                    backgroundColor: '#f5f5f5',
+                                                                                                    borderRadius: '4px',
+                                                                                                    display: 'flex',
+                                                                                                    alignItems: 'center',
+                                                                                                    justifyContent: 'center',
+                                                                                                    color: '#d9d9d9'
+                                                                                                }}>
+                                                                                                    ●
+                                                                                                </div>
+                                                                                            )
+                                                                                        }
+                                                                                        title={
+                                                                                            it.link ? (
+                                                                                                <a href={it.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                                                                    {it.title || it.link}
+                                                                                                </a>
+                                                                                            ) : (
+                                                                                                it.title || 'No title'
+                                                                                            )
+                                                                                        }
+                                                                                        description={
+                                                                                            <div>
+                                                                                                <div style={{ 
+                                                                                                    marginBottom: 4,
+                                                                                                    overflow: 'hidden',
+                                                                                                    display: '-webkit-box',
+                                                                                                    WebkitLineClamp: 2,
+                                                                                                    WebkitBoxOrient: 'vertical',
+                                                                                                    fontSize: '13px',
+                                                                                                    color: '#666',
+                                                                                                    lineHeight: '1.4'
+                                                                                                }}>
+                                                                                                    {it.contentSnippet || t('createContent.noDescriptionAvailable')}
+                                                                                                </div>
+                                                                                                {!canAdd && (
+                                                                                                    <Typography.Text 
+                                                                                                        type="secondary" 
+                                                                                                        style={{ fontSize: '12px', fontStyle: 'italic' }}
+                                                                                                    >
+                                                                                                        {t('createContent.selectSectionToEdit')}
+                                                                                                    </Typography.Text>
+                                                                                                )}
                                                                                             </div>
-                                                                                        </div>
-                                                                                    }
+                                                                                        }
                                                                                 />
                                                                             </List.Item>
                                                                         );
