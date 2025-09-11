@@ -923,7 +923,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         {t('createContent.generateAISuggestion')}
                     </Button>
                     <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                        {t('createContent.generate')}
+                        {t('createContent.save')}
                     </Button>
                 </Space>
             </div>

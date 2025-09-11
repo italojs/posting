@@ -40,7 +40,7 @@ const common = {
   twitter: "Twitter",
   tiktok: "TikTok",
   linkedin: "LinkedIn",
-    generate: "Generate newsletter (save)",
+    save: "save",
 
     needAtLeastOneUrl: "Provide at least one RSS URL",
     listTitle: "Loaded items",
