@@ -337,28 +337,6 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
           </Space>
         </Card>
       )}
-
-  <Card>
-  <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <div>
-          <Typography.Title level={4} style={{ marginBottom: 0 }}>
-            {t('browse.communityTitle')}
-          </Typography.Title>
-          <Typography.Text type="secondary">{t('browse.communitySubtitle')}</Typography.Text>
-        </div>
-
-        {userProfiles.length === 0 ? (
-          <Empty description={t('browse.noUsers')} />
-        ) : (
-          <List
-            dataSource={userProfiles}
-            renderItem={(up) => (
-              <List.Item key={up._id}>@{up.username.replace(/^@/, '')}</List.Item>
-            )}
-          />
-        )}
-      </Space>
-      </Card>
   </Space>
     
   </>

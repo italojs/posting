@@ -88,11 +88,6 @@ const common = {
     finalCtaButton: "Probar Ahora",
     platformPreview: "Vista previa de la plataforma"
   },
-  browse: {
-    communityTitle: "Comunidad",
-    communitySubtitle: "Explorar perfiles de usuarios",
-    noUsers: "Aún no hay usuarios",
-  },
   content: {
     edit: "Editar",
     delete: "Eliminar",
