@@ -2,9 +2,21 @@ import { Roles } from 'meteor/alanning:roles';
 import { Meteor } from 'meteor/meteor';
 import { createDefaultUserAccount } from './utils/dummyData';
 import { denyClientSideDatabaseActions } from './utils/securityLayer';
-import { AvailableUserRoles } from '/app/api/roles/models';
-import { AppUser } from '/app/api/users/models';
-import '/app/startup/imports';
+import { AvailableUserRoles, AppUser } from '/app/api/users/models';
+
+// methods
+import '/app/api/userProfile/methods';
+import '/app/api/users/methods';
+import '/app/api/utils/methods';
+import '/app/api/contents/methods';
+import '/app/api/rssSources/methods';
+
+// databases
+import '/app/api/userProfile/userProfile';
+import '/app/api/contents/contents';
+import '/app/api/rssSources/rssSources';
+
+// publications
 
 Meteor.startup(async () => {
     // Deny all client-side updates to user documents (security layer)

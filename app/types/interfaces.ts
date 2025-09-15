@@ -50,25 +50,6 @@ export enum AvailableAwsSnsDetailStatuses {
     INSTANCE_REMOVED = 'Instance removed',
 }
 
-export interface AwsSnsEvent {
-    version: string;
-    id: string;
-    'detail-type': AvailableAwsSnsDetailTypes;
-    source: 'aws.elasticbeanstalk';
-    account: string;
-    time: string;
-    region: string;
-    resources: string[];
-    detail: {
-        Status: AvailableAwsSnsDetailStatuses;
-        EventDate: number;
-        ApplicationName: '';
-        Message: string;
-        EnvironmentName: '';
-        Severity: 'WARN';
-    };
-}
-
 export interface FroalaEditor {
     image: {
         insert: any;

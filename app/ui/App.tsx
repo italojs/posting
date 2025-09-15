@@ -10,7 +10,7 @@ import { Route, Switch } from 'wouter';
 import '/app/i18n';
 import { useTranslation } from 'react-i18next';
 import { GetAwsFileInput } from '../api/aws/models';
-import { AvailableUserRoles, GetUserRolesInput, GetUserRolesResult } from '../api/roles/models';
+import { AvailableUserRoles, GetUserRolesInput, GetUserRolesResult } from '../api/users/models';
 import UserProfile from '../api/userProfile/models';
 import { AvailableCollectionNames, FindCollectionParams } from '../api/utils/models';
 import { BaseProps } from '../types/interfaces';
@@ -60,7 +60,7 @@ const App: React.FC = () => {
                 userIds: [userId],
             };
 
-            const res: GetUserRolesResult = await Meteor.callAsync('get.roles.userRoles', findData);
+            const res: GetUserRolesResult = await Meteor.callAsync('get.users.roles', findData);
 
             setUserRoles(res.result.find((r) => r.userId === userId)?.roles ?? []);
 

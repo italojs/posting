@@ -1,4 +1,4 @@
-import { AvailableUserRoles } from "../api/roles/models";
+import { AvailableUserRoles } from "../api/users/models";
 
 /**
  * This will check that a string contains only letters and numbers

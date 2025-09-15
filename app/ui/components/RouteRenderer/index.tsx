@@ -7,7 +7,7 @@ import { Meteor } from 'meteor/meteor';
 import React from 'react';
 import { useLocation } from 'wouter';
 import { BasicSiteProps } from '../../App';
-import { AvailableUserRoles } from '/app/api/roles/models';
+import { AvailableUserRoles } from '/app/api/users/models';
 import { SITE_NAME } from '/app/utils/constants';
 import { adminRoutes, publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { useTranslation } from 'react-i18next';

@@ -1,6 +1,39 @@
 /* eslint-disable import/prefer-default-export */
 import { Meteor } from 'meteor/meteor';
 
+export enum AvailableUserRoles {
+    ADMIN = 'admin',
+    MODERATOR = 'moderator',
+}
+
+/**
+ * This model is based off of the roles collection provided by the meteor roles package
+ */
+export interface UserRole {
+    _id: string;
+    userId: string;
+    roles: AvailableUserRoles[];
+}
+
+export interface UserLinkedRole {
+    userId: string;
+    roles: AvailableUserRoles[];
+}
+
+export interface GetUserRolesInput {
+    userIds: string[];
+}
+
+export interface GetUserRolesResult {
+    result: UserLinkedRole[];
+}
+
+export interface UpdateUserRolesInput {
+    role: AvailableUserRoles;
+    users: string[];
+    removeRole?: boolean;
+}
+
 export class AppUser implements Meteor.User {
     _id!: string;
 

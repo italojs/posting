@@ -4,7 +4,7 @@ import { Meteor } from 'meteor/meteor';
 import { AvailableUserRoles, GetUserRolesInput, GetUserRolesResult } from '../models';
 
 Meteor.methods({
-    'get.roles.userRoles': async ({ userIds }: GetUserRolesInput): Promise<GetUserRolesResult> => {
+    'get.users.roles': async ({ userIds }: GetUserRolesInput): Promise<GetUserRolesResult> => {
         check(userIds, [String]);
 
         const res = await Promise.all(
