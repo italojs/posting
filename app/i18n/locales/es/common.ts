@@ -41,6 +41,7 @@ const common = {
     tiktok: "TikTok",
     linkedin: "LinkedIn",
     generate: "Generar boletín (guardar)",
+    extractText: "Extraer Texto",
     needAtLeastOneUrl: "Proporcione al menos una URL de RSS",
     listTitle: "Elementos cargados",
     historyTitle: "Tu historial",

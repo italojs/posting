@@ -1,7 +1,7 @@
 import { LoadingOutlined, SendOutlined, RobotOutlined, EditOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse } from 'antd';
 import { Meteor } from 'meteor/meteor';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { BasicSiteProps } from '../App';
 import { RssItem, NewsletterSection, GenerateSuggestionResult } from '/app/api/contents/models';
@@ -50,7 +50,6 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [activeSectionIndex, setActiveSectionIndex] = useState<number>(-1);
     // Only favorites mode
 
-    const rssCount = rssItems?.length ?? 0;
 
     useEffect(() => {
         const run = async () => {
@@ -178,6 +177,48 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         } catch (error) {
             errorResponse(error as Meteor.Error, t('createContent.saveError'));
         }
+        setLoading(false);
+    };
+
+    const handleSaveHtmls = async () => {
+        const values = await form.validateFields();
+        const urls = Array.from(new Set(favoriteUrls));
+        
+        let itemsToSave: RssItem[] = [];
+        let newsletterSections: NewsletterSection[] | undefined = undefined;
+        
+        if (values.newsletter && sections.length > 0) {
+            newsletterSections = sections.map((s, idx) => ({
+                id: s.id,
+                title: s.title?.trim() || `${t('createContent.section', 'Seção')} ${idx + 1}`,
+                description: s.description?.trim() || undefined,
+                rssItems: s.rssItems || [],
+            }));
+            
+            itemsToSave = sections.flatMap(s => s.rssItems || []);
+        } else {
+            itemsToSave = rssItems.filter((it) => !it.link || selectedItemLinks.has(it.link));
+        }
+
+        setLoading(true);
+        const payload: any = {
+            ...(editingId ? { _id: editingId } : {}),
+            name: values.name,
+            audience: values.audience,
+            goal: values.goal,
+            rssUrls: urls,
+            rssItems: itemsToSave,
+            networks: {
+                newsletter: !!values.newsletter,
+                instagram: !!values.instagram,
+                twitter: !!values.twitter,
+                tiktok: !!values.tiktok,
+                linkedin: !!values.linkedin,
+            },
+            newsletterSections,
+        };
+        
+        await Meteor.callAsync('set.contents.saveHtmls', payload);
         setLoading(false);
     };
 
@@ -924,6 +965,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     </Button>
                     <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
                         {t('createContent.generate')}
+                    </Button>
+                    <Button type="default" onClick={handleSaveHtmls} loading={loading}>
+                        {t('createContent.extractText')}
                     </Button>
                 </Space>
             </div>

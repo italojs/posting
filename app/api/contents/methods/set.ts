@@ -1,5 +1,6 @@
 import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
+import * as cheerio from 'cheerio';
 import ContentsCollection from '../contents';
 import { Content, CreateContentInput, NewsletterSection, RssItem } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
@@ -157,5 +158,90 @@ Meteor.methods({
             },
         );
         return { _id };
+    },
+    'set.contents.saveHtmls': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput) => {
+        check(name, String);
+        check(audience, Match.Maybe(String));
+        check(goal, Match.Maybe(String));
+        check(rssUrls, [String]);
+        check(rssItems, [Object]);
+        check(networks, Object);
+        check((networks as any).newsletter, Match.Maybe(Boolean));
+        check((networks as any).instagram, Match.Maybe(Boolean));
+        check((networks as any).twitter, Match.Maybe(Boolean));
+        check((networks as any).tiktok, Match.Maybe(Boolean));
+        check((networks as any).linkedin, Match.Maybe(Boolean));
+        check(newsletterSections, Match.Maybe([Object]));
+
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+
+        let totalProcessed = 0;
+
+        // Process each newsletter section
+        if (newsletterSections) {
+            for (let i = 0; i < newsletterSections.length; i++) {
+                const section = newsletterSections[i];
+                console.log(`\n=== Processing Section ${i + 1}: ${section.title} ===`);
+                
+                if (section.rssItems && section.rssItems.length > 0) {
+                    for (const item of section.rssItems) {
+                        if (item.link) {
+                            console.log(`Processing: ${item.link}`);
+                            
+                            // Fetch HTML and process immediately in memory
+                            const response = await fetch(item.link);
+                            
+                            // Check content size to avoid memory issues
+                            const contentLength = response.headers.get('content-length');
+                            if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) { // 10MB limit
+                                console.log(`⚠️  Skipping large file (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB): ${item.title}`);
+                                continue;
+                            }
+                            
+                            const html = await response.text();
+                            
+                            // Extract text with cheerio and immediately discard HTML
+                            const $ = cheerio.load(html);
+                            
+                            // Remove unwanted elements
+                            $('script, style, nav, header, footer, aside, .ads, .advertisement, .sidebar, .menu, .social-share, .comments').remove();
+                            
+                            // Try to find the main content area
+                            let contentElement = $('article, main, .content, .post-content, .entry-content, [role="main"]').first();
+                            
+                            // If no main content found, fall back to body
+                            if (contentElement.length === 0) {
+                                contentElement = $('body');
+                            }
+                            
+                            // Extract clean text
+                            const cleanText = contentElement.text()
+                                .replace(/\s+/g, ' ')
+                                .replace(/[\r\n\t]+/g, ' ')
+                                .trim();
+                            
+                            // HTML is automatically garbage collected here
+                            
+                            console.log(`\n=== CLEAN ARTICLE TEXT ===`);
+                            console.log(`Title: ${item.title || 'No title'}`);
+                            console.log(`URL: ${item.link}`);
+                            console.log(`HTML Size: ${Math.round(html.length / 1024)}KB`);
+                            console.log(`Extracted Text: ${cleanText.length} characters`);
+                            console.log('---');
+                            console.log(cleanText.substring(0, 1000));
+                            if (cleanText.length > 1000) {
+                                console.log('...[text truncated]');
+                            }
+                            console.log('---\n');
+                            
+                            totalProcessed++;
+                        }
+                    }
+                }
+            }
+        }
+
+        return { success: true, processedLinks: totalProcessed };
     },
 });
