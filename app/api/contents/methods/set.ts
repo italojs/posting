@@ -176,68 +176,32 @@ Meteor.methods({
         const user = await currentUserAsync();
         if (!user) return noAuthError();
 
+        // Early return if no newsletter sections
+        if (!newsletterSections) {
+            return { success: true, processedLinks: 0 };
+        }
+
         let totalProcessed = 0;
 
         // Process each newsletter section
-        if (newsletterSections) {
-            for (let i = 0; i < newsletterSections.length; i++) {
-                const section = newsletterSections[i];
-                console.log(`\n=== Processing Section ${i + 1}: ${section.title} ===`);
-                
-                if (section.rssItems && section.rssItems.length > 0) {
-                    for (const item of section.rssItems) {
-                        if (item.link) {
-                            console.log(`Processing: ${item.link}`);
-                            
-                            // Fetch HTML and process immediately in memory
-                            const response = await fetch(item.link);
-                            
-                            // Check content size to avoid memory issues
-                            const contentLength = response.headers.get('content-length');
-                            if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) { // 10MB limit
-                                console.log(`⚠️  Skipping large file (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB): ${item.title}`);
-                                continue;
-                            }
-                            
-                            const html = await response.text();
-                            
-                            // Extract text with cheerio and immediately discard HTML
-                            const $ = cheerio.load(html);
-                            
-                            // Remove unwanted elements
-                            $('script, style, nav, header, footer, aside, .ads, .advertisement, .sidebar, .menu, .social-share, .comments').remove();
-                            
-                            // Try to find the main content area
-                            let contentElement = $('article, main, .content, .post-content, .entry-content, [role="main"]').first();
-                            
-                            // If no main content found, fall back to body
-                            if (contentElement.length === 0) {
-                                contentElement = $('body');
-                            }
-                            
-                            // Extract clean text
-                            const cleanText = contentElement.text()
-                                .replace(/\s+/g, ' ')
-                                .replace(/[\r\n\t]+/g, ' ')
-                                .trim();
-                            
-                            // HTML is automatically garbage collected here
-                            
-                            console.log(`\n=== CLEAN ARTICLE TEXT ===`);
-                            console.log(`Title: ${item.title || 'No title'}`);
-                            console.log(`URL: ${item.link}`);
-                            console.log(`HTML Size: ${Math.round(html.length / 1024)}KB`);
-                            console.log(`Extracted Text: ${cleanText.length} characters`);
-                            console.log('---');
-                            console.log(cleanText.substring(0, 1000));
-                            if (cleanText.length > 1000) {
-                                console.log('...[text truncated]');
-                            }
-                            console.log('---\n');
-                            
-                            totalProcessed++;
-                        }
-                    }
+        for (const [index, section] of newsletterSections.entries()) {
+            console.log(`\n=== Processing Section ${index + 1}: ${section.title} ===`);
+            
+            // Skip section if no RSS items
+            if (!section.rssItems || section.rssItems.length === 0) {
+                continue;
+            }
+
+            // Process each item in the section
+            for (const item of section.rssItems) {
+                // Skip item if no link
+                if (!item.link) {
+                    continue;
+                }
+
+                const processed = await processArticleItem(item);
+                if (processed) {
+                    totalProcessed++;
                 }
             }
         }
@@ -245,3 +209,63 @@ Meteor.methods({
         return { success: true, processedLinks: totalProcessed };
     },
 });
+
+// Constants
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const PREVIEW_TEXT_LENGTH = 1000;
+
+// Helper function to process individual article item
+async function processArticleItem(item: any): Promise<boolean> {
+    console.log(`Processing: ${item.link}`);
+    
+    try {
+        // Check file size first using HEAD request
+        const headResponse = await fetch(item.link, { method: 'HEAD' });
+        const contentLength = headResponse.headers.get('content-length');
+        
+        if (contentLength && parseInt(contentLength) > MAX_FILE_SIZE) {
+            console.log(`⚠️  Skipping large file (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB): ${item.title}`);
+            return false;
+        }
+
+        // Fetch HTML and process immediately in memory
+        const response = await fetch(item.link);
+        const html = await response.text();
+        
+        // Extract clean text directly with cheerio
+        const $ = cheerio.load(html);
+        
+        // Remove all unwanted elements in one go
+        $('script, style, nav, header, footer, aside, .ads, .advertisement, .sidebar, .menu, .social-share, .comments, .social, .share, .related, .recommendation, .navigation, .breadcrumb, button, .button, .btn, .social-links, .tags, .category, .author-info, .metadata, .date, .timestamp, .byline, .share-button, .comment-count, .like-count, iframe, .embed, .widget, .promo, .newsletter-signup, .subscription, .paywall, [class*="share"], [class*="social"], [class*="comment"], [class*="related"], [class*="sidebar"], [class*="ad"]').remove();
+        
+        // Get clean content from main article area
+        const contentElement = $('article, main, .content, .post-content, .entry-content, .article-content, .story-content, [role="main"], .post-body, .article-body').first();
+        const cleanText = (contentElement.length > 0 ? contentElement : $('body'))
+            .text()
+            .replace(/\s+/g, ' ')
+            .trim();
+        
+        // Log the processed content
+        logExtractedContent(item, html, cleanText);
+        
+        return true;
+    } catch (error) {
+        console.log(`❌ Error processing ${item.link}:`, error);
+        return false;
+    }
+}
+
+// Helper function to log extracted content
+function logExtractedContent(item: any, html: string, cleanText: string): void {
+    console.log(`\n=== CLEAN ARTICLE TEXT ===`);
+    console.log(`Title: ${item.title || 'No title'}`);
+    console.log(`URL: ${item.link}`);
+    console.log(`HTML Size: ${Math.round(html.length / 1024)}KB`);
+    console.log(`Extracted Text: ${cleanText.length} characters`);
+    console.log('---');
+    console.log(cleanText.substring(0, PREVIEW_TEXT_LENGTH));
+    if (cleanText.length > PREVIEW_TEXT_LENGTH) {
+        console.log('...[text truncated]');
+    }
+    console.log('---\n');
+}
