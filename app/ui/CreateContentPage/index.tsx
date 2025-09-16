@@ -1,10 +1,10 @@
-import { LoadingOutlined, SendOutlined, RobotOutlined, EditOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { LoadingOutlined, SendOutlined, RobotOutlined, EditOutlined, DeleteOutlined, SaveOutlined, FileTextOutlined } from '@ant-design/icons';
 import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { BasicSiteProps } from '../App';
-import { RssItem, NewsletterSection, GenerateSuggestionResult } from '/app/api/contents/models';
+import { RssItem, NewsletterSection, GenerateSuggestionResult, CreateContentInput } from '/app/api/contents/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [, navigate] = useLocation();
     const [loading, setLoading] = useState(false);
     const [AILoading, setAILoading] = useState(false);
+    const [processingNewsletter, setProcessingNewsletter] = useState(false);
     
     // Custom CSS for Collapse
     const collapseStyles = `
@@ -138,47 +139,85 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [favoriteUrls, watchNewsletter, watchInstagram, watchTwitter, watchTiktok, watchLinkedin]);
 
-    const handleSave = async () => {
-        try {
-            const values = await form.validateFields();
-            const urls = Array.from(new Set(favoriteUrls));
-            const itemsToSave = rssItems.filter((it) => !it.link || selectedItemLinks.has(it.link));
+    const buildContentPayload = async (): Promise<CreateContentInput> => {
+        const values = await form.validateFields();
+        const urls = Array.from(new Set(favoriteUrls));
+        const itemsToSave = rssItems.filter((it) => !it.link || selectedItemLinks.has(it.link));
 
-            // If newsletter and sections exist, build per-section items (using selectedItemLinks as selection for the active section)
-            let newsletterSections: NewsletterSection[] | undefined = undefined;
-            if (values.newsletter && sections.length > 0) {
-                newsletterSections = sections.map((s, idx) => ({
-                    id: s.id,
-                    title: s.title?.trim() || `Seção ${idx + 1}`,
-                    description: s.description?.trim() || undefined,
-                    rssItems: s.rssItems || [],
-                }));
+        let newsletterSectionsPayload: NewsletterSection[] | undefined = undefined;
+        if (values.newsletter && sections.length > 0) {
+            newsletterSectionsPayload = sections.map((s, idx) => ({
+                id: s.id,
+                title: s.title?.trim() || `Seção ${idx + 1}`,
+                description: s.description?.trim() || undefined,
+                rssItems: s.rssItems || [],
+            }));
+        }
+
+        return {
+            name: values.name,
+            audience: values.audience,
+            goal: values.goal,
+            rssUrls: urls,
+            rssItems: itemsToSave,
+            networks: {
+                newsletter: !!values.newsletter,
+                instagram: !!values.instagram,
+                twitter: !!values.twitter,
+                tiktok: !!values.tiktok,
+                linkedin: !!values.linkedin,
+            },
+            newsletterSections: newsletterSectionsPayload,
+        };
+    };
+
+    const handleSave = async () => {
+        let payload: CreateContentInput;
+        try {
+            payload = await buildContentPayload();
+        } catch (error) {
+            if (!(error as any)?.errorFields) {
+                errorResponse(error as Meteor.Error, t('createContent.saveError'));
             }
-            setLoading(true);
+            return;
+        }
+
+        setLoading(true);
+        try {
             const method = editingId ? 'set.contents.update' : 'set.contents.create';
-            const payload: any = {
-                ...(editingId ? { _id: editingId } : {}),
-                name: values.name,
-                audience: values.audience,
-                goal: values.goal,
-                rssUrls: urls,
-                rssItems: itemsToSave,
-                networks: {
-                    newsletter: !!values.newsletter,
-                    instagram: !!values.instagram,
-                    twitter: !!values.twitter,
-                    tiktok: !!values.tiktok,
-                    linkedin: !!values.linkedin,
-                },
-                newsletterSections,
-            };
-            await Meteor.callAsync(method, payload);
+            const params = editingId ? { _id: editingId, ...payload } : payload;
+            await Meteor.callAsync(method, params);
             message.success(t('createContent.saved'));
             navigate(publicRoutes.home.path);
         } catch (error) {
             errorResponse(error as Meteor.Error, t('createContent.saveError'));
         }
         setLoading(false);
+    };
+
+    const handleProcessNewsletter = async () => {
+        if (!watchNewsletter || sections.length === 0) {
+            message.warning(t('createContent.selectNetworkPrompt'));
+            return;
+        }
+
+        let payload: CreateContentInput;
+        try {
+            payload = await buildContentPayload();
+        } catch (error) {
+            if (!(error as any)?.errorFields) {
+                errorResponse(error as Meteor.Error, t('createContent.processNewsletterError'));
+            }
+            return;
+        }
+
+        setProcessingNewsletter(true);
+        try {
+            await Meteor.callAsync('set.contents.processNewsletter', payload);
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.processNewsletterError'));
+        }
+        setProcessingNewsletter(false);
     };
 
     const handleGenerateAISuggestion = async () => {
@@ -922,6 +961,16 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     >
                         {t('createContent.generateAISuggestion')}
                     </Button>
+                    {watchNewsletter && (
+                        <Button
+                            icon={<FileTextOutlined />}
+                            onClick={handleProcessNewsletter}
+                            loading={processingNewsletter}
+                            disabled={sections.length === 0}
+                        >
+                            {t('createContent.extractText')}
+                        </Button>
+                    )}
                     <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
                         {t('createContent.save')}
                     </Button>
