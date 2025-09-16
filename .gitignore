@@ -11,3 +11,5 @@ Playground Result
 
 # Generated content
 htmls/
+
+*.tsbuildinfo

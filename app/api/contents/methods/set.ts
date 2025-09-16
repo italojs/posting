@@ -2,7 +2,7 @@ import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import * as cheerio from 'cheerio';
 import ContentsCollection, { ProcessedNewslettersCollection } from '../contents';
-import { Content, CreateContentInput, NewsletterSection, RssItem, ProcessedNewsletter } from '../models';
+import { Content, CreateContentInput, NewsletterSection, ProcessedArticle, ProcessedNewsletter, RssItem } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 
@@ -22,14 +22,6 @@ Meteor.methods({
 
         // Newsletter sections are optional; if present, do a light validation
         check(newsletterSections, Match.Maybe([Object]));
-        const normalizedSections: NewsletterSection[] | undefined = (newsletterSections || [])
-            .map((s: any) => ({
-                id: typeof s.id === 'string' ? s.id : undefined,
-                title: typeof s.title === 'string' ? s.title.trim() : '',
-                description: typeof s.description === 'string' ? s.description.trim() : undefined,
-                rssItems: Array.isArray(s.rssItems) ? (s.rssItems as RssItem[]) : [],
-            }))
-            .filter((s) => !!s.title);
 
         const user = await currentUserAsync();
         if (!user) return noAuthError();
@@ -55,7 +47,7 @@ Meteor.methods({
                 tiktok: !!(networks as any).tiktok,
                 linkedin: !!(networks as any).linkedin,
             },
-            newsletterSections: normalizedSections && normalizedSections.length > 0 ? normalizedSections : undefined,
+            newsletterSections: newsletterSections && newsletterSections.length > 0 ? newsletterSections : undefined,
             createdAt: new Date(),
         };
 
@@ -128,15 +120,6 @@ Meteor.methods({
         const cleanedUrls = rssUrls.map((u) => u.trim()).filter(Boolean);
         if (cleanedUrls.length === 0) return clientContentError('Informe pelo menos um RSS');
 
-        const normalizedSections: NewsletterSection[] | undefined = (newsletterSections || [])
-            .map((s: any) => ({
-                id: typeof s.id === 'string' ? s.id : undefined,
-                title: typeof s.title === 'string' ? s.title.trim() : '',
-                description: typeof s.description === 'string' ? s.description.trim() : undefined,
-                rssItems: Array.isArray(s.rssItems) ? (s.rssItems as RssItem[]) : [],
-            }))
-            .filter((s) => !!s.title);
-
         await ContentsCollection.updateAsync(
             { _id, userId: user._id },
             {
@@ -153,7 +136,7 @@ Meteor.methods({
                         tiktok: !!(networks as any).tiktok,
                         linkedin: !!(networks as any).linkedin,
                     },
-                    newsletterSections: normalizedSections && normalizedSections.length > 0 ? normalizedSections : undefined,
+                    newsletterSections: newsletterSections && newsletterSections.length > 0 ? newsletterSections : undefined,
                 },
             },
         );
@@ -176,129 +159,116 @@ Meteor.methods({
         const user = await currentUserAsync();
         if (!user) return noAuthError();
 
-        // Early return if no newsletter sections
-        if (!newsletterSections || newsletterSections.length === 0) {
-            return { success: false, error: 'No newsletter sections to process' };
-        }
-
-        const processedSections = [];
-        let totalProcessed = 0;
-
-        // Process each newsletter section
-        for (const [index, section] of newsletterSections.entries()) {
-            console.log(`\n=== Processing Section ${index + 1}: ${section.title} ===`);
-            
-            // Skip section if no RSS items
-            if (!section.rssItems || section.rssItems.length === 0) {
-                continue;
-            }
-
-            const sectionContent = {
-                name: section.title || `Section ${index + 1}`,
-                content: [] as Array<{
-                    title: string;
-                    url: string;
-                    text: string;
-                }>
-            };
-
-            // Process each item in the section
-            for (const item of section.rssItems) {
-                // Skip item if no link
-                if (!item.link) {
-                    continue;
+        const sectionResults = await Promise.all(
+            newsletterSections!.map(async (section, index) => {
+                const processedArticles = await processSectionItems(section.rssItems);
+                if (processedArticles.length === 0) {
+                    return null;
                 }
 
-                const extractedText = await processArticleItem(item);
-                if (extractedText) {
-                    sectionContent.content.push({
-                        title: item.title || 'No title',
-                        url: item.link,
-                        text: extractedText
-                    });
-                    totalProcessed++;
-                }
-            }
+                return {
+                    title: section.title || `Section ${index + 1}`,
+                    description: section.description,
+                    content: processedArticles,
+                };
+            }),
+        );
 
-            processedSections.push(sectionContent);
+        const sessions = sectionResults.filter((section): section is NonNullable<typeof section> => section !== null);
+
+        if (sessions.length === 0) {
+            return { success: false, error: 'No content was successfully extracted', processedLinks: 0 };
         }
 
-        // Save to MongoDB
-        if (processedSections.length > 0) {
-            const processedNewsletter: Omit<ProcessedNewsletter, '_id'> = {
-                userId: user._id,
-                title: name,
-                description: `Newsletter for ${audience || 'general audience'}`,
-                goal: goal || 'information',
-                audience: audience || 'general audience',
-                sections: processedSections,
-                totalArticles: totalProcessed,
-                processingDate: new Date(),
-                createdAt: new Date(),
-            };
+        const finalNewsletter = {
+            title: name,
+            goal,
+            audience,
+            sessions,
+        };
 
-            const _id = await ProcessedNewslettersCollection.insertAsync(processedNewsletter as any);
-            
-            console.log(`\n✅ Newsletter saved to MongoDB with ID: ${_id}`);
-            console.log(`📊 Total sections: ${processedSections.length}`);
-            console.log(`📄 Total articles: ${totalProcessed}`);
-            
-            return { 
-                success: true, 
-                processedLinks: totalProcessed,
-                sectionsCount: processedSections.length,
-                newsletterId: _id
-            };
-        } else {
-            return { 
-                success: false, 
-                error: 'No content was successfully extracted',
-                processedLinks: 0
-            };
-        }
+       
+        return finalNewsletter
     },
 });
 
 // Constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-// Helper function to process individual article item
-async function processArticleItem(item: any): Promise<string | null> {
-    console.log(`Processing: ${item.link}`);
-    
+async function processSectionItems(rssItems: RssItem[]): Promise<ProcessedArticle[]> {
+    const results = await Promise.all(rssItems.map((item) => processArticleItem(item)));
+    return results.filter((article): article is ProcessedArticle => article !== null);
+}
+
+async function processArticleItem(item: RssItem): Promise<ProcessedArticle | null> {
+    if (!item.link) {
+        return null;
+    }
+
+    const url = item.link;
+    const articleTitle = (item.title ?? '').trim() || 'Sem título';
+
     try {
-        // Check file size first using HEAD request
-        const headResponse = await fetch(item.link, { method: 'HEAD' });
-        const contentLength = headResponse.headers.get('content-length');
-        
-        if (contentLength && parseInt(contentLength) > MAX_FILE_SIZE) {
-            console.log(`⚠️  Skipping large file (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB): ${item.title}`);
+        let contentLength: number | null = null;
+
+        try {
+            const headResponse = await fetch(url, { method: 'HEAD' });
+            if (headResponse.ok) {
+                const lengthHeader = headResponse.headers.get('content-length');
+                if (lengthHeader) {
+                    const parsedLength = parseInt(lengthHeader, 10);
+                    if (!Number.isNaN(parsedLength)) {
+                        contentLength = parsedLength;
+                    }
+                }
+            }
+        } catch (headError) {
+            console.log(`⚠️  Unable to determine size for ${url}:`, headError);
+        }
+
+        if (contentLength !== null && contentLength > MAX_FILE_SIZE) {
+            console.log(`⚠️  Skipping large file (${Math.round(contentLength / 1024 / 1024)}MB): ${articleTitle}`);
             return null;
         }
 
-        // Fetch HTML and process immediately in memory
-        const response = await fetch(item.link);
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.log(`❌ HTTP ${response.status} fetching ${url}`);
+            return null;
+        }
+
         const html = await response.text();
-        
-        // Extract clean text directly with cheerio
-        const $ = cheerio.load(html);
-        
-        // Remove all unwanted elements in one go
-        $('script, style, nav, header, footer, aside, .ads, .advertisement, .sidebar, .menu, .social-share, .comments, .social, .share, .related, .recommendation, .navigation, .breadcrumb, button, .button, .btn, .social-links, .tags, .category, .author-info, .metadata, .date, .timestamp, .byline, .share-button, .comment-count, .like-count, iframe, .embed, .widget, .promo, .newsletter-signup, .subscription, .paywall, [class*="share"], [class*="social"], [class*="comment"], [class*="related"], [class*="sidebar"], [class*="ad"]').remove();
-        
-        // Get clean content from main article area
-        const contentElement = $('article, main, .content, .post-content, .entry-content, .article-content, .story-content, [role="main"], .post-body, .article-body').first();
-        const cleanText = (contentElement.length > 0 ? contentElement : $('body'))
-            .text()
-            .replace(/\s+/g, ' ')
-            .trim();
-        
-        // Log the processed content
-        console.log(`✅ Extracted ${cleanText.length} characters from: ${item.title}`);
-        
-        return cleanText;
+        const cleanText = extractCleanText(html);
+
+        if (!cleanText) {
+            console.log(`⚠️  No readable content found for ${url}`);
+            return null;
+        }
+
+        console.log(`✅ Extracted ${cleanText.length} characters from: ${articleTitle}`);
+
+        return {
+            title: articleTitle,
+            url,
+            text: cleanText,
+        };
     } catch (error) {
-        console.log(`❌ Error processing ${item.link}:`, error);
+        console.log(`❌ Error processing ${url}:`, error);
         return null;
     }
+}
+
+function extractCleanText(html: string): string {
+    const $ = cheerio.load(html);
+
+    // Strip obvious noise that pollutes the extracted text
+    $('script, style, nav, header, footer, aside, .ads, .advertisement, .sidebar, .menu, .social-share, .comments, .social, .share, .related, .recommendation, .navigation, .breadcrumb, button, .button, .btn, .social-links, .tags, .category, .author-info, .metadata, .date, .timestamp, .byline, .share-button, .comment-count, .like-count, iframe, .embed, .widget, .promo, .newsletter-signup, .subscription, .paywall, [class*="share"], [class*="social"], [class*="comment"], [class*="related"], [class*="sidebar"], [class*="ad"]').remove();
+
+    const contentElement = $('article, main, .content, .post-content, .entry-content, .article-content, .story-content, [role="main"], .post-body, .article-body').first();
+    const textSource = contentElement.length > 0 ? contentElement : $('body');
+
+    return textSource
+        .text()
+        .replace(/\s+/g, ' ')
+        .trim();
 }
