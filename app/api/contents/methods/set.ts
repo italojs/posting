@@ -1,8 +1,8 @@
 import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import * as cheerio from 'cheerio';
-import ContentsCollection from '../contents';
-import { Content, CreateContentInput, NewsletterSection, RssItem } from '../models';
+import ContentsCollection, { ProcessedNewslettersCollection } from '../contents';
+import { Content, CreateContentInput, NewsletterSection, RssItem, ProcessedNewsletter } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 
@@ -159,7 +159,7 @@ Meteor.methods({
         );
         return { _id };
     },
-    'set.contents.saveHtmls': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput) => {
+    'set.contents.processNewsletter': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput) => {
         check(name, String);
         check(audience, Match.Maybe(String));
         check(goal, Match.Maybe(String));
@@ -177,10 +177,11 @@ Meteor.methods({
         if (!user) return noAuthError();
 
         // Early return if no newsletter sections
-        if (!newsletterSections) {
-            return { success: true, processedLinks: 0 };
+        if (!newsletterSections || newsletterSections.length === 0) {
+            return { success: false, error: 'No newsletter sections to process' };
         }
 
+        const processedSections = [];
         let totalProcessed = 0;
 
         // Process each newsletter section
@@ -192,6 +193,15 @@ Meteor.methods({
                 continue;
             }
 
+            const sectionContent = {
+                name: section.title || `Section ${index + 1}`,
+                content: [] as Array<{
+                    title: string;
+                    url: string;
+                    text: string;
+                }>
+            };
+
             // Process each item in the section
             for (const item of section.rssItems) {
                 // Skip item if no link
@@ -199,23 +209,61 @@ Meteor.methods({
                     continue;
                 }
 
-                const processed = await processArticleItem(item);
-                if (processed) {
+                const extractedText = await processArticleItem(item);
+                if (extractedText) {
+                    sectionContent.content.push({
+                        title: item.title || 'No title',
+                        url: item.link,
+                        text: extractedText
+                    });
                     totalProcessed++;
                 }
             }
+
+            processedSections.push(sectionContent);
         }
 
-        return { success: true, processedLinks: totalProcessed };
+        // Save to MongoDB
+        if (processedSections.length > 0) {
+            const processedNewsletter: Omit<ProcessedNewsletter, '_id'> = {
+                userId: user._id,
+                title: name,
+                description: `Newsletter for ${audience || 'general audience'}`,
+                goal: goal || 'information',
+                audience: audience || 'general audience',
+                sections: processedSections,
+                totalArticles: totalProcessed,
+                processingDate: new Date(),
+                createdAt: new Date(),
+            };
+
+            const _id = await ProcessedNewslettersCollection.insertAsync(processedNewsletter as any);
+            
+            console.log(`\n✅ Newsletter saved to MongoDB with ID: ${_id}`);
+            console.log(`📊 Total sections: ${processedSections.length}`);
+            console.log(`📄 Total articles: ${totalProcessed}`);
+            
+            return { 
+                success: true, 
+                processedLinks: totalProcessed,
+                sectionsCount: processedSections.length,
+                newsletterId: _id
+            };
+        } else {
+            return { 
+                success: false, 
+                error: 'No content was successfully extracted',
+                processedLinks: 0
+            };
+        }
     },
 });
 
 // Constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const PREVIEW_TEXT_LENGTH = 1000;
 
 // Helper function to process individual article item
-async function processArticleItem(item: any): Promise<boolean> {
+async function processArticleItem(item: any): Promise<string | null> {
     console.log(`Processing: ${item.link}`);
     
     try {
@@ -225,7 +273,7 @@ async function processArticleItem(item: any): Promise<boolean> {
         
         if (contentLength && parseInt(contentLength) > MAX_FILE_SIZE) {
             console.log(`⚠️  Skipping large file (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB): ${item.title}`);
-            return false;
+            return null;
         }
 
         // Fetch HTML and process immediately in memory
@@ -246,26 +294,11 @@ async function processArticleItem(item: any): Promise<boolean> {
             .trim();
         
         // Log the processed content
-        logExtractedContent(item, html, cleanText);
+        console.log(`✅ Extracted ${cleanText.length} characters from: ${item.title}`);
         
-        return true;
+        return cleanText;
     } catch (error) {
         console.log(`❌ Error processing ${item.link}:`, error);
-        return false;
+        return null;
     }
-}
-
-// Helper function to log extracted content
-function logExtractedContent(item: any, html: string, cleanText: string): void {
-    console.log(`\n=== CLEAN ARTICLE TEXT ===`);
-    console.log(`Title: ${item.title || 'No title'}`);
-    console.log(`URL: ${item.link}`);
-    console.log(`HTML Size: ${Math.round(html.length / 1024)}KB`);
-    console.log(`Extracted Text: ${cleanText.length} characters`);
-    console.log('---');
-    console.log(cleanText.substring(0, PREVIEW_TEXT_LENGTH));
-    if (cleanText.length > PREVIEW_TEXT_LENGTH) {
-        console.log('...[text truncated]');
-    }
-    console.log('---\n');
 }

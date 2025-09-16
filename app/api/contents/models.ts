@@ -39,6 +39,31 @@ export interface Content {
     createdAt: Date;
 }
 
+export interface ProcessedArticle {
+    title: string;
+    url: string;
+    text: string;
+}
+
+export interface ProcessedNewsletterSection {
+    name: string;
+    content: ProcessedArticle[];
+}
+
+export interface ProcessedNewsletter {
+    _id: string;
+    userId: string;
+    contentId?: string; // Reference to the original Content document
+    title: string;
+    description: string;
+    goal: string;
+    audience: string;
+    sections: ProcessedNewsletterSection[];
+    totalArticles: number;
+    processingDate: Date;
+    createdAt: Date;
+}
+
 // ---- GET METHOD MODELS ----
 export interface FetchRssInput {
     urls: string[];

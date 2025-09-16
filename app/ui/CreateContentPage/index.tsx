@@ -218,7 +218,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             newsletterSections,
         };
         
-        await Meteor.callAsync('set.contents.saveHtmls', payload);
+        await Meteor.callAsync('set.contents.processNewsletter', payload);
         setLoading(false);
     };
 
