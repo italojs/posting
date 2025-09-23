@@ -1,10 +1,27 @@
-import { LoadingOutlined, SendOutlined, RobotOutlined, EditOutlined, DeleteOutlined, SaveOutlined, FileTextOutlined } from '@ant-design/icons';
+import {
+    LoadingOutlined,
+    SendOutlined,
+    RobotOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    SaveOutlined,
+    FileTextOutlined,
+    ReloadOutlined,
+    SearchOutlined,
+} from '@ant-design/icons';
 import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse } from 'antd';
 import { Meteor } from 'meteor/meteor';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { BasicSiteProps } from '../App';
-import { RssItem, NewsletterSection, GenerateSuggestionResult, CreateContentInput } from '/app/api/contents/models';
+import {
+    RssItem,
+    NewsletterSection,
+    GenerateSuggestionResult,
+    CreateContentInput,
+    GenerateSectionSearchResult,
+    SearchNewsResult,
+} from '/app/api/contents/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -49,9 +66,19 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     // Newsletter sections: when newsletter is selected, user can create multiple sections and pick items per section
     const [sections, setSections] = useState<NewsletterSection[]>([]);
     const [activeSectionIndex, setActiveSectionIndex] = useState<number>(-1);
+    const [sectionQueryLoading, setSectionQueryLoading] = useState<Record<string, boolean>>({});
+    const [sectionNewsLoading, setSectionNewsLoading] = useState<Record<string, boolean>>({});
+    const [sectionNewsResults, setSectionNewsResults] = useState<Record<string, SearchNewsResult[]>>({});
+    const requestedQueriesRef = useRef<Set<string>>(new Set());
     // Only favorites mode
 
     const rssCount = rssItems?.length ?? 0;
+    const currentSection = activeSectionIndex >= 0 ? sections[activeSectionIndex] : undefined;
+    const currentSectionId = currentSection?.id ?? '';
+    const currentSectionQueries = currentSection?.newsSearchQueries || [];
+    const currentSectionNewsResults = currentSectionId ? sectionNewsResults[currentSectionId] || [] : [];
+    const currentSectionQueriesLoading = currentSectionId ? !!sectionQueryLoading[currentSectionId] : false;
+    const currentSectionNewsLoading = currentSectionId ? !!sectionNewsLoading[currentSectionId] : false;
 
     useEffect(() => {
         const run = async () => {
@@ -59,6 +86,10 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 const res = (await Meteor.callAsync('get.userProfiles.rssFavorites')) as { urls: string[] };
                 const urls = (res.urls || []).filter(Boolean);
                 setFavoriteUrls(urls);
+                requestedQueriesRef.current = new Set();
+                setSectionNewsResults({});
+                setSectionQueryLoading({});
+                setSectionNewsLoading({});
                 // sempre usar todos os favoritos
                 // If editing, load existing content and populate
                 if (editingId) {
@@ -78,6 +109,15 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         // Preload sections and selected items
                         const docSections = (doc.newsletterSections || []) as NewsletterSection[];
                         setSections(docSections);
+                        requestedQueriesRef.current = new Set(
+                            docSections
+                                .filter((section) => Array.isArray(section.newsSearchQueries) && section.newsSearchQueries.length > 0)
+                                .map((section) => section.id)
+                                .filter((id): id is string => typeof id === 'string'),
+                        );
+                        setSectionNewsResults({});
+                        setSectionQueryLoading({});
+                        setSectionNewsLoading({});
                         setActiveSectionIndex(docSections.length ? 0 : -1);
                         // For general (non-newsletter), mark selectedItemLinks from doc.rssItems
                         const selectedLinks = new Set<string>((doc.rssItems || []).map((it: RssItem) => it.link || it.title || ''));
@@ -92,6 +132,111 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     }, [editingId]);
 
     // manual URL input removed; only favorites are used
+
+    // Observa valores do formulário para redes sociais (inclusive setFieldsValue)
+    const watchNewsletter = Form.useWatch('newsletter', form);
+    const watchInstagram = Form.useWatch('instagram', form);
+    const watchTwitter = Form.useWatch('twitter', form);
+    const watchTiktok = Form.useWatch('tiktok', form);
+    const watchLinkedin = Form.useWatch('linkedin', form);
+
+    useEffect(() => {
+        if (!watchNewsletter) return;
+        if (sections.length === 0) return;
+
+        const sectionsToFetch = sections.filter((section) => {
+            const sectionId = section.id;
+            if (!sectionId) return false;
+            if (!section.title || section.title.trim().length < 3) return false;
+            if (section.newsSearchQueries && section.newsSearchQueries.length > 0) return false;
+            if (requestedQueriesRef.current.has(sectionId)) return false;
+            return true;
+        });
+
+        if (sectionsToFetch.length === 0) return;
+
+        let cancelled = false;
+
+        const fetchSuggestions = async () => {
+            const newsletterValues = form.getFieldsValue(['name', 'audience', 'goal']);
+            for (const section of sectionsToFetch) {
+                if (cancelled) break;
+                const sectionId = section.id as string;
+                requestedQueriesRef.current.add(sectionId);
+                setSectionQueryLoading((prev) => ({ ...prev, [sectionId]: true }));
+                try {
+                    const result = (await Meteor.callAsync('get.contents.generateSectionSearchQueries', {
+                        newsletter: {
+                            name: newsletterValues?.name || '',
+                            audience: newsletterValues?.audience || '',
+                            goal: newsletterValues?.goal || '',
+                        },
+                        section: { title: section.title, description: section.description },
+                        language: i18n.language,
+                    })) as GenerateSectionSearchResult;
+
+                    if (!cancelled && result?.queries?.length) {
+                        setSections((prev) =>
+                            prev.map((item) => (item.id === sectionId ? { ...item, newsSearchQueries: result.queries } : item)),
+                        );
+                    }
+                } catch (error) {
+                    if (!cancelled) {
+                        errorResponse(error as Meteor.Error, t('createContent.sectionSearchSuggestionsError'));
+                    }
+                } finally {
+                    if (!cancelled) {
+                        setSectionQueryLoading((prev) => ({ ...prev, [sectionId]: false }));
+                    }
+                }
+            }
+        };
+
+        fetchSuggestions();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [sections, watchNewsletter, form, i18n.language, t]);
+
+    useEffect(() => {
+        const existingIds = new Set(
+            sections
+                .map((section) => section.id)
+                .filter((id): id is string => typeof id === 'string'),
+        );
+
+        requestedQueriesRef.current = new Set(
+            Array.from(requestedQueriesRef.current).filter((id) => existingIds.has(id)),
+        );
+
+        setSectionNewsResults((prev) => {
+            const entries = Object.entries(prev).filter(([key]) => existingIds.has(key));
+            if (entries.length === Object.keys(prev).length) return prev;
+            return entries.reduce((acc, [key, value]) => {
+                acc[key] = value;
+                return acc;
+            }, {} as Record<string, SearchNewsResult[]>);
+        });
+
+        setSectionNewsLoading((prev) => {
+            const entries = Object.entries(prev).filter(([key]) => existingIds.has(key));
+            if (entries.length === Object.keys(prev).length) return prev;
+            return entries.reduce((acc, [key, value]) => {
+                acc[key] = value;
+                return acc;
+            }, {} as Record<string, boolean>);
+        });
+
+        setSectionQueryLoading((prev) => {
+            const entries = Object.entries(prev).filter(([key]) => existingIds.has(key));
+            if (entries.length === Object.keys(prev).length) return prev;
+            return entries.reduce((acc, [key, value]) => {
+                acc[key] = value;
+                return acc;
+            }, {} as Record<string, boolean>);
+        });
+    }, [sections]);
 
     const handleFetchRss = async (auto = false) => {
         // Only fetch when at least one network is selected
@@ -123,13 +268,6 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         setLoading(false);
     };
 
-    // Observa valores do formulário para redes sociais (inclusive setFieldsValue)
-    const watchNewsletter = Form.useWatch('newsletter', form);
-    const watchInstagram = Form.useWatch('instagram', form);
-    const watchTwitter = Form.useWatch('twitter', form);
-    const watchTiktok = Form.useWatch('tiktok', form);
-    const watchLinkedin = Form.useWatch('linkedin', form);
-
     // Auto-carrega itens quando favoritos OU redes mudarem (inclusive quando setadas via setFieldsValue)
     useEffect(() => {
         const any = !!(watchNewsletter || watchInstagram || watchTwitter || watchTiktok || watchLinkedin);
@@ -151,6 +289,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 title: s.title?.trim() || `Seção ${idx + 1}`,
                 description: s.description?.trim() || undefined,
                 rssItems: s.rssItems || [],
+                newsSearchQueries:
+                    s.newsSearchQueries && s.newsSearchQueries.length > 0 ? [...s.newsSearchQueries] : undefined,
             }));
         }
 
@@ -253,18 +393,105 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     id: sections[index]?.id || Math.random().toString(36).slice(2, 9),
                     title: section.title,
                     description: section.description,
-                    rssItems: []
+                    rssItems: [],
+                    newsSearchQueries:
+                        section.newsSearchQueries && section.newsSearchQueries.length > 0
+                            ? section.newsSearchQueries
+                            : undefined,
                 }));
                 setSections(newSections);
+                requestedQueriesRef.current = new Set(
+                    newSections
+                        .filter((section) => section.newsSearchQueries && section.newsSearchQueries.length > 0 && section.id)
+                        .map((section) => section.id as string),
+                );
+                setSectionNewsResults({});
+                setSectionQueryLoading({});
+                setSectionNewsLoading({});
                 setActiveSectionIndex(0);
             }
 
-            message.success(`✨ Suggestion generated! ${result.sections.length} sections created automatically.`);
+            message.success(t('createContent.generateAISuggestionSuccess', { count: result.sections.length }));
 
         } catch (error) {
-            errorResponse(error as Meteor.Error, 'Error generating AI suggestion. Please try again.');
+            errorResponse(error as Meteor.Error, t('createContent.generateAISuggestionError'));
         } finally {
             setAILoading(false);
+        }
+    };
+
+    const handleRefreshSectionQueries = async (section: NewsletterSection) => {
+        const sectionId = section.id;
+        if (!sectionId) return;
+        const trimmedTitle = section.title?.trim();
+        if (!trimmedTitle) {
+            message.info(t('createContent.sectionSearchSuggestionsNeedTitle'));
+            return;
+        }
+
+        requestedQueriesRef.current.add(sectionId);
+        setSectionQueryLoading((prev) => ({ ...prev, [sectionId]: true }));
+
+        try {
+            const newsletterValues = form.getFieldsValue(['name', 'audience', 'goal']);
+            const result = (await Meteor.callAsync('get.contents.generateSectionSearchQueries', {
+                newsletter: {
+                    name: newsletterValues?.name || '',
+                    audience: newsletterValues?.audience || '',
+                    goal: newsletterValues?.goal || '',
+                },
+                section: { title: section.title, description: section.description },
+                language: i18n.language,
+            })) as GenerateSectionSearchResult;
+
+            setSections((prev) =>
+                prev.map((item) => (item.id === sectionId ? { ...item, newsSearchQueries: result.queries } : item)),
+            );
+            setSectionNewsResults((prev) => {
+                if (!prev[sectionId]) return prev;
+                const { [sectionId]: _removed, ...rest } = prev;
+                return rest;
+            });
+            if (result.queries.length === 0) {
+                message.warning(t('createContent.sectionSearchSuggestionsEmptyResult'));
+            } else {
+                message.success(t('createContent.sectionSearchSuggestionsUpdated'));
+            }
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.sectionSearchSuggestionsError'));
+        } finally {
+            setSectionQueryLoading((prev) => ({ ...prev, [sectionId]: false }));
+        }
+    };
+
+    const handleFetchNewsForSection = async (section: NewsletterSection) => {
+        const sectionId = section.id;
+        if (!sectionId) return;
+        const queries = (section.newsSearchQueries || []).filter((query) => !!query?.trim());
+        if (queries.length === 0) {
+            message.info(t('createContent.sectionSearchNewsNeedSuggestions'));
+            return;
+        }
+
+        const uniqueQueries = Array.from(new Set(queries)).slice(0, 3);
+        setSectionNewsLoading((prev) => ({ ...prev, [sectionId]: true }));
+
+        try {
+            const results = (await Promise.all(
+                uniqueQueries.map((query) =>
+                    Meteor.callAsync('get.contents.searchNews', {
+                        query,
+                        language: i18n.language,
+                    }) as Promise<SearchNewsResult>,
+                ),
+            )) as SearchNewsResult[];
+
+            setSectionNewsResults((prev) => ({ ...prev, [sectionId]: results }));
+            message.success(t('createContent.sectionSearchNewsLoaded'));
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.sectionSearchNewsError'));
+        } finally {
+            setSectionNewsLoading((prev) => ({ ...prev, [sectionId]: false }));
         }
     };
 
@@ -760,6 +987,136 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                 resize: 'none'
                                                             }}
                                                         />
+                                                        <div
+                                                            style={{
+                                                                border: '1px solid #e5e7eb',
+                                                                borderRadius: '8px',
+                                                                backgroundColor: '#ffffff',
+                                                                padding: '12px 14px',
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                gap: '12px',
+                                                            }}
+                                                        >
+                                                            <div
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    justifyContent: 'space-between',
+                                                                    alignItems: 'center',
+                                                                }}
+                                                            >
+                                                                <Typography.Text strong style={{ fontSize: '13px', color: '#111827' }}>
+                                                                    {t('createContent.sectionSearchSuggestionsTitle')}
+                                                                </Typography.Text>
+                                                                <Space size={8}>
+                                                                    <Button
+                                                                        type="text"
+                                                                        icon={<RobotOutlined />}
+                                                                        style={{ color: '#5B5BD6', padding: 0 }}
+                                                                        onClick={() => currentSection && handleRefreshSectionQueries(currentSection)}
+                                                                        loading={currentSectionQueriesLoading}
+                                                                        disabled={!currentSection?.title?.trim()}
+                                                                    >
+                                                                        {t('createContent.sectionSearchSuggestionsRefresh')}
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="text"
+                                                                        icon={<SearchOutlined />}
+                                                                        style={{ color: '#1f2937', padding: 0 }}
+                                                                        onClick={() => currentSection && handleFetchNewsForSection(currentSection)}
+                                                                        loading={currentSectionNewsLoading}
+                                                                        disabled={currentSectionQueries.length === 0}
+                                                                    >
+                                                                        {t('createContent.sectionSearchNewsButton')}
+                                                                    </Button>
+                                                                </Space>
+                                                            </div>
+                                                            <div>
+                                                                {currentSectionQueries.length ? (
+                                                                    <Space wrap size={[8, 8]}>
+                                                                        {currentSectionQueries.map((query) => (
+                                                                            <span
+                                                                                key={query}
+                                                                                style={{
+                                                                                    backgroundColor: '#eef2ff',
+                                                                                    color: '#312e81',
+                                                                                    borderRadius: '999px',
+                                                                                    padding: '4px 10px',
+                                                                                    fontSize: 12,
+                                                                                    lineHeight: 1.2,
+                                                                                }}
+                                                                            >
+                                                                                {query}
+                                                                            </span>
+                                                                        ))}
+                                                                    </Space>
+                                                                ) : (
+                                                                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                                                        {t('createContent.sectionSearchSuggestionsEmpty')}
+                                                                    </Typography.Text>
+                                                                )}
+                                                            </div>
+                                                            {currentSectionNewsLoading && (
+                                                                <div style={{ fontSize: 12, color: '#6b7280' }}>
+                                                                    {t('createContent.sectionSearchNewsLoading')}
+                                                                </div>
+                                                            )}
+                                                            {!currentSectionNewsLoading && currentSectionNewsResults.length > 0 && (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                                                    {currentSectionNewsResults.map((group) => (
+                                                                        <div
+                                                                            key={group.query}
+                                                                            style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}
+                                                                        >
+                                                                            <Typography.Text strong style={{ fontSize: 13 }}>
+                                                                                {t('createContent.sectionSearchNewsGroupTitle', { query: group.query })}
+                                                                            </Typography.Text>
+                                                                            {group.articles.length === 0 ? (
+                                                                                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                                                                    {t('createContent.sectionSearchNewsGroupEmpty')}
+                                                                                </Typography.Text>
+                                                                            ) : (
+                                                                                <List
+                                                                                    dataSource={group.articles}
+                                                                                    split={false}
+                                                                                    style={{ marginTop: 8 }}
+                                                                                    renderItem={(article) => (
+                                                                                        <List.Item style={{ padding: '6px 0' }}>
+                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                                                {article.link ? (
+                                                                                                    <a
+                                                                                                        href={article.link}
+                                                                                                        target="_blank"
+                                                                                                        rel="noreferrer"
+                                                                                                        style={{ fontWeight: 600, color: '#1d4ed8' }}
+                                                                                                    >
+                                                                                                        {article.title}
+                                                                                                    </a>
+                                                                                                ) : (
+                                                                                                    <Typography.Text strong>{article.title}</Typography.Text>
+                                                                                                )}
+                                                                                                {(article.source || article.date) && (
+                                                                                                    <span style={{ fontSize: 11, color: '#6b7280' }}>
+                                                                                                        {[article.source, article.date]
+                                                                                                            .filter(Boolean)
+                                                                                                            .join(' • ')}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                                {article.snippet && (
+                                                                                                    <Typography.Paragraph style={{ margin: 0, fontSize: 12, color: '#374151' }}>
+                                                                                                        {article.snippet}
+                                                                                                    </Typography.Paragraph>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </List.Item>
+                                                                                    )}
+                                                                                />
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                         {(() => {
                                                             // Lista de artigos por fonte (estilo Card 4), apenas para a seção ativa
                                                             const getKey = (it: RssItem) => it.link || it.title || '';

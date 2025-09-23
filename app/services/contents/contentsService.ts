@@ -15,6 +15,11 @@ export class ContentsService {
         title: typeof s.title === 'string' ? s.title.trim() : '',
         description: typeof s.description === 'string' ? s.description.trim() : undefined,
         rssItems: Array.isArray(s.rssItems) ? (s.rssItems as RssItem[]) : [],
+        newsSearchQueries: Array.isArray(s.newsSearchQueries)
+          ? (s.newsSearchQueries as unknown[])
+              .map((query) => (typeof query === 'string' ? query.trim() : String(query || '')).trim())
+              .filter((query) => !!query)
+          : undefined,
       }))
       .filter((s) => !!s.title);
     return sections.length > 0 ? sections : undefined;

@@ -15,6 +15,15 @@ export interface NewsletterSection {
     title: string;
     description?: string;
     rssItems: RssItem[];
+    newsSearchQueries?: string[];
+}
+
+export interface NewsArticle {
+    title: string;
+    link: string;
+    source?: string;
+    snippet?: string;
+    date?: string;
 }
 
 export interface Content {
@@ -79,12 +88,34 @@ export interface GenerateSuggestionInput {
     language: string;
 }
 
+export interface SearchNewsInput {
+    query: string;
+    language?: string;
+    country?: string;
+}
+
+export interface SearchNewsResult {
+    query: string;
+    articles: NewsArticle[];
+}
+
 export interface GenerateSuggestionResult {
     title: string;
     sections: {
         title: string;
         description: string;
+        newsSearchQueries?: string[];
     }[];
+}
+
+export interface GenerateSectionSearchInput {
+    newsletter: Pick<CreateContentInput, 'name' | 'audience' | 'goal'>;
+    section: { title: string; description?: string };
+    language: string;
+}
+
+export interface GenerateSectionSearchResult {
+    queries: string[];
 }
 
 // ---- SET METHOD MODELS ----
