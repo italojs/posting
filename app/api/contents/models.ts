@@ -78,6 +78,28 @@ export interface ProcessedNewsletter {
     createdAt: Date;
 }
 
+export interface GeneratedNewsletterSectionPreview {
+    originalTitle: string;
+    originalDescription?: string;
+    articleSummaries: {
+        title: string;
+        url: string;
+        summary: string;
+    }[];
+    generatedTitle: string;
+    summary: string;
+    body: string;
+    callToAction?: string;
+}
+
+export interface GeneratedNewsletterPreview {
+    title: string;
+    goal?: string;
+    audience?: string;
+    sections: GeneratedNewsletterSectionPreview[];
+    compiledMarkdown: string;
+}
+
 // ---- GET METHOD MODELS ----
 export interface FetchRssInput {
     urls: string[];

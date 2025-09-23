@@ -8,10 +8,11 @@ import {
     FileTextOutlined,
     ReloadOutlined,
     SearchOutlined,
+    CopyOutlined,
 } from '@ant-design/icons';
 import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse } from 'antd';
 import { Meteor } from 'meteor/meteor';
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { BasicSiteProps } from '../App';
 import {
@@ -21,6 +22,7 @@ import {
     CreateContentInput,
     GenerateSectionSearchResult,
     SearchNewsResult,
+    GeneratedNewsletterPreview,
 } from '/app/api/contents/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
@@ -70,6 +72,17 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [sectionNewsLoading, setSectionNewsLoading] = useState<Record<string, boolean>>({});
     const [sectionNewsResults, setSectionNewsResults] = useState<Record<string, SearchNewsResult[]>>({});
     const requestedQueriesRef = useRef<Set<string>>(new Set());
+    const [newsletterPreview, setNewsletterPreview] = useState<GeneratedNewsletterPreview | null>(null);
+
+    const handleCopyPreviewMarkdown = async () => {
+        if (!newsletterPreview?.compiledMarkdown) return;
+        try {
+            await navigator.clipboard.writeText(newsletterPreview.compiledMarkdown);
+            message.success(t('createContent.newsletterPreviewCopySuccess'));
+        } catch (error) {
+            message.error(t('createContent.newsletterPreviewCopyError'));
+        }
+    };
     // Only favorites mode
 
     const rssCount = rssItems?.length ?? 0;
@@ -90,6 +103,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 setSectionNewsResults({});
                 setSectionQueryLoading({});
                 setSectionNewsLoading({});
+                setNewsletterPreview(null);
                 // sempre usar todos os favoritos
                 // If editing, load existing content and populate
                 if (editingId) {
@@ -364,7 +378,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
         setProcessingNewsletter(true);
         try {
-            await Meteor.callAsync('set.contents.processNewsletter', payload);
+            const result = (await Meteor.callAsync('set.contents.processNewsletter', payload)) as GeneratedNewsletterPreview;
+            setNewsletterPreview(result);
+            message.success(t('createContent.processNewsletterSuccess'));
         } catch (error) {
             errorResponse(error as Meteor.Error, t('createContent.processNewsletterError'));
         }
@@ -420,6 +436,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 setSectionNewsResults({});
                 setSectionQueryLoading({});
                 setSectionNewsLoading({});
+                setNewsletterPreview(null);
                 setActiveSectionIndex(0);
             }
 
@@ -1431,6 +1448,131 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
                 
             </div>
+
+            {newsletterPreview && (
+                <Card
+                    title={
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                            <span>{t('createContent.newsletterPreviewCardTitle')}</span>
+                            <Space size={8}>
+                                <Button type="text" icon={<CopyOutlined />} onClick={handleCopyPreviewMarkdown}>
+                                    {t('createContent.newsletterPreviewCopy')}
+                                </Button>
+                                <Button
+                                    type="text"
+                                    onClick={() => setNewsletterPreview(null)}
+                                    style={{ color: '#ef4444' }}
+                                >
+                                    {t('createContent.newsletterPreviewClear')}
+                                </Button>
+                            </Space>
+                        </div>
+                    }
+                    style={{ borderColor: '#d1d5db' }}
+                >
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                        <div>
+                            <Typography.Title level={4} style={{ marginBottom: 4 }}>
+                                {newsletterPreview.title}
+                            </Typography.Title>
+                            <Space direction="vertical" size={2}>
+                                {newsletterPreview.goal && (
+                                    <Typography.Text>
+                                        <strong>{t('createContent.newsletterPreviewGoal')}:</strong> {newsletterPreview.goal}
+                                    </Typography.Text>
+                                )}
+                                {newsletterPreview.audience && (
+                                    <Typography.Text>
+                                        <strong>{t('createContent.newsletterPreviewAudience')}:</strong> {newsletterPreview.audience}
+                                    </Typography.Text>
+                                )}
+                            </Space>
+                        </div>
+
+                        <List
+                            dataSource={newsletterPreview.sections}
+                            split
+                            renderItem={(section, idx) => (
+                                <List.Item style={{ alignItems: 'flex-start' }}>
+                                    <Space direction="vertical" style={{ width: '100%' }} size="small">
+                                        <Typography.Title level={5} style={{ marginBottom: 0 }}>
+                                            {idx + 1}. {section.generatedTitle}
+                                        </Typography.Title>
+                                        <Typography.Text style={{ color: '#4b5563' }}>{section.summary}</Typography.Text>
+                                        {section.originalDescription && (
+                                            <Typography.Text type="secondary">
+                                                {t('createContent.newsletterPreviewOriginalTitle', {
+                                                    title: section.originalTitle,
+                                                })}
+                                            </Typography.Text>
+                                        )}
+                                        {section.articleSummaries.length > 0 && (
+                                            <div>
+                                                <Typography.Text strong>
+                                                    {t('createContent.newsletterPreviewArticlesTitle')}
+                                                </Typography.Text>
+                                                <List
+                                                    dataSource={section.articleSummaries}
+                                                    style={{ marginTop: 4 }}
+                                                    split={false}
+                                                    renderItem={(articleSummary) => (
+                                                        <List.Item style={{ padding: '4px 0' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                {articleSummary.url ? (
+                                                                    <a href={articleSummary.url} target="_blank" rel="noreferrer">
+                                                                        {articleSummary.title}
+                                                                    </a>
+                                                                ) : (
+                                                                    <Typography.Text strong>{articleSummary.title}</Typography.Text>
+                                                                )}
+                                                                <Typography.Text style={{ color: '#6b7280', fontSize: 12 }}>
+                                                                    {articleSummary.summary}
+                                                                </Typography.Text>
+                                                            </div>
+                                                        </List.Item>
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
+                                        <Typography.Paragraph style={{ marginBottom: 0 }}>
+                                            {section.body}
+                                        </Typography.Paragraph>
+                                        {section.callToAction && (
+                                            <Typography.Text strong style={{ color: '#2563eb' }}>
+                                                {t('createContent.newsletterPreviewCallToAction', {
+                                                    cta: section.callToAction,
+                                                })}
+                                            </Typography.Text>
+                                        )}
+                                    </Space>
+                                </List.Item>
+                            )}
+                        />
+
+                        {newsletterPreview.compiledMarkdown && (
+                            <div>
+                                <Typography.Text strong>
+                                    {t('createContent.newsletterPreviewMarkdownTitle')}
+                                </Typography.Text>
+                                <pre
+                                    style={{
+                                        background: '#f9fafb',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: 8,
+                                        padding: 16,
+                                        marginTop: 8,
+                                        maxHeight: 300,
+                                        overflow: 'auto',
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    {newsletterPreview.compiledMarkdown}
+                                </pre>
+                            </div>
+                        )}
+                    </Space>
+                </Card>
+            )}
 
             {/* Action Buttons */}
             <div style={{ textAlign: 'center' }}>
