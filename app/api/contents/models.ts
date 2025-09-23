@@ -50,6 +50,7 @@ export interface Content {
     };
     /** Specific sections for newsletter content; each section can pick its own RSS items */
     newsletterSections?: NewsletterSection[];
+    newsletterOutput?: StoredNewsletterPreview;
     createdAt: Date;
 }
 
@@ -96,7 +97,12 @@ export interface GeneratedNewsletterPreview {
     compiledMarkdown: string;
 }
 
+export interface StoredNewsletterPreview extends GeneratedNewsletterPreview {
+    generatedAt: Date;
+}
+
 export interface ProcessNewsletterInput extends CreateContentInput {
+    _id?: string;
     language?: string;
 }
 

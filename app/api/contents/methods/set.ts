@@ -8,6 +8,7 @@ import {
     GeneratedNewsletterSectionPreview,
     NewsletterArticleSummary,
     NewsletterGenerationContext,
+    StoredNewsletterPreview,
     NewsletterSection,
     ProcessedArticle,
     ProcessNewsletterInput,
@@ -154,7 +155,7 @@ Meteor.methods({
         );
         return { _id };
     },
-    'set.contents.processNewsletter': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections, language }: ProcessNewsletterInput) => {
+    'set.contents.processNewsletter': async ({ _id, name, audience, goal, rssUrls, rssItems, networks, newsletterSections, language }: ProcessNewsletterInput) => {
         check(name, String);
         check(audience, Match.Maybe(String));
         check(goal, Match.Maybe(String));
@@ -167,10 +168,20 @@ Meteor.methods({
         check((networks as any).tiktok, Match.Maybe(Boolean));
         check((networks as any).linkedin, Match.Maybe(Boolean));
         check(newsletterSections, Match.Maybe([Object]));
+        check(_id, Match.Maybe(String));
         check(language, Match.Maybe(String));
 
         const user = await currentUserAsync();
         if (!user) return noAuthError();
+
+        let contentIdForSave: string | undefined;
+        if (_id) {
+            const ownedContent = await ContentsCollection.findOneAsync({ _id, userId: user._id });
+            if (!ownedContent) {
+                return clientContentError('Conteúdo não encontrado');
+            }
+            contentIdForSave = _id;
+        }
 
         if (!newsletterSections || newsletterSections.length === 0) {
             return { success: false, error: 'No sections available for processing', processedLinks: 0 };
@@ -274,6 +285,22 @@ Meteor.methods({
             sections: generatedSections,
             compiledMarkdown,
         };
+
+        if (contentIdForSave) {
+            const storedPreview: StoredNewsletterPreview = {
+                ...finalNewsletter,
+                generatedAt: new Date(),
+            };
+
+            await ContentsCollection.updateAsync(
+                { _id: contentIdForSave, userId: user._id },
+                {
+                    $set: {
+                        newsletterOutput: storedPreview,
+                    },
+                },
+            );
+        }
 
         return finalNewsletter;
     },

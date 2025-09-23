@@ -23,7 +23,7 @@ export class AiContentService {
 Generate ${numberOfSections} sections for a newsletter, each with:
 1. A creative and attractive title
 2. A brief description (maximum 30 words)
-3. Exactly three Google search queries that could surface fresh news about the section topic. The queries must be written in ${language}.
+3. Exactly three Google search queries that could surface fresh news about the section topic. The queries must be written in ${language}, avoid uses date in the queries.
 
 Generate all answers in ${language} language. All titles and descriptions must be in ${language}.
 

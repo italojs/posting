@@ -150,6 +150,10 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         // For general (non-newsletter), mark selectedItemLinks from doc.rssItems
                         const selectedLinks = new Set<string>((doc.rssItems || []).map((it: RssItem) => it.link || it.title || ''));
                         setSelectedItemLinks(selectedLinks);
+                        if (doc.newsletterOutput) {
+                            const { generatedAt: _generatedAt, ...storedPreview } = doc.newsletterOutput;
+                            setNewsletterPreview(storedPreview as GeneratedNewsletterPreview);
+                        }
                     }
                 }
             } catch (err) {
@@ -351,48 +355,61 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             return;
         }
 
-        setLoading(true);
+        const isNewsletterFlow = !!payload.networks.newsletter;
+        let navigateDestination: string | null = null;
+
+        if (isNewsletterFlow) {
+            setProcessingNewsletter(true);
+            setNewsletterPreview(null);
+        } else {
+            setLoading(true);
+        }
+
+        const method = editingId ? 'set.contents.update' : 'set.contents.create';
+        const params = editingId ? { _id: editingId, ...payload } : payload;
+
+        let savedId = editingId;
         try {
-            const method = editingId ? 'set.contents.update' : 'set.contents.create';
-            const params = editingId ? { _id: editingId, ...payload } : payload;
-            await Meteor.callAsync(method, params);
-            message.success(t('createContent.saved'));
-            navigate(publicRoutes.home.path);
+            const saveResult = (await Meteor.callAsync(method, params)) as { _id: string };
+            if (!savedId) {
+                savedId = saveResult?._id;
+            }
+
+            if (isNewsletterFlow) {
+                if (!savedId) {
+                    message.error(t('createContent.saveError'));
+                } else {
+                    if (!editingId) {
+                        navigateDestination = protectedRoutes.editContent.path.replace(':id', savedId);
+                    }
+                    try {
+                        const preview = (await Meteor.callAsync('set.contents.processNewsletter', {
+                            ...payload,
+                            _id: savedId,
+                            language: i18n.language,
+                        })) as GeneratedNewsletterPreview;
+                        setNewsletterPreview(preview);
+                        message.success(t('createContent.processNewsletterSuccess'));
+                    } catch (error) {
+                        errorResponse(error as Meteor.Error, t('createContent.processNewsletterError'));
+                    }
+                }
+            } else {
+                message.success(t('createContent.saved'));
+                navigateDestination = publicRoutes.home.path;
+            }
         } catch (error) {
             errorResponse(error as Meteor.Error, t('createContent.saveError'));
-        }
-        setLoading(false);
-    };
-
-    const handleProcessNewsletter = async () => {
-        if (!watchNewsletter || sections.length === 0) {
-            message.warning(t('createContent.selectNetworkPrompt'));
-            return;
-        }
-
-        let payload: CreateContentInput;
-        try {
-            payload = await buildContentPayload();
-        } catch (error) {
-            if (!(error as any)?.errorFields) {
-                errorResponse(error as Meteor.Error, t('createContent.processNewsletterError'));
-            }
-            return;
-        }
-
-        setNewsletterPreview(null);
-        setProcessingNewsletter(true);
-        try {
-            const result = (await Meteor.callAsync('set.contents.processNewsletter', {
-                ...payload,
-                language: i18n.language,
-            })) as GeneratedNewsletterPreview;
-            setNewsletterPreview(result);
-            message.success(t('createContent.processNewsletterSuccess'));
-        } catch (error) {
-            errorResponse(error as Meteor.Error, t('createContent.processNewsletterError'));
         } finally {
-            setProcessingNewsletter(false);
+            if (isNewsletterFlow) {
+                setProcessingNewsletter(false);
+            } else {
+                setLoading(false);
+            }
+        }
+
+        if (navigateDestination) {
+            navigate(navigateDestination);
         }
     };
 
@@ -616,6 +633,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                 // If newsletter turned off and no other networks, clear section focus; keep sections data
                                 if (!all?.newsletter && !(all?.instagram || all?.twitter || all?.tiktok || all?.linkedin)) {
                                     setActiveSectionIndex(-1);
+                                    setNewsletterPreview(null);
                                 }
                                 if (any) {
                                     handleFetchRss(true);
@@ -1597,17 +1615,20 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     </Button>
                     {watchNewsletter && (
                         <Button
+                            type="primary"
                             icon={<FileTextOutlined />}
-                            onClick={handleProcessNewsletter}
-                            loading={processingNewsletter}
+                            onClick={handleSave}
+                            loading={processingNewsletter || loading}
                             disabled={sections.length === 0}
                         >
-                            {t('createContent.extractText')}
+                            {t('createContent.generateAndSaveNewsletter')}
                         </Button>
                     )}
-                    <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                        {t('createContent.save')}
-                    </Button>
+                    {!watchNewsletter && (
+                        <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
+                            {t('createContent.save')}
+                        </Button>
+                    )}
                 </Space>
             </div>
         </Space>
