@@ -77,8 +77,12 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const handleCopyPreviewMarkdown = async () => {
         if (!newsletterPreview?.compiledMarkdown) return;
         try {
-            await navigator.clipboard.writeText(newsletterPreview.compiledMarkdown);
-            message.success(t('createContent.newsletterPreviewCopySuccess'));
+            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                await navigator.clipboard.writeText(newsletterPreview.compiledMarkdown);
+                message.success(t('createContent.newsletterPreviewCopySuccess'));
+            } else {
+                throw new Error('Clipboard API unavailable');
+            }
         } catch (error) {
             message.error(t('createContent.newsletterPreviewCopyError'));
         }
@@ -376,15 +380,20 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             return;
         }
 
+        setNewsletterPreview(null);
         setProcessingNewsletter(true);
         try {
-            const result = (await Meteor.callAsync('set.contents.processNewsletter', payload)) as GeneratedNewsletterPreview;
+            const result = (await Meteor.callAsync('set.contents.processNewsletter', {
+                ...payload,
+                language: i18n.language,
+            })) as GeneratedNewsletterPreview;
             setNewsletterPreview(result);
             message.success(t('createContent.processNewsletterSuccess'));
         } catch (error) {
             errorResponse(error as Meteor.Error, t('createContent.processNewsletterError'));
+        } finally {
+            setProcessingNewsletter(false);
         }
-        setProcessingNewsletter(false);
     };
 
     const handleGenerateAISuggestion = async () => {

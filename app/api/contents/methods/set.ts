@@ -2,7 +2,15 @@ import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import * as cheerio from 'cheerio';
 import ContentsCollection from '../contents';
-import { Content, CreateContentInput, NewsletterSection, ProcessedArticle, RssItem, SelectedNewsArticle } from '../models';
+import {
+    Content,
+    CreateContentInput,
+    NewsletterSection,
+    ProcessedArticle,
+    ProcessNewsletterInput,
+    RssItem,
+    SelectedNewsArticle,
+} from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 
@@ -142,7 +150,7 @@ Meteor.methods({
         );
         return { _id };
     },
-    'set.contents.processNewsletter': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput) => {
+    'set.contents.processNewsletter': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections, language }: ProcessNewsletterInput) => {
         check(name, String);
         check(audience, Match.Maybe(String));
         check(goal, Match.Maybe(String));
@@ -155,6 +163,7 @@ Meteor.methods({
         check((networks as any).tiktok, Match.Maybe(Boolean));
         check((networks as any).linkedin, Match.Maybe(Boolean));
         check(newsletterSections, Match.Maybe([Object]));
+        check(language, Match.Maybe(String));
 
         const user = await currentUserAsync();
         if (!user) return noAuthError();
@@ -162,6 +171,17 @@ Meteor.methods({
         if (!newsletterSections || newsletterSections.length === 0) {
             return { success: false, error: 'No sections available for processing', processedLinks: 0 };
         }
+
+        const normalizedLanguage = typeof language === 'string' ? language.trim() : undefined;
+        const resolvedLanguage = resolveLanguageInfo(normalizedLanguage);
+        const newsletterContext: NewsletterContext = {
+            title: name,
+            goal,
+            audience,
+            languageName: resolvedLanguage.name,
+            languageTag: resolvedLanguage.tag,
+            labels: resolvedLanguage.labels,
+        };
 
         const sectionResults = await Promise.all(
             newsletterSections.map(async (section: NewsletterSection, index) => {
@@ -191,7 +211,7 @@ Meteor.methods({
 
             for (const article of session.content) {
                 try {
-                    const summary = await summarizeArticleWithOpenAI(article, { title: name, goal, audience });
+                    const summary = await summarizeArticleWithOpenAI(article, newsletterContext);
                     articleSummaries.push({
                         title: article.title,
                         url: article.url,
@@ -208,7 +228,7 @@ Meteor.methods({
 
             try {
                 const generatedContent = await generateSectionWithOpenAI({
-                    newsletter: { title: name, goal, audience },
+                    newsletter: newsletterContext,
                     section: {
                         title: session.title,
                         description: session.description,
@@ -235,7 +255,7 @@ Meteor.methods({
         }
 
         const compiledMarkdown = buildNewsletterMarkdown(
-            { title: name, goal, audience },
+            newsletterContext,
             generatedSections,
         );
 
@@ -283,7 +303,63 @@ type NewsletterContext = {
     title: string;
     goal?: string;
     audience?: string;
+    languageName: string;
+    languageTag: string;
+    labels: {
+        goal: string;
+        audience: string;
+        callToAction: string;
+    };
 };
+
+type LanguageInfo = {
+    name: string;
+    tag: string;
+    labels: {
+        goal: string;
+        audience: string;
+        callToAction: string;
+    };
+};
+
+const LANGUAGE_INFO_MAP: Record<string, LanguageInfo> = {
+    'pt': { name: 'Portuguese', tag: 'pt-BR', labels: { goal: 'Objetivo', audience: 'Audiência', callToAction: 'Chamada para ação' } },
+    'pt-br': { name: 'Portuguese', tag: 'pt-BR', labels: { goal: 'Objetivo', audience: 'Audiência', callToAction: 'Chamada para ação' } },
+    'pt_br': { name: 'Portuguese', tag: 'pt-BR', labels: { goal: 'Objetivo', audience: 'Audiência', callToAction: 'Chamada para ação' } },
+    'es': { name: 'Spanish', tag: 'es', labels: { goal: 'Objetivo', audience: 'Audiencia', callToAction: 'Llamado a la acción' } },
+    'es-es': { name: 'Spanish', tag: 'es-ES', labels: { goal: 'Objetivo', audience: 'Audiencia', callToAction: 'Llamado a la acción' } },
+    'es_es': { name: 'Spanish', tag: 'es-ES', labels: { goal: 'Objetivo', audience: 'Audiencia', callToAction: 'Llamado a la acción' } },
+    'en': { name: 'English', tag: 'en', labels: { goal: 'Goal', audience: 'Audience', callToAction: 'Call to action' } },
+    'en-us': { name: 'English', tag: 'en-US', labels: { goal: 'Goal', audience: 'Audience', callToAction: 'Call to action' } },
+    'en-gb': { name: 'English', tag: 'en-GB', labels: { goal: 'Goal', audience: 'Audience', callToAction: 'Call to action' } },
+};
+
+function resolveLanguageInfo(language?: string): LanguageInfo {
+    if (!language) {
+        return LANGUAGE_INFO_MAP['pt-br'];
+    }
+
+    const lowered = language.toLowerCase();
+    if (LANGUAGE_INFO_MAP[lowered]) {
+        return LANGUAGE_INFO_MAP[lowered];
+    }
+
+    const base = lowered.split(/[-_]/)[0];
+    if (base && LANGUAGE_INFO_MAP[base]) {
+        return LANGUAGE_INFO_MAP[base];
+    }
+
+    const capitalized = language.charAt(0).toUpperCase() + language.slice(1);
+    return {
+        name: capitalized,
+        tag: language,
+        labels: {
+            goal: 'Goal',
+            audience: 'Audience',
+            callToAction: 'Call to action',
+        },
+    };
+}
 
 async function processSectionItems(rssItems: RssItem[], selectedNews?: SelectedNewsArticle[]): Promise<ProcessedArticle[]> {
     const normalizedNewsItems = (selectedNews || [])
@@ -376,23 +452,23 @@ async function summarizeArticleWithOpenAI(article: ProcessedArticle, context: Ne
     const truncatedText = article.text.length > ARTICLE_TEXT_SUMMARY_LIMIT ? `${article.text.slice(0, ARTICLE_TEXT_SUMMARY_LIMIT)}...` : article.text;
 
     const systemPrompt =
-        'Você é um assistente de marketing que resume artigos para uma newsletter curada. Escreva em português, de forma clara e objetiva.';
+        `You are a marketing assistant who summarizes articles for a curated newsletter. Always respond in ${context.languageName} (${context.languageTag}). Keep the tone informative and clear.`;
 
     const userPrompt = `Newsletter:
-- Título: ${context.title || 'não informado'}
-- Objetivo: ${context.goal || 'não informado'}
-- Audiência: ${context.audience || 'não informada'}
+- Title: ${context.title || 'not provided'}
+- Goal: ${context.goal || 'not provided'}
+- Audience: ${context.audience || 'not provided'}
 
-Artigo:
-- Título: ${article.title}
+Article:
+- Title: ${article.title}
 - Link: ${article.url}
 
-Conteúdo:
+Content:
 """
 ${truncatedText}
 """
 
-Resuma o artigo em até 5 frases, destacando porque é relevante para a audiência da newsletter. Responda apenas com o parágrafo resumido.`;
+Summarize the article in up to five sentences, highlighting why it matters to the newsletter audience. Reply with a single paragraph written in ${context.languageName}.`;
 
     const summary = await callOpenAI(
         [
@@ -419,32 +495,32 @@ async function generateSectionWithOpenAI({
         .join('\n');
 
     const systemPrompt =
-        'Você é um copywriter especialista em newsletters de marketing. Crie sessões envolventes e com tom profissional, sempre em português.';
+        `You are a copywriter who crafts engaging marketing newsletter sections. All content must be written in ${newsletter.languageName} (${newsletter.languageTag}). Use a professional but warm tone.`;
 
-    const userPrompt = `Dados da newsletter:
-- Título: ${newsletter.title || 'não informado'}
-- Objetivo: ${newsletter.goal || 'não informado'}
-- Audiência: ${newsletter.audience || 'não informada'}
+    const userPrompt = `Newsletter context:
+- Title: ${newsletter.title || 'not provided'}
+- Goal: ${newsletter.goal || 'not provided'}
+- Audience: ${newsletter.audience || 'not provided'}
 
-Sessão alvo:
-- Título sugerido: ${section.title}
-- Descrição: ${section.description || 'sem descrição fornecida'}
+Target section:
+- Suggested title: ${section.title}
+- Description: ${section.description || 'no description provided'}
 
-Insights dos artigos para esta sessão:
+Article insights for this section:
 ${insights}
 
-Tarefa:
-- Crie uma sessão para a newsletter com um título curto e chamativo.
-- Produza um resumo com 1 a 2 frases que conecte os insights.
-- Construa o corpo da sessão em Markdown com até dois parágrafos e um curto bloco de bullet points ou chamada para ação se fizer sentido.
-- Adapte a linguagem para o público descrito na newsletter.
+Tasks:
+- Create a short, catchy title.
+- Write a 1-2 sentence summary that connects the insights.
+- Produce a Markdown body with up to two paragraphs and add a short bullet list or call to action if appropriate.
+- Adapt the language to the described audience.
 
-Responda **apenas** em JSON com a estrutura:
+Reply **only** in JSON with this structure (content in ${newsletter.languageName}):
 {
   "title": "",
   "summary": "",
   "body": "",
-  "callToAction": "opcional, deixe vazio se não precisar"
+  "callToAction": "optional, leave empty if not needed"
 }`;
 
     const aiResponse = await callOpenAI(
@@ -483,11 +559,11 @@ function buildNewsletterMarkdown(context: NewsletterContext, sections: Generated
     const parts = [`# ${context.title}`];
 
     if (context.goal) {
-        parts.push(`**Objetivo:** ${context.goal}`);
+        parts.push(`**${context.labels.goal}:** ${context.goal}`);
     }
 
     if (context.audience) {
-        parts.push(`**Audiência:** ${context.audience}`);
+        parts.push(`**${context.labels.audience}:** ${context.audience}`);
     }
 
     for (const section of sections) {
@@ -498,7 +574,7 @@ function buildNewsletterMarkdown(context: NewsletterContext, sections: Generated
         parts.push(section.body);
         if (section.callToAction) {
             parts.push('');
-            parts.push(`**Call to action:** ${section.callToAction}`);
+            parts.push(`**${context.labels.callToAction}:** ${section.callToAction}`);
         }
     }
 

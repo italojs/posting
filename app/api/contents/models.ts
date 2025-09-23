@@ -100,6 +100,10 @@ export interface GeneratedNewsletterPreview {
     compiledMarkdown: string;
 }
 
+export interface ProcessNewsletterInput extends CreateContentInput {
+    language?: string;
+}
+
 // ---- GET METHOD MODELS ----
 export interface FetchRssInput {
     urls: string[];
