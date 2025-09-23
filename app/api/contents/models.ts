@@ -81,11 +81,7 @@ export interface ProcessedNewsletter {
 export interface GeneratedNewsletterSectionPreview {
     originalTitle: string;
     originalDescription?: string;
-    articleSummaries: {
-        title: string;
-        url: string;
-        summary: string;
-    }[];
+    articleSummaries: NewsletterArticleSummary[];
     generatedTitle: string;
     summary: string;
     body: string;
@@ -102,6 +98,33 @@ export interface GeneratedNewsletterPreview {
 
 export interface ProcessNewsletterInput extends CreateContentInput {
     language?: string;
+}
+
+export interface NewsletterGenerationContext {
+    title: string;
+    goal?: string;
+    audience?: string;
+    languageName: string;
+    languageTag: string;
+    currentDate: string;
+    labels: {
+        goal: string;
+        audience: string;
+        callToAction: string;
+    };
+}
+
+export interface NewsletterArticleSummary {
+    title: string;
+    url: string;
+    summary: string;
+}
+
+export interface NewsletterSectionGenerationResult {
+    title: string;
+    summary: string;
+    body: string;
+    callToAction?: string;
 }
 
 // ---- GET METHOD MODELS ----

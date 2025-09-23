@@ -4,7 +4,13 @@ import {
   GenerateSectionSearchResult,
   GenerateSuggestionInput,
   GenerateSuggestionResult,
+  NewsletterGenerationContext,
+  NewsletterArticleSummary,
+  NewsletterSectionGenerationResult,
+  ProcessedArticle,
 } from '../../api/contents/models';
+
+const ARTICLE_TEXT_SUMMARY_LIMIT = 8000;
 
 export class AiContentService {
   buildPrompt({ contentTemplate, numberOfSections, language }: GenerateSuggestionInput) {
@@ -17,7 +23,7 @@ export class AiContentService {
 Generate ${numberOfSections} sections for a newsletter, each with:
 1. A creative and attractive title
 2. A brief description (maximum 30 words)
-3. Exactly three Google search queries that could surface fresh news about the section topic. The queries must be written in ${language} and focus on the most recent updates (last week).
+3. Exactly three Google search queries that could surface fresh news about the section topic. The queries must be written in ${language}.
 
 Generate all answers in ${language} language. All titles and descriptions must be in ${language}.
 
@@ -180,6 +186,126 @@ Respond only in JSON with this structure:
 
     return {
       queries: Array.from(new Set(queries)).slice(0, 3),
+    };
+  }
+
+  async summarizeNewsletterArticle({
+    article,
+    context,
+    maxLength = ARTICLE_TEXT_SUMMARY_LIMIT,
+  }: {
+    article: ProcessedArticle;
+    context: NewsletterGenerationContext;
+    maxLength?: number;
+  }): Promise<string> {
+    const truncatedText =
+      article.text.length > maxLength ? `${article.text.slice(0, maxLength)}...` : article.text;
+
+    const systemPrompt = `You are a marketing assistant who summarizes articles for a curated newsletter. The current date is ${context.currentDate}. Always respond in ${context.languageName} (${context.languageTag}). Keep the tone informative and clear.`;
+
+    const userPrompt = `Newsletter:
+- Title: ${context.title || 'not provided'}
+- Goal: ${context.goal || 'not provided'}
+- Audience: ${context.audience || 'not provided'}
+
+Article:
+- Title: ${article.title}
+- Link: ${article.url}
+
+Content:
+"""
+${truncatedText}
+"""
+
+Summarize the article in up to five sentences, highlighting why it matters to the newsletter audience. Reply with a single paragraph written in ${context.languageName}.`;
+
+    const response = await this.sendChatRequest(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      { maxTokens: 220, temperature: 0.4 },
+    );
+
+    return response.trim();
+  }
+
+  async generateNewsletterSection({
+    newsletter,
+    section,
+    articleSummaries,
+  }: {
+    newsletter: NewsletterGenerationContext;
+    section: { title: string; description?: string };
+    articleSummaries: NewsletterArticleSummary[];
+  }): Promise<NewsletterSectionGenerationResult> {
+    const insights = articleSummaries
+      .map((item, index) => `${index + 1}. ${item.title}: ${item.summary}`)
+      .join('\n');
+
+    const systemPrompt = `You are a copywriter who crafts engaging marketing newsletter sections. The current date is ${newsletter.currentDate}. All content must be written in ${newsletter.languageName} (${newsletter.languageTag}). Use a professional but warm tone.`;
+
+    const userPrompt = `Newsletter context:
+- Title: ${newsletter.title || 'not provided'}
+- Goal: ${newsletter.goal || 'not provided'}
+- Audience: ${newsletter.audience || 'not provided'}
+
+Target section:
+- Suggested title: ${section.title}
+- Description: ${section.description || 'no description provided'}
+
+Article insights for this section:
+${insights}
+
+Tasks:
+- Create a short, catchy title.
+- Write a 1-2 sentence summary that connects the insights.
+- Produce a Markdown body with up to two paragraphs and add a short bullet list or call to action if appropriate.
+- Adapt the language to the described audience.
+
+Reply **only** in JSON with this structure (content in ${newsletter.languageName}):
+{
+  "title": "",
+  "summary": "",
+  "body": "",
+  "callToAction": "optional, leave empty if not needed"
+}`;
+
+    const aiResponse = await this.sendChatRequest(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      { maxTokens: 500, temperature: 0.6 },
+    );
+
+    const cleanedResponse = this.cleanAiJsonResponse(aiResponse);
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanedResponse);
+    } catch (error) {
+      console.error('Failed to parse AI response for section generation', cleanedResponse, error);
+      throw new Meteor.Error('ai-response-invalid', 'Invalid response from AI service');
+    }
+
+    const generatedTitle =
+      typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : section.title;
+    const summary =
+      typeof parsed.summary === 'string' && parsed.summary.trim()
+        ? parsed.summary.trim()
+        : articleSummaries[0]?.summary;
+    const body = typeof parsed.body === 'string' && parsed.body.trim() ? parsed.body.trim() : insights;
+    const callToActionValue =
+      typeof parsed.callToAction === 'string' && parsed.callToAction.trim()
+        ? parsed.callToAction.trim()
+        : undefined;
+
+    return {
+      title: generatedTitle,
+      summary,
+      body,
+      callToAction: callToActionValue,
     };
   }
 }

@@ -5,6 +5,9 @@ import ContentsCollection from '../contents';
 import {
     Content,
     CreateContentInput,
+    GeneratedNewsletterSectionPreview,
+    NewsletterArticleSummary,
+    NewsletterGenerationContext,
     NewsletterSection,
     ProcessedArticle,
     ProcessNewsletterInput,
@@ -13,6 +16,7 @@ import {
 } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
+import { aiContentService } from '/app/services';
 
 Meteor.methods({
     'set.contents.create': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput) => {
@@ -174,12 +178,13 @@ Meteor.methods({
 
         const normalizedLanguage = typeof language === 'string' ? language.trim() : undefined;
         const resolvedLanguage = resolveLanguageInfo(normalizedLanguage);
-        const newsletterContext: NewsletterContext = {
+        const newsletterContext: NewsletterGenerationContext = {
             title: name,
             goal,
             audience,
             languageName: resolvedLanguage.name,
             languageTag: resolvedLanguage.tag,
+            currentDate: new Date().toISOString().split('T')[0],
             labels: resolvedLanguage.labels,
         };
 
@@ -204,14 +209,17 @@ Meteor.methods({
             return { success: false, error: 'No content was successfully extracted', processedLinks: 0 };
         }
 
-        const generatedSections = [] as GeneratedNewsletterSection[];
+        const generatedSections: GeneratedNewsletterSectionPreview[] = [];
 
         for (const session of sessions) {
-            const articleSummaries = [] as ArticleSummary[];
+            const articleSummaries: NewsletterArticleSummary[] = [];
 
             for (const article of session.content) {
                 try {
-                    const summary = await summarizeArticleWithOpenAI(article, newsletterContext);
+                    const summary = await aiContentService.summarizeNewsletterArticle({
+                        article,
+                        context: newsletterContext,
+                    });
                     articleSummaries.push({
                         title: article.title,
                         url: article.url,
@@ -227,7 +235,7 @@ Meteor.methods({
             }
 
             try {
-                const generatedContent = await generateSectionWithOpenAI({
+                const generatedContent = await aiContentService.generateNewsletterSection({
                     newsletter: newsletterContext,
                     section: {
                         title: session.title,
@@ -273,45 +281,6 @@ Meteor.methods({
 
 // Constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ARTICLE_TEXT_SUMMARY_LIMIT = 8000;
-const OPENAI_MODEL = 'gpt-4o-mini';
-
-type ArticleSummary = {
-    title: string;
-    url: string;
-    summary: string;
-};
-
-type GeneratedSectionContent = {
-    title: string;
-    summary: string;
-    body: string;
-    callToAction?: string;
-};
-
-type GeneratedNewsletterSection = {
-    originalTitle: string;
-    originalDescription?: string;
-    articleSummaries: ArticleSummary[];
-    generatedTitle: string;
-    summary: string;
-    body: string;
-    callToAction?: string;
-};
-
-type NewsletterContext = {
-    title: string;
-    goal?: string;
-    audience?: string;
-    languageName: string;
-    languageTag: string;
-    labels: {
-        goal: string;
-        audience: string;
-        callToAction: string;
-    };
-};
-
 type LanguageInfo = {
     name: string;
     tag: string;
@@ -448,114 +417,10 @@ function extractCleanText(html: string): string {
         .trim();
 }
 
-async function summarizeArticleWithOpenAI(article: ProcessedArticle, context: NewsletterContext): Promise<string> {
-    const truncatedText = article.text.length > ARTICLE_TEXT_SUMMARY_LIMIT ? `${article.text.slice(0, ARTICLE_TEXT_SUMMARY_LIMIT)}...` : article.text;
-
-    const systemPrompt =
-        `You are a marketing assistant who summarizes articles for a curated newsletter. Always respond in ${context.languageName} (${context.languageTag}). Keep the tone informative and clear.`;
-
-    const userPrompt = `Newsletter:
-- Title: ${context.title || 'not provided'}
-- Goal: ${context.goal || 'not provided'}
-- Audience: ${context.audience || 'not provided'}
-
-Article:
-- Title: ${article.title}
-- Link: ${article.url}
-
-Content:
-"""
-${truncatedText}
-"""
-
-Summarize the article in up to five sentences, highlighting why it matters to the newsletter audience. Reply with a single paragraph written in ${context.languageName}.`;
-
-    const summary = await callOpenAI(
-        [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-        ],
-        { maxTokens: 220, temperature: 0.4 },
-    );
-
-    return summary.trim();
-}
-
-async function generateSectionWithOpenAI({
-    newsletter,
-    section,
-    articleSummaries,
-}: {
-    newsletter: NewsletterContext;
-    section: { title: string; description?: string };
-    articleSummaries: ArticleSummary[];
-}): Promise<GeneratedSectionContent> {
-    const insights = articleSummaries
-        .map((item, index) => `${index + 1}. ${item.title}: ${item.summary}`)
-        .join('\n');
-
-    const systemPrompt =
-        `You are a copywriter who crafts engaging marketing newsletter sections. All content must be written in ${newsletter.languageName} (${newsletter.languageTag}). Use a professional but warm tone.`;
-
-    const userPrompt = `Newsletter context:
-- Title: ${newsletter.title || 'not provided'}
-- Goal: ${newsletter.goal || 'not provided'}
-- Audience: ${newsletter.audience || 'not provided'}
-
-Target section:
-- Suggested title: ${section.title}
-- Description: ${section.description || 'no description provided'}
-
-Article insights for this section:
-${insights}
-
-Tasks:
-- Create a short, catchy title.
-- Write a 1-2 sentence summary that connects the insights.
-- Produce a Markdown body with up to two paragraphs and add a short bullet list or call to action if appropriate.
-- Adapt the language to the described audience.
-
-Reply **only** in JSON with this structure (content in ${newsletter.languageName}):
-{
-  "title": "",
-  "summary": "",
-  "body": "",
-  "callToAction": "optional, leave empty if not needed"
-}`;
-
-    const aiResponse = await callOpenAI(
-        [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-        ],
-        { maxTokens: 500, temperature: 0.6 },
-    );
-
-    const cleanedResponse = cleanAiJsonResponse(aiResponse);
-
-    let parsed: any;
-    try {
-        parsed = JSON.parse(cleanedResponse);
-    } catch (error) {
-        console.error('Failed to parse AI response for section generation', cleanedResponse, error);
-        throw new Meteor.Error('ai-response-invalid', 'Invalid response from AI service');
-    }
-
-    const generatedTitle = typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : section.title;
-    const summary = typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : articleSummaries[0].summary;
-    const body = typeof parsed.body === 'string' && parsed.body.trim() ? parsed.body.trim() : insights;
-    const callToActionValue =
-        typeof parsed.callToAction === 'string' && parsed.callToAction.trim() ? parsed.callToAction.trim() : undefined;
-
-    return {
-        title: generatedTitle,
-        summary,
-        body,
-        callToAction: callToActionValue,
-    };
-}
-
-function buildNewsletterMarkdown(context: NewsletterContext, sections: GeneratedNewsletterSection[]): string {
+function buildNewsletterMarkdown(
+    context: NewsletterGenerationContext,
+    sections: GeneratedNewsletterSectionPreview[],
+): string {
     const parts = [`# ${context.title}`];
 
     if (context.goal) {
@@ -579,59 +444,4 @@ function buildNewsletterMarkdown(context: NewsletterContext, sections: Generated
     }
 
     return parts.join('\n').trim();
-}
-
-async function callOpenAI(
-    messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
-    options?: { maxTokens?: number; temperature?: number },
-): Promise<string> {
-    const openaiApiKey = getOpenAiApiKey();
-
-    try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${openaiApiKey}`,
-            },
-            body: JSON.stringify({
-                model: OPENAI_MODEL,
-                messages,
-                max_tokens: options?.maxTokens ?? 400,
-                temperature: options?.temperature ?? 0.7,
-            }),
-        });
-
-        if (!response.ok) {
-            const errorPayload = await response.text();
-            console.error('OpenAI request failed', errorPayload);
-            throw new Meteor.Error('ai-request-failed', 'Failed to communicate with AI service');
-        }
-
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (!content) {
-            console.error('OpenAI response missing content', data);
-            throw new Meteor.Error('ai-response-empty', 'Empty response from AI service');
-        }
-        return content;
-    } catch (error) {
-        if (error instanceof Meteor.Error) {
-            throw error;
-        }
-        console.error('Unexpected error calling OpenAI', error);
-        throw new Meteor.Error('ai-request-failed', 'Failed to communicate with AI service');
-    }
-}
-
-function getOpenAiApiKey(): string {
-    const apiKey = Meteor.settings.private?.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-        throw new Meteor.Error('api-key-missing', 'OpenAI API key not configured');
-    }
-    return apiKey;
-}
-
-function cleanAiJsonResponse(value: string): string {
-    return value.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 }
