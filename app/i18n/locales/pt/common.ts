@@ -49,6 +49,8 @@ const common = {
     sectionSearchNewsLoading: "Buscando notícias…",
     sectionSearchNewsGroupTitle: "Resultados para \"{{query}}\"",
     sectionSearchNewsGroupEmpty: "Nenhuma notícia encontrada com essa busca.",
+    sectionSelectedArticlesTitle: "Artigos selecionados ({{count}})",
+    sectionSelectedNewsTitle: "Notícias selecionadas ({{count}})",
     generalTab: "Geral",
     selectingForSection: "Selecionando para: {{title}}",
     selectingForGeneral: "Selecionando para: Geral",

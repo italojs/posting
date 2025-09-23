@@ -2,7 +2,7 @@ import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import * as cheerio from 'cheerio';
 import ContentsCollection from '../contents';
-import { Content, CreateContentInput, ProcessedArticle, RssItem } from '../models';
+import { Content, CreateContentInput, NewsletterSection, ProcessedArticle, RssItem, SelectedNewsArticle } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 
@@ -164,8 +164,8 @@ Meteor.methods({
         }
 
         const sectionResults = await Promise.all(
-            newsletterSections.map(async (section, index) => {
-                const processedArticles = await processSectionItems(section.rssItems);
+            newsletterSections.map(async (section: NewsletterSection, index) => {
+                const processedArticles = await processSectionItems(section.rssItems, section.newsArticles);
                 if (processedArticles.length === 0) {
                     return null;
                 }
@@ -285,8 +285,17 @@ type NewsletterContext = {
     audience?: string;
 };
 
-async function processSectionItems(rssItems: RssItem[]): Promise<ProcessedArticle[]> {
-    const results = await Promise.all(rssItems.map((item) => processArticleItem(item)));
+async function processSectionItems(rssItems: RssItem[], selectedNews?: SelectedNewsArticle[]): Promise<ProcessedArticle[]> {
+    const normalizedNewsItems = (selectedNews || [])
+        .filter((news) => !!news.link)
+        .map((news) => ({
+            title: news.title || news.link,
+            link: news.link,
+        })) as RssItem[];
+
+    const combinedItems = [...rssItems, ...normalizedNewsItems];
+
+    const results = await Promise.all(combinedItems.map((item) => processArticleItem(item)));
     return results.filter((article): article is ProcessedArticle => article !== null);
 }
 

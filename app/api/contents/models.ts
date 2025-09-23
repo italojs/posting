@@ -16,6 +16,7 @@ export interface NewsletterSection {
     description?: string;
     rssItems: RssItem[];
     newsSearchQueries?: string[];
+    newsArticles?: SelectedNewsArticle[];
 }
 
 export interface NewsArticle {
@@ -24,6 +25,10 @@ export interface NewsArticle {
     source?: string;
     snippet?: string;
     date?: string;
+}
+
+export interface SelectedNewsArticle extends NewsArticle {
+    query?: string;
 }
 
 export interface Content {

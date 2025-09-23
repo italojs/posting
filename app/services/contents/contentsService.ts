@@ -20,6 +20,18 @@ export class ContentsService {
               .map((query) => (typeof query === 'string' ? query.trim() : String(query || '')).trim())
               .filter((query) => !!query)
           : undefined,
+        newsArticles: Array.isArray(s.newsArticles)
+          ? (s.newsArticles as any[])
+              .map((article) => ({
+                title: typeof article?.title === 'string' ? article.title.trim() : '',
+                link: typeof article?.link === 'string' ? article.link.trim() : '',
+                source: typeof article?.source === 'string' ? article.source.trim() : undefined,
+                snippet: typeof article?.snippet === 'string' ? article.snippet.trim() : undefined,
+                date: typeof article?.date === 'string' ? article.date.trim() : undefined,
+                query: typeof article?.query === 'string' ? article.query.trim() : undefined,
+              }))
+              .filter((article) => !!article.title && !!article.link)
+          : undefined,
       }))
       .filter((s) => !!s.title);
     return sections.length > 0 ? sections : undefined;

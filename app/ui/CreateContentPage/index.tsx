@@ -108,7 +108,17 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         // ignorar seleções salvas; usar todos os favoritos
                         // Preload sections and selected items
                         const docSections = (doc.newsletterSections || []) as NewsletterSection[];
-                        setSections(docSections);
+                        const normalizedSections = docSections.map((section) => ({
+                            ...section,
+                            rssItems: Array.isArray(section.rssItems) ? section.rssItems : [],
+                            newsArticles: Array.isArray((section as any).newsArticles)
+                                ? (section as any).newsArticles
+                                : [],
+                            newsSearchQueries: Array.isArray(section.newsSearchQueries)
+                                ? section.newsSearchQueries
+                                : undefined,
+                        }));
+                        setSections(normalizedSections);
                         requestedQueriesRef.current = new Set(
                             docSections
                                 .filter((section) => Array.isArray(section.newsSearchQueries) && section.newsSearchQueries.length > 0)
@@ -289,6 +299,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 title: s.title?.trim() || `Seção ${idx + 1}`,
                 description: s.description?.trim() || undefined,
                 rssItems: s.rssItems || [],
+                newsArticles: s.newsArticles || [],
                 newsSearchQueries:
                     s.newsSearchQueries && s.newsSearchQueries.length > 0 ? [...s.newsSearchQueries] : undefined,
             }));
@@ -394,6 +405,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     title: section.title,
                     description: section.description,
                     rssItems: [],
+                    newsArticles: [],
                     newsSearchQueries:
                         section.newsSearchQueries && section.newsSearchQueries.length > 0
                             ? section.newsSearchQueries
@@ -782,6 +794,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                 title: '',
                                                                 description: '',
                                                                 rssItems: [],
+                                                                newsArticles: [],
                                                             };
                                                             setSections((prev) => [...prev, newSection]);
                                                             setActiveSectionIndex(sections.length);
@@ -893,7 +906,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                             {(section.rssItems && section.rssItems.length > 0) && (
                                                                 <div style={{ marginTop: 8, background: '#fff', border: '1px solid #e9ecef', borderRadius: 6, padding: '8px 12px' }}>
                                                                     <Typography.Text strong style={{ fontSize: 13 }}>
-                                                                        Artigos selecionados ({section.rssItems.length})
+                                                                        {t('createContent.sectionSelectedArticlesTitle', { count: section.rssItems.length })}
                                                                     </Typography.Text>
                                                                     <List
                                                                         dataSource={section.rssItems}
@@ -908,6 +921,36 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                                         it.title || 'No title'
                                                                                     )}
                                                                                 </Typography.Text>
+                                                                            </List.Item>
+                                                                        )}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                            {(section.newsArticles && section.newsArticles.length > 0) && (
+                                                                <div style={{ marginTop: 8, background: '#fff', border: '1px solid #e9ecef', borderRadius: 6, padding: '8px 12px' }}>
+                                                                    <Typography.Text strong style={{ fontSize: 13 }}>
+                                                                        {t('createContent.sectionSelectedNewsTitle', { count: section.newsArticles.length })}
+                                                                    </Typography.Text>
+                                                                    <List
+                                                                        dataSource={section.newsArticles}
+                                                                        split={false}
+                                                                        style={{ marginTop: 6, maxHeight: 200, overflow: 'auto' }}
+                                                                        renderItem={(it) => (
+                                                                            <List.Item style={{ padding: '6px 0' }}>
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                                    {it.link ? (
+                                                                                        <a href={it.link} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                                                                                            {it.title}
+                                                                                        </a>
+                                                                                    ) : (
+                                                                                        <Typography.Text style={{ fontSize: 12 }}>{it.title}</Typography.Text>
+                                                                                    )}
+                                                                                    {(it.source || it.query) && (
+                                                                                        <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                                                                                            {[it.source, it.query].filter(Boolean).join(' • ')}
+                                                                                        </Typography.Text>
+                                                                                    )}
+                                                                                </div>
                                                                             </List.Item>
                                                                         )}
                                                                     />
@@ -1080,36 +1123,119 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                                     dataSource={group.articles}
                                                                                     split={false}
                                                                                     style={{ marginTop: 8 }}
-                                                                                    renderItem={(article) => (
-                                                                                        <List.Item style={{ padding: '6px 0' }}>
-                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                                                                {article.link ? (
-                                                                                                    <a
-                                                                                                        href={article.link}
-                                                                                                        target="_blank"
-                                                                                                        rel="noreferrer"
-                                                                                                        style={{ fontWeight: 600, color: '#1d4ed8' }}
-                                                                                                    >
-                                                                                                        {article.title}
-                                                                                                    </a>
-                                                                                                ) : (
-                                                                                                    <Typography.Text strong>{article.title}</Typography.Text>
-                                                                                                )}
-                                                                                                {(article.source || article.date) && (
-                                                                                                    <span style={{ fontSize: 11, color: '#6b7280' }}>
-                                                                                                        {[article.source, article.date]
-                                                                                                            .filter(Boolean)
-                                                                                                            .join(' • ')}
-                                                                                                    </span>
-                                                                                                )}
-                                                                                                {article.snippet && (
-                                                                                                    <Typography.Paragraph style={{ margin: 0, fontSize: 12, color: '#374151' }}>
-                                                                                                        {article.snippet}
-                                                                                                    </Typography.Paragraph>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </List.Item>
-                                                                                    )}
+                                                                                    renderItem={(article) => {
+                                                                                        const linkKey = article.link || article.title || '';
+                                                                                        const isSelected = !!currentSection?.newsArticles?.some(
+                                                                                            (item) => item.link === article.link || (!item.link && item.title === article.title),
+                                                                                        );
+
+                                                                                        const toggleSelection = (explicit?: boolean) => {
+                                                                                            if (!linkKey) return;
+                                                                                            setSections((prev) => {
+                                                                                                if (activeSectionIndex < 0 || activeSectionIndex >= prev.length) {
+                                                                                                    return prev;
+                                                                                                }
+                                                                                                const next = [...prev];
+                                                                                                const sectionDraft = { ...next[activeSectionIndex] };
+                                                                                                const currentNews = Array.isArray(sectionDraft.newsArticles)
+                                                                                                    ? [...sectionDraft.newsArticles]
+                                                                                                    : [];
+                                                                                                const existingIndex = currentNews.findIndex(
+                                                                                                    (item) => item.link === article.link || (!item.link && item.title === article.title),
+                                                                                                );
+                                                                                                const shouldSelect = explicit ?? existingIndex < 0;
+
+                                                                                                if (shouldSelect) {
+                                                                                                    if (existingIndex < 0) {
+                                                                                                        if (!article.link && !article.title) {
+                                                                                                            return prev;
+                                                                                                        }
+                                                                                                        currentNews.push({
+                                                                                                            title: article.title || article.link || 'Notícia',
+                                                                                                            link: article.link || '',
+                                                                                                            source: article.source,
+                                                                                                            snippet: article.snippet,
+                                                                                                            date: article.date,
+                                                                                                            query: group.query,
+                                                                                                        });
+                                                                                                        sectionDraft.newsArticles = currentNews;
+                                                                                                        next[activeSectionIndex] = sectionDraft;
+                                                                                                        next.forEach((sec, idx) => {
+                                                                                                            if (idx === activeSectionIndex) return;
+                                                                                                            if (!sec) return;
+                                                                                                            const newsList = Array.isArray(sec.newsArticles)
+                                                                                                                ? [...sec.newsArticles]
+                                                                                                                : [];
+                                                                                                            const otherIndex = newsList.findIndex(
+                                                                                                                (item) => item.link === article.link,
+                                                                                                            );
+                                                                                                            if (otherIndex >= 0) {
+                                                                                                                newsList.splice(otherIndex, 1);
+                                                                                                                next[idx] = { ...sec, newsArticles: newsList };
+                                                                                                            }
+                                                                                                        });
+                                                                                                    }
+                                                                                                } else if (existingIndex >= 0) {
+                                                                                                    currentNews.splice(existingIndex, 1);
+                                                                                                    sectionDraft.newsArticles = currentNews;
+                                                                                                    next[activeSectionIndex] = sectionDraft;
+                                                                                                }
+
+                                                                                                return next;
+                                                                                            });
+                                                                                        };
+
+                                                                                        return (
+                                                                                            <List.Item
+                                                                                                style={{
+                                                                                                    padding: '6px 0',
+                                                                                                    backgroundColor: isSelected ? '#eef2ff' : 'transparent',
+                                                                                                    borderRadius: 6,
+                                                                                                    cursor: linkKey ? 'pointer' : 'default',
+                                                                                                    transition: 'background-color 0.2s ease',
+                                                                                                }}
+                                                                                                onClick={() => toggleSelection()}
+                                                                                            >
+                                                                                                <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                                                                                                    <Checkbox
+                                                                                                        checked={isSelected}
+                                                                                                        onChange={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            toggleSelection(e.target.checked);
+                                                                                                        }}
+                                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                                    />
+                                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                                                                                                        {article.link ? (
+                                                                                                            <a
+                                                                                                                href={article.link}
+                                                                                                                target="_blank"
+                                                                                                                rel="noreferrer"
+                                                                                                                style={{ fontWeight: 600, color: '#1d4ed8' }}
+                                                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                                            >
+                                                                                                                {article.title}
+                                                                                                            </a>
+                                                                                                        ) : (
+                                                                                                            <Typography.Text strong>{article.title}</Typography.Text>
+                                                                                                        )}
+                                                                                                        {(article.source || article.date) && (
+                                                                                                            <span style={{ fontSize: 11, color: '#6b7280' }}>
+                                                                                                                {[article.source, article.date]
+                                                                                                                    .filter(Boolean)
+                                                                                                                    .join(' • ')}
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                        {article.snippet && (
+                                                                                                            <Typography.Paragraph style={{ margin: 0, fontSize: 12, color: '#374151' }}>
+                                                                                                                {article.snippet}
+                                                                                                            </Typography.Paragraph>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </List.Item>
+                                                                                        );
+                                                                                    }}
                                                                                 />
                                                                             )}
                                                                         </div>
