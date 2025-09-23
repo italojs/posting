@@ -1,7 +1,6 @@
 import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import * as cheerio from 'cheerio';
-import ContentsCollection from '../contents';
 import {
     Content,
     CreateContentInput,
@@ -15,6 +14,7 @@ import {
     RssItem,
     SelectedNewsArticle,
 } from '../models';
+import ContentsCollection, { ProcessedNewslettersCollection } from '../contents';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 import { aiContentService } from '/app/services';
@@ -278,16 +278,17 @@ Meteor.methods({
             generatedSections,
         );
 
+
         const finalNewsletter = {
             title: name,
             goal,
             audience,
-            sections: generatedSections,
-            compiledMarkdown,
+            sessions: sessions,
+            generatedAt: new Date(),
         };
 
         if (contentIdForSave) {
-            const storedPreview: StoredNewsletterPreview = {
+            const storedPreview: any = {
                 ...finalNewsletter,
                 generatedAt: new Date(),
             };

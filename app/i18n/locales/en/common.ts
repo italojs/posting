@@ -88,6 +88,15 @@ const common = {
   favoritesAdded: "Added to favorites",
   favoritesRemoved: "Removed from favorites",
   favoritesError: "Couldn't update favorites",
+  
+  instagramFeedSelection: "Instagram Content Selection",
+  selectSingleArticle: "Select a single article:",
+  instagramArticleHelp: "Choose one article from your favorite RSS sources to create Instagram content",
+  favoriteSourcesCount: "Favorite sources ({{count}})",
+  noArticlesAvailable: "No articles available. Add some RSS favorites first.",
+  noDescription: "No description available",
+  articleSelected: "Article selected for Instagram content",
+  loading: "Loading...",
   },
   home: {
     createCta: "Create content",

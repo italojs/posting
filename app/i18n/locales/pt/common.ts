@@ -89,6 +89,16 @@ const common = {
     favoritesAdded: "Adicionado aos favoritos",
     favoritesRemoved: "Removido dos favoritos",
     favoritesError: "Não foi possível atualizar favoritos",
+
+    instagramFeedSelection: "Seleção de Conteúdo Instagram",
+    selectSingleArticle: "Selecione um único artigo:",
+    instagramArticleHelp: "Escolha um artigo das suas fontes RSS favoritas para criar conteúdo para Instagram",
+    favoriteSourcesCount: "Fontes favoritas ({{count}})",
+    noArticlesAvailable: "Nenhum artigo disponível. Adicione algumas fontes RSS favoritas primeiro.",
+    noDescription: "Nenhuma descrição disponível",
+    articleSelected: "Artigo selecionado para conteúdo do Instagram",
+    loading: "Carregando...",
+    save: "Salvar",
   },
   home: {
     createCta: "Criar conteúdo",

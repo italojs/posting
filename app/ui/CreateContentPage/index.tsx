@@ -642,11 +642,14 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                     setSelectedItemLinks(new Set());
                                 }
 
-                                // If Instagram was checked, send current name/audience/goal to server (no-op for now)
+                                // If Instagram is checked, fetch favorites and articles feed
                                 if (all?.instagram) {
                                     const values = form.getFieldsValue(['name', 'audience', 'goal']);
-                                    // In the future, we may send values to the backend here
-                                    // For now, Instagram only receives contentTemplate and nothing is returned or processed
+                                    // You can use these values if needed
+                                    handleFetchRss(true); // force fetch of favorites and articles feed
+                                } else if (!any) {
+                                    // If no network is selected, clear selections
+                                    setSelectedItemLinks(new Set());
                                 }
                             }}
                         >
@@ -777,7 +780,281 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         </Form>
                     </Card>
 
-                    
+                    {/* Card 2: Instagram Feed Selection */}
+                    <Form form={form}>
+                        <Form.Item shouldUpdate noStyle>
+                            {({ getFieldValue }) => {
+                                const isInstagram = !!getFieldValue('instagram');
+                                if (!isInstagram) return null;
+                                
+                                return (
+                                    <Card 
+                                        title={
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ 
+                                                    backgroundColor: '#5B5BD6', 
+                                                    color: 'white', 
+                                                    borderRadius: '50%', 
+                                                    width: '32px', 
+                                                    height: '32px', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    2
+                                                </div>
+                                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                                    {t('createContent.instagramFeedSelection')}
+                                                </span>
+                                            </div>
+                                        }
+                                        styles={{
+                                            header: { borderBottom: 'none' },
+                                            body: { paddingTop: 0 }
+                                        }}
+                                    >
+                                        <div style={{ padding: '8px 0' }}>
+                                            <div style={{ marginBottom: '16px' }}>
+                                                <Typography.Text 
+                                                    strong 
+                                                    style={{ 
+                                                        fontWeight: '600', 
+                                                        fontSize: '14px',
+                                                        display: 'block',
+                                                        marginBottom: '8px'
+                                                    }}
+                                                >
+                                                    {t('createContent.selectSingleArticle')}
+                                                </Typography.Text>
+                                                <Typography.Text 
+                                                    type="secondary" 
+                                                    style={{ 
+                                                        fontSize: '13px',
+                                                        display: 'block',
+                                                        marginBottom: '16px'
+                                                    }}
+                                                >
+                                                    {t('createContent.instagramArticleHelp')}
+                                                </Typography.Text>
+                                            </div>
+
+                                            {/* Mostrar fontes favoritas */}
+                                            <div style={{ marginBottom: '16px' }}>
+                                                <Typography.Text strong style={{ fontSize: 13 }}>
+                                                    {t('createContent.favoriteSourcesCount', { count: favoriteUrls.length })}
+                                                </Typography.Text>
+                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                                                    {favoriteUrls.map((url) => (
+                                                        <span key={url} style={{
+                                                            background: '#f0f2f5',
+                                                            border: '1px solid #e5e7eb',
+                                                            borderRadius: 14,
+                                                            padding: '2px 8px',
+                                                            fontSize: 12,
+                                                            color: '#374151',
+                                                            maxWidth: '200px',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap'
+                                                        }} title={url}>
+                                                            {url}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Lista de artigos para seleção única */}
+                                            {rssItems.length === 0 ? (
+                                                <div style={{ 
+                                                    textAlign: 'center', 
+                                                    padding: '32px 16px', 
+                                                    color: '#999',
+                                                    border: '1px dashed #d9d9d9',
+                                                    borderRadius: '8px'
+                                                }}>
+                                                    <Typography.Text type="secondary">
+                                                        {loading ? t('createContent.loading') : t('createContent.noArticlesAvailable')}
+                                                    </Typography.Text>
+                                                </div>
+                                            ) : (
+                                                (() => {
+                                                    // Agrupar artigos por fonte
+                                                    const groups: { [key: string]: RssItem[] } = {};
+                                                    rssItems.forEach((item) => {
+                                                        const sourceName = item.source || 'Unknown';
+                                                        if (!groups[sourceName]) groups[sourceName] = [];
+                                                        groups[sourceName].push(item);
+                                                    });
+                                                    const groupedItems = Object.entries(groups).map(([name, items]) => ({ name, items }));
+                                                    
+                                                    return (
+                                                        <Collapse
+                                                            items={groupedItems.map(group => ({
+                                                                key: group.name,
+                                                                label: (
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                                                        <span style={{ fontWeight: '600', fontSize: '15px', color: '#1f2937' }}>
+                                                                            {group.name}
+                                                                        </span>
+                                                                        <Badge count={group.items.length} overflowCount={99} style={{ backgroundColor: '#6366f1' }} />
+                                                                    </div>
+                                                                ),
+                                                                children: (
+                                                                    <div style={{ paddingTop: '0px' }}>
+                                                                        <List
+                                                                            dataSource={group.items}
+                                                                            split={false}
+                                                                            renderItem={(item) => {
+                                                                                const isSelected = selectedItemLinks.has(item.link || item.title || '');
+                                                                                return (
+                                                                                    <List.Item
+                                                                                        style={{
+                                                                                            background: isSelected ? '#f0f5ff' : 'transparent',
+                                                                                            border: isSelected ? '1px solid #5B5BD6' : '1px solid transparent',
+                                                                                            borderRadius: '8px',
+                                                                                            marginBottom: '12px',
+                                                                                            padding: '12px',
+                                                                                            cursor: 'pointer',
+                                                                                            transition: 'all 0.2s ease'
+                                                                                        }}
+                                                                                        onClick={() => {
+                                                                                            const linkKey = item.link || item.title || '';
+                                                                                            if (!linkKey) return;
+                                                                                            
+                                                                                            // Para Instagram, permitir apenas uma seleção
+                                                                                            if (isSelected) {
+                                                                                                setSelectedItemLinks(new Set());
+                                                                                            } else {
+                                                                                                setSelectedItemLinks(new Set([linkKey]));
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        <List.Item.Meta
+                                                                                            avatar={
+                                                                                                <div style={{
+                                                                                                    width: '20px',
+                                                                                                    height: '20px',
+                                                                                                    borderRadius: '50%',
+                                                                                                    border: `2px solid ${isSelected ? '#5B5BD6' : '#d9d9d9'}`,
+                                                                                                    backgroundColor: isSelected ? '#5B5BD6' : 'white',
+                                                                                                    display: 'flex',
+                                                                                                    alignItems: 'center',
+                                                                                                    justifyContent: 'center'
+                                                                                                }}>
+                                                                                                    {isSelected && (
+                                                                                                        <div style={{
+                                                                                                            width: '6px',
+                                                                                                            height: '6px',
+                                                                                                            borderRadius: '50%',
+                                                                                                            backgroundColor: 'white'
+                                                                                                        }} />
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            }
+                                                                                            title={
+                                                                                                <div style={{ marginBottom: '4px' }}>
+                                                                                                    {item.link ? (
+                                                                                                        <a 
+                                                                                                            href={item.link} 
+                                                                                                            target="_blank" 
+                                                                                                            rel="noreferrer" 
+                                                                                                            onClick={(e) => e.stopPropagation()}
+                                                                                                            style={{ 
+                                                                                                                fontSize: '14px',
+                                                                                                                fontWeight: '500',
+                                                                                                                color: isSelected ? '#5B5BD6' : '#1a1a1a'
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            {item.title || item.link}
+                                                                                                        </a>
+                                                                                                    ) : (
+                                                                                                        <span style={{ 
+                                                                                                            fontSize: '14px',
+                                                                                                            fontWeight: '500',
+                                                                                                            color: isSelected ? '#5B5BD6' : '#1a1a1a'
+                                                                                                        }}>
+                                                                                                            {item.title || 'No title'}
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            }
+                                                                                            description={
+                                                                                                <div>
+                                                                                                    <div style={{ 
+                                                                                                        marginBottom: 8,
+                                                                                                        overflow: 'hidden',
+                                                                                                        display: '-webkit-box',
+                                                                                                        WebkitLineClamp: 3,
+                                                                                                        WebkitBoxOrient: 'vertical',
+                                                                                                        fontSize: '13px',
+                                                                                                        color: '#666',
+                                                                                                        lineHeight: '1.4'
+                                                                                                    }}>
+                                                                                                        {item.contentSnippet || t('createContent.noDescription')}
+                                                                                                    </div>
+                                                                                                    {item.pubDate && (
+                                                                                                        <Typography.Text 
+                                                                                                            type="secondary" 
+                                                                                                            style={{ fontSize: '12px' }}
+                                                                                                        >
+                                                                                                            {new Date(item.pubDate).toLocaleDateString()}
+                                                                                                        </Typography.Text>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            }
+                                                                                        />
+                                                                                    </List.Item>
+                                                                                );
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                )
+                                                            }))}
+                                                            style={{ backgroundColor: 'transparent', border: 'none' }}
+                                                            expandIconPosition="end"
+                                                            ghost
+                                                            size="large"
+                                                            className="custom-collapse"
+                                                        />
+                                                    );
+                                                })()
+                                            )}
+
+                                            {/* Mostrar artigo selecionado */}
+                                            {selectedItemLinks.size > 0 && (
+                                                <div style={{
+                                                    marginTop: '16px',
+                                                    padding: '12px 16px',
+                                                    backgroundColor: '#f6ffed',
+                                                    border: '1px solid #b7eb8f',
+                                                    borderRadius: '8px'
+                                                }}>
+                                                    <Typography.Text strong style={{ fontSize: '13px', color: '#52c41a' }}>
+                                                        ✓ {t('createContent.articleSelected')}
+                                                    </Typography.Text>
+                                                    <div style={{ marginTop: '4px' }}>
+                                                        {rssItems
+                                                            .filter(item => selectedItemLinks.has(item.link || item.title || ''))
+                                                            .map(item => (
+                                                                <Typography.Text 
+                                                                    key={item.link || item.title} 
+                                                                    style={{ fontSize: '12px', display: 'block' }}
+                                                                >
+                                                                    {item.title || item.link || 'No title'}
+                                                                </Typography.Text>
+                                                            ))
+                                                        }
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Card>
+                                );
+                            }}
+                        </Form.Item>
+                    </Form>
 
                     {/* Card 3: Content Generation */}
                     <Form form={form}>
@@ -802,7 +1079,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                     fontSize: '16px',
                                                     fontWeight: 'bold'
                                                 }}>
-                                                    2
+                                                    3
                                                 </div>
                                                 <span style={{ fontSize: '16px', fontWeight: '600' }}>
                                                     Seções da Newsletter
