@@ -641,6 +641,13 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                     setRssItems([]);
                                     setSelectedItemLinks(new Set());
                                 }
+
+                                // If Instagram was checked, send current name/audience/goal to server (no-op for now)
+                                if (all?.instagram) {
+                                    const values = form.getFieldsValue(['name', 'audience', 'goal']);
+                                    // In the future, we may send values to the backend here
+                                    // For now, Instagram only receives contentTemplate and nothing is returned or processed
+                                }
                             }}
                         >
                             <Form.Item 
