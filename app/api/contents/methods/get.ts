@@ -57,4 +57,17 @@ Meteor.methods({
         const result = await newsSearchService.search({ query, language, country });
         return result as SearchNewsResult;
     },
+    'get.contents.generateReelsScript': async ({ 
+        contentTemplate, 
+        articleSummary, 
+        language 
+    }: {
+        contentTemplate: { name: string; audience?: string; goal?: string };
+        articleSummary: string;
+        language: string;
+    }) => {
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+        return aiContentService.generateReelsScript({ contentTemplate, articleSummary, language });
+    },
 });

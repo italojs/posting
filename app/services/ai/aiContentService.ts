@@ -36,6 +36,7 @@ Respond only in JSON format with this structure:
 }`;
   }
 
+<<<<<<< HEAD
   buildSectionSearchPrompt({ newsletter, section, language }: GenerateSectionSearchInput) {
     const { name, audience, goal } = newsletter;
     return `You are an assistant helping a marketer curate a newsletter.
@@ -57,6 +58,23 @@ Respond only in JSON with this structure:
   }
 
   private getApiKey() {
+=======
+  buildReelsPrompt({ contentTemplate, articleSummary, language 
+}: {
+    contentTemplate: { name: string; audience?: string; goal?: string };
+    articleSummary: string;
+    language: string;
+  }) {
+    return `You are an influencer and need to generate a script for a reels 
+    - about ${contentTemplate.name} 
+    - for the audience ${contentTemplate.audience || 'not specified'} 
+    - with the goal ${contentTemplate.goal || 'not specified'}. 
+    - The content of this reels is ${articleSummary}, 
+    - write in language ${language}`;
+  }
+
+  async generateSuggestion(input: GenerateSuggestionInput): Promise<GenerateSuggestionResult> {
+>>>>>>> 972bf49 (reels generation prompt created (generateReelsScript))
     const openaiApiKey = Meteor.settings.private?.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
     if (!openaiApiKey) throw new Meteor.Error('api-key-missing', 'OpenAI API key not configured');
     return openaiApiKey;
@@ -307,6 +325,44 @@ Reply **only** in JSON with this structure (content in ${newsletter.languageName
       body,
       callToAction: callToActionValue,
     };
+  }
+
+  async generateReelsScript({
+    contentTemplate,
+    articleSummary,
+    language
+  }: {
+    contentTemplate: { name: string; audience?: string; goal?: string };
+    articleSummary: string;
+    language: string;
+  }): Promise<string> {
+    const openaiApiKey = Meteor.settings.private?.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) throw new Meteor.Error('api-key-missing', 'OpenAI API key not configured');
+
+    const prompt = this.buildReelsPrompt({ contentTemplate, articleSummary, language });
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 300,
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await response.json();
+    const aiResponse = data.choices?.[0]?.message?.content || '';
+
+    if (!aiResponse) {
+      throw new Meteor.Error('ai-response-empty', 'Empty response from AI service');
+    }
+
+    return aiResponse.trim();
   }
 }
 
