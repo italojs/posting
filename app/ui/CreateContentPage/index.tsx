@@ -24,6 +24,7 @@ import {
     SearchNewsResult,
     GeneratedNewsletterPreview,
 } from '/app/api/contents/models';
+import { reelsScriptsService } from '../../services/reelsScripts/reelsScriptsService';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +38,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [loading, setLoading] = useState(false);
     const [AILoading, setAILoading] = useState(false);
     const [processingNewsletter, setProcessingNewsletter] = useState(false);
+    const [generatingReel, setGeneratingReel] = useState(false);
+    const [reelScript, setReelScript] = useState<string>('');
+    const [showReelScript, setShowReelScript] = useState(false);
     
     // Custom CSS for Collapse
     const collapseStyles = `
@@ -550,7 +554,62 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         }
     };
 
-    
+    const handleGenerateReelScript = async () => {
+        try {
+            // Check if Instagram is selected
+            const networkValues = form.getFieldsValue(['instagram']);
+            if (!networkValues?.instagram) {
+                message.warning(t('createContent.selectInstagramForReel'));
+                return;
+            }
+
+            // Check if an article is selected
+            if (selectedItemLinks.size === 0) {
+                message.warning(t('createContent.selectArticleForReel'));
+                return;
+            }
+
+            const formValues = await form.validateFields(['name', 'audience', 'goal']);
+            
+            // Get the selected article
+            const selectedArticle = rssItems.find(item => 
+                selectedItemLinks.has(item.link || item.title || '')
+            );
+
+            if (!selectedArticle) {
+                message.error(t('createContent.selectedArticleNotFound'));
+                return;
+            }
+
+            setGeneratingReel(true);
+            setShowReelScript(true);
+            setReelScript(t('createContent.generatingScript'));
+
+            // Get current language from i18n
+            const currentLanguage = i18n.language;
+
+            // Create the script using our new service
+            const script = await reelsScriptsService.createScript({
+                title: selectedArticle.title || t('createContent.untitledArticle'),
+                contentTemplate: {
+                    name: formValues.name,
+                    audience: formValues.audience,
+                    goal: formValues.goal,
+                },
+                articleSummary: selectedArticle.contentSnippet || selectedArticle.title || '',
+                language: currentLanguage,
+            });
+
+            setReelScript(script.script);
+            message.success(t('createContent.reelScriptGenerated'));
+
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.reelScriptError'));
+            setShowReelScript(false);
+        } finally {
+            setGeneratingReel(false);
+        }
+    }
 
     if (!userId) {
         // fallback guard
@@ -644,9 +703,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
                                 // If Instagram is checked, fetch favorites and articles feed
                                 if (all?.instagram) {
-                                    const values = form.getFieldsValue(['name', 'audience', 'goal']);
-                                    // You can use these values if needed
-                                    handleFetchRss(true); // force fetch of favorites and articles feed
+                                    // force fetch of favorites and articles feed
+                                    handleFetchRss(true); 
                                 } else if (!any) {
                                     // If no network is selected, clear selections
                                     setSelectedItemLinks(new Set());
@@ -1046,6 +1104,24 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                 </Typography.Text>
                                                             ))
                                                         }
+                                                    </div>
+                                                    
+                                                    {/* Generate Script Button */}
+                                                    <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                                                        <Button
+                                                            type="primary"
+                                                            icon={<RobotOutlined />}
+                                                            onClick={handleGenerateReelScript}
+                                                            loading={generatingReel}
+                                                            style={{ 
+                                                                background: '#E1306C', 
+                                                                borderColor: '#E1306C',
+                                                                fontWeight: '600'
+                                                            }}
+                                                            size="small"
+                                                        >
+                                                            {t('createContent.generateReelsScript')}
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             )}
@@ -1915,6 +1991,60 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     )}
                 </Space>
             </div>
+
+            {/* Reels Script Display */}
+            {showReelScript && (
+                <Card 
+                    title={
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                🎬 Script do Reel Gerado
+                            </span>
+                            <Button 
+                                type="text" 
+                                size="small"
+                                onClick={() => setShowReelScript(false)}
+                                style={{ marginLeft: 'auto' }}
+                            >
+                                ✕
+                            </Button>
+                        </div>
+                    }
+                    styles={{
+                        header: { borderBottom: '1px solid #e9ecef' },
+                        body: { padding: '20px' }
+                    }}
+                    style={{ marginTop: '20px' }}
+                >
+                    <div style={{
+                        background: '#f8f9fa',
+                        border: '1px solid #e9ecef',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'monospace',
+                        fontSize: '14px',
+                        lineHeight: '1.5',
+                        maxHeight: '600px',
+                        overflow: 'auto',
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#888 #f1f1f1'
+                    }}>
+                        {reelScript}
+                    </div>
+                    <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                        <Button 
+                            type="default"
+                            icon={<RobotOutlined />}
+                            onClick={handleGenerateReelScript}
+                            loading={generatingReel}
+                            size="small"
+                        >
+                            Regenerar Script
+                        </Button>
+                    </div>
+                </Card>
+            )}
         </Space>
         </>
     );

@@ -98,6 +98,17 @@ const common = {
     articleSelected: "Artículo seleccionado para contenido de Instagram",
     loading: "Cargando...",
     save: "Guardar",
+    
+    // Instagram Reels messages
+    selectInstagramForReel: "Selecciona Instagram para generar script de reel",
+    selectArticleForReel: "Selecciona un artículo para generar el script del reel",
+    selectedArticleNotFound: "Artículo seleccionado no encontrado",
+    reelScriptGenerated: "🎬 Script del reel generado con éxito!",
+    reelScriptError: "Error al generar script del reel",
+    generateReelScript: "Generar Script del Reel",
+    generateReelsScript: "Generar Script del Reel",
+    generatingScript: "Generando script...",
+    untitledArticle: "Artículo sin título",
   },
   home: {
     createCta: "Crear contenido",
