@@ -1,7 +1,7 @@
 import { AreaChartOutlined, HomeOutlined, LoginOutlined, LogoutOutlined, PlusOutlined, ProfileOutlined, ReadOutlined } from '@ant-design/icons';
 import { limitText, removeUndefinedFromArray } from '@netsu/js-utils';
-import { Avatar, Dropdown, Image, Layout, Menu, Select, theme } from 'antd';
-import { Content, Footer, Header } from 'antd/es/layout/layout';
+import { Avatar, Button, Dropdown, Image, Layout, Menu, Select, theme } from 'antd';
+import { Content, Footer } from 'antd/es/layout/layout';
 import { MenuItemType } from 'antd/es/menu/interface';
 import { Meteor } from 'meteor/meteor';
 import React from 'react';
@@ -23,12 +23,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
     const { i18n, t } = useTranslation('common');
     const [, navigate] = useLocation();
 
-    const items: (RouteRenderMenuItem | undefined)[] = [
-        {
-            key: 'logo',
-            label: <Image src="/logo.png" width={50} preview={false} />,
-            onClick: () => navigate(publicRoutes.home.path),
-        },
+    const navigationItems: (RouteRenderMenuItem | undefined)[] = [
         {
             key: 'home',
             icon: <HomeOutlined />,
@@ -44,7 +39,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
     ];
 
     if (userRoles?.includes(AvailableUserRoles.ADMIN)) {
-        items.push({
+        navigationItems.push({
             key: 'logs',
             icon: <AreaChartOutlined />,
             label: t('app.logs'),
@@ -53,95 +48,129 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
     }
 
     if (userId && userProfile) {
-        items.push({
+        navigationItems.push({
             key: 'create-content',
             icon: <PlusOutlined />,
             label: t('app.createContent'),
             onClick: () => navigate(protectedRoutes.createContent.path),
         });
-        items.push({
-            key: 'login',
-            style: { marginLeft: 'auto' },
-            label: (
-                <Dropdown
-                    menu={{
-                        items: [
-                            {
-                                label: t('app.yourProfile'),
-                                key: 'your-profile',
-                                icon: <ProfileOutlined />,
-                                onClick: () =>
-                                    navigate(publicRoutes.userProfile.path.replace(':username', userProfile.username)),
-                            },
-                            {
-                                label: t('app.logout'),
-                                key: 'logout',
-                                icon: <LogoutOutlined />,
-                                onClick: () =>
-                                    Meteor.logout(() => {
-                                        navigate(publicRoutes.home.path);
-                                    }),
-                            },
-                        ],
-                    }}
-                    trigger={['click']}
-                >
-                    {profilePhoto ? (
-                        <Avatar
-                            src={profilePhoto}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', maxWidth: 40, maxHeight: 40 }}
-                            alt="avatar"
-                            size={'large'}
-                        />
-                    ) : (
-                        <Avatar style={{ backgroundColor: '#ff98ad', verticalAlign: 'middle' }} size="large" gap={4}>
-                            {limitText(userProfile.username, 7)}
-                        </Avatar>
-                    )}
-                </Dropdown>
-            ),
-        });
-    } else {
-        items.push({
-            key: 'login',
-            icon: <LoginOutlined />,
-            label: t('app.login'),
-            onClick: () => navigate(publicRoutes.login.path),
-            style: { marginLeft: 'auto' },
-        });
     }
 
-    return (
-        <Layout style={{ minHeight: '100vh', background: token.colorBgLayout }}>
-            <Header
+    const menuItems = removeUndefinedFromArray(navigationItems);
+
+    const logo = (
+        <div
+            onClick={() => navigate(publicRoutes.home.path)}
+            style={{ cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+        >
+            <Image src="/logo.png" width={120} preview={false} alt="logo" />
+        </div>
+    );
+
+    const userControls = userId && userProfile ? (
+        <Dropdown
+            menu={{
+                items: [
+                    {
+                        label: t('app.yourProfile'),
+                        key: 'your-profile',
+                        icon: <ProfileOutlined />,
+                        onClick: () =>
+                            navigate(publicRoutes.userProfile.path.replace(':username', userProfile.username)),
+                    },
+                    {
+                        label: t('app.logout'),
+                        key: 'logout',
+                        icon: <LogoutOutlined />,
+                        onClick: () =>
+                            Meteor.logout(() => {
+                                navigate(publicRoutes.home.path);
+                            }),
+                    },
+                ],
+            }}
+            trigger={['click']}
+        >
+            <div
                 style={{
                     display: 'flex',
                     alignItems: 'center',
-                    background: '#ffffff',
-                    borderBottom: `1px solid ${token.colorSplit}`,
-                    paddingInline: 24,
+                    gap: 12,
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s ease',
                 }}
             >
-                <Menu
-                    mode="horizontal"
-                    selectable={false}
-                    items={removeUndefinedFromArray(items)}
-                    style={{ flex: 1, minWidth: 0, background: 'transparent' }}
-                />
-                <div style={{ marginLeft: 12 }}>
-                    <Select
-                        size="small"
-                        value={i18n.language.startsWith('pt') ? 'pt' : i18n.language.startsWith('es') ? 'es' : 'en'}
-                        onChange={(lng) => i18n.changeLanguage(lng)}
-                        options={[
-                            { label: 'PT', value: 'pt' },
-                            { label: 'EN', value: 'en' },
-                            { label: 'ES', value: 'es' },
-                        ]}
-                        style={{ width: 80 }}
+                {profilePhoto ? (
+                    <Avatar
+                        src={profilePhoto}
+                        style={{ width: 40, height: 40, objectFit: 'cover' }}
+                        alt="avatar"
+                        size={'large'}
                     />
+                ) : (
+                    <Avatar style={{ backgroundColor: '#ff98ad', verticalAlign: 'middle' }} size="large" gap={4}>
+                        {limitText(userProfile.username, 7)}
+                    </Avatar>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                    <span style={{ fontWeight: 600 }}>{limitText(userProfile.username, 12)}</span>
+                    <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>{t('app.yourProfile')}</span>
                 </div>
-            </Header>
+            </div>
+        </Dropdown>
+    ) : (
+        <Button
+            icon={<LoginOutlined />}
+            type="default"
+            block
+            onClick={() => navigate(publicRoutes.login.path)}
+        >
+            {t('app.login')}
+        </Button>
+    );
+
+    return (
+        <Layout style={{ minHeight: '100vh', background: token.colorBgLayout }}>
+            <Layout.Sider
+                width={260}
+                theme="light"
+                style={{
+                    background: '#ffffff',
+                    borderInlineEnd: `1px solid ${token.colorSplit}`,
+                    padding: '24px 16px',
+                }}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 24 }}>
+                    {logo}
+                    <Menu
+                        mode="inline"
+                        selectable={false}
+                        items={menuItems}
+                        style={{
+                            flex: 1,
+                            background: 'transparent',
+                            borderInlineEnd: 'none',
+                            paddingInline: 4,
+                        }}
+                    />
+                    <div style={{ display: 'grid', gap: 12 }}>
+                        {userControls}
+                        <Select
+                            size="small"
+                            value={i18n.language.startsWith('pt') ? 'pt' : i18n.language.startsWith('es') ? 'es' : 'en'}
+                            onChange={(lng) => i18n.changeLanguage(lng)}
+                            options={[
+                                { label: 'PT', value: 'pt' },
+                                { label: 'EN', value: 'en' },
+                                { label: 'ES', value: 'es' },
+                            ]}
+                            style={{ width: '100%' }}
+                        />
+                    </div>
+                </div>
+            </Layout.Sider>
 
             <Content style={{ padding: '32px 24px' }}>
                 <div
