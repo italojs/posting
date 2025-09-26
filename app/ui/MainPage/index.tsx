@@ -1,5 +1,5 @@
-import { LoadingOutlined, ThunderboltOutlined, ReadOutlined, LinkOutlined, ClockCircleOutlined, CheckCircleOutlined, SafetyCertificateOutlined, ArrowRightOutlined } from '@ant-design/icons';
-import { Button, Card, Col, Empty, Image, List, Row, Space, Tag, Typography, Popconfirm, message } from 'antd';
+import { LoadingOutlined, ThunderboltOutlined, ReadOutlined, LinkOutlined, ClockCircleOutlined, CheckCircleOutlined, SafetyCertificateOutlined, ArrowRightOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Empty, Image, List, Row, Space, Tag, Typography, Popconfirm, message, Segmented } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState } from 'react';
 import { BasicSiteProps } from '../App';
@@ -205,6 +205,7 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
   const [loading, setLoading] = useState<boolean>(!!userId);
   const [userProfiles, setUserProfiles] = useState<MiniMainPageUserProfile[]>([]);
   const [contents, setContents] = useState<Content[]>([]);
+  const [historyViewMode, setHistoryViewMode] = useState<'cards' | 'list'>('cards');
   
   const [, navigate] = useLocation();
 
@@ -243,6 +244,38 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
     setLoading(false);
   };
 
+  const buildContentActions = (contentItem: Content): React.ReactNode[] => [
+    <Button
+      key="edit"
+      size="small"
+      onClick={() =>
+        navigate(`${protectedRoutes.editContent.path.replace(':id', contentItem._id)}`)
+      }
+    >
+      {t('content.edit')}
+    </Button>,
+    <Popconfirm
+      key="delete"
+      title={t('content.deleteConfirm')}
+      okText={t('content.delete')}
+      okButtonProps={{ danger: true }}
+      cancelText={t('content.cancel')}
+      onConfirm={async () => {
+        try {
+          await Meteor.callAsync('set.contents.delete', { _id: contentItem._id });
+          message.success(t('content.deleteSuccess'));
+          fetchData(true);
+        } catch (e) {
+          errorResponse(e as Meteor.Error, t('content.deleteError'));
+        }
+      }}
+    >
+      <Button size="small" danger>
+        {t('content.delete')}
+      </Button>
+    </Popconfirm>,
+  ];
+
   useEffect(() => {
     if (userId) fetchData();
     else setLoading(false);
@@ -276,40 +309,57 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
 
       {userId && (
         <Card>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <div>
-              <Typography.Title level={4} style={{ marginBottom: 0 }}>
-                {t('home.historyTitle')}
-              </Typography.Title>
-              <Typography.Text type="secondary">{t('home.recentSaved')}</Typography.Text>
+          <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12,
+              }}
+            >
+              <div>
+                <Typography.Title level={4} style={{ marginBottom: 0 }}>
+                  {t('home.historyTitle')}
+                </Typography.Title>
+                <Typography.Text type="secondary">{t('home.recentSaved')}</Typography.Text>
+              </div>
+              {contents.length > 0 && (
+                <Segmented
+                  value={historyViewMode}
+                  onChange={(value) => setHistoryViewMode(value as 'cards' | 'list')}
+                  options={[
+                    {
+                      label: (
+                        <Space size={4}>
+                          <AppstoreOutlined />
+                          {t('home.historyViewCards')}
+                        </Space>
+                      ),
+                      value: 'cards',
+                    },
+                    {
+                      label: (
+                        <Space size={4}>
+                          <UnorderedListOutlined />
+                          {t('home.historyViewList')}
+                        </Space>
+                      ),
+                      value: 'list',
+                    },
+                  ]}
+                  size="small"
+                />
+              )}
             </div>
             {contents.length === 0 ? (
               <Empty description={t('createContent.listEmpty')} />
-            ) : (
+            ) : historyViewMode === 'cards' ? (
               <Row gutter={[16, 16]}>
                 {contents.map((c) => (
                   <Col xs={24} sm={12} md={8} lg={6} key={c._id}>
-                    <Card hoverable actions={[
-                      <Button key="edit" size="small" onClick={() => navigate(`${protectedRoutes.editContent.path.replace(':id', c._id)}`)}>{t('content.edit')}</Button>,
-                      <Popconfirm
-                        key="delete"
-                        title={t('content.deleteConfirm')}
-                        okText={t('content.delete')}
-                        okButtonProps={{ danger: true }}
-                        cancelText={t('content.cancel')}
-                        onConfirm={async () => {
-                          try {
-                            await Meteor.callAsync('set.contents.delete', { _id: c._id });
-                            message.success(t('content.deleteSuccess'));
-                            fetchData(true);
-                          } catch (e) {
-                            errorResponse(e as Meteor.Error, t('content.deleteError'));
-                          }
-                        }}
-                      >
-                        <Button size="small" danger>{t('content.delete')}</Button>
-                      </Popconfirm>
-                    ]}>
+                    <Card hoverable actions={buildContentActions(c)}>
                       <Typography.Text strong>{c.name}</Typography.Text>
                       <div style={{ marginTop: 8 }}>
                         <Typography.Text type="secondary">
@@ -318,21 +368,57 @@ const MainPage: React.FC<MainPageProps> = ({ userId }) => {
                       </div>
                       {c.audience && (
                         <div style={{ marginTop: 8 }}>
-                          <Typography.Text type="secondary">{t('content.audience')}: {c.audience}</Typography.Text>
+                          <Typography.Text type="secondary">
+                            {t('content.audience')}: {c.audience}
+                          </Typography.Text>
                         </div>
                       )}
                       {c.goal && (
                         <div style={{ marginTop: 4 }}>
-                          <Typography.Text type="secondary">{t('content.goal')}: {c.goal}</Typography.Text>
+                          <Typography.Text type="secondary">
+                            {t('content.goal')}: {c.goal}
+                          </Typography.Text>
                         </div>
                       )}
                       <div style={{ marginTop: 8 }}>
-                        <Typography.Text type="secondary">RSS: {c.rssUrls.length} • {t('content.items')}: {c.rssItems?.length ?? 0}</Typography.Text>
+                        <Typography.Text type="secondary">
+                          RSS: {c.rssUrls.length} • {t('content.items')}: {c.rssItems?.length ?? 0}
+                        </Typography.Text>
                       </div>
                     </Card>
                   </Col>
                 ))}
               </Row>
+            ) : (
+              <List
+                itemLayout="vertical"
+                dataSource={contents}
+                renderItem={(contentItem) => (
+                  <List.Item key={contentItem._id} actions={buildContentActions(contentItem)}>
+                    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                      <Typography.Text strong>{contentItem.name}</Typography.Text>
+                      <Typography.Text type="secondary">
+                        {new Date(contentItem.createdAt).toLocaleString()}
+                      </Typography.Text>
+                      {contentItem.audience && (
+                        <Typography.Text type="secondary">
+                          {t('content.audience')}: {contentItem.audience}
+                        </Typography.Text>
+                      )}
+                      {contentItem.goal && (
+                        <Typography.Text type="secondary">
+                          {t('content.goal')}: {contentItem.goal}
+                        </Typography.Text>
+                      )}
+                      <Typography.Text type="secondary">
+                        RSS: {contentItem.rssUrls.length} • {t('content.items')}:
+                        {' '}
+                        {contentItem.rssItems?.length ?? 0}
+                      </Typography.Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
             )}
           </Space>
         </Card>

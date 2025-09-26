@@ -1,3 +1,5 @@
+import { BrandContextForAI } from '../brands/models';
+
 export interface RssItem {
     title?: string;
     link?: string;
@@ -51,6 +53,8 @@ export interface Content {
     /** Specific sections for newsletter content; each section can pick its own RSS items */
     newsletterSections?: NewsletterSection[];
     newsletterOutput?: StoredNewsletterPreview;
+    brandId?: string;
+    brandSnapshot?: BrandContextForAI;
     createdAt: Date;
 }
 
@@ -110,6 +114,7 @@ export interface NewsletterGenerationContext {
     title: string;
     goal?: string;
     audience?: string;
+    brand?: BrandContextForAI;
     languageName: string;
     languageTag: string;
     currentDate: string;
@@ -146,6 +151,7 @@ export interface GenerateSuggestionInput {
     contentTemplate: Pick<CreateContentInput, 'name' | 'audience' | 'goal'>;
     numberOfSections: number;
     language: string;
+    brand?: BrandContextForAI;
 }
 
 export interface SearchNewsInput {
@@ -172,6 +178,7 @@ export interface GenerateSectionSearchInput {
     newsletter: Pick<CreateContentInput, 'name' | 'audience' | 'goal'>;
     section: { title: string; description?: string };
     language: string;
+    brand?: BrandContextForAI;
 }
 
 export interface GenerateSectionSearchResult {
@@ -194,4 +201,6 @@ export interface CreateContentInput {
     };
     /** Optional sections for newsletter, enabling per-section item selection */
     newsletterSections?: NewsletterSection[];
+    brandId?: string;
+    brandSnapshot?: BrandContextForAI;
 }

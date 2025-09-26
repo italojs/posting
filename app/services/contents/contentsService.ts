@@ -39,6 +39,10 @@ export class ContentsService {
 
   buildDoc(userId: string, input: CreateContentInput, sections?: NewsletterSection[]): Omit<Content, '_id'> {
     const { name, audience, goal, rssUrls, rssItems, networks } = input;
+    const brandId = typeof input.brandId === 'string' ? input.brandId.trim() : undefined;
+    const brandSnapshot = input.brandSnapshot && input.brandSnapshot.name
+      ? { ...input.brandSnapshot }
+      : undefined;
     return {
       userId,
       name: name.trim(),
@@ -54,6 +58,8 @@ export class ContentsService {
         linkedin: !!(networks as any).linkedin,
       },
       newsletterSections: sections,
+      brandId: brandId || undefined,
+      brandSnapshot,
       createdAt: new Date(),
     };
   }
@@ -104,6 +110,8 @@ export class ContentsService {
           rssItems: doc.rssItems,
           networks: doc.networks,
           newsletterSections: doc.newsletterSections,
+          brandId: doc.brandId,
+          brandSnapshot: doc.brandSnapshot,
         },
       }
     );

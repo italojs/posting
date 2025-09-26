@@ -1,4 +1,13 @@
-import { AreaChartOutlined, HomeOutlined, LoginOutlined, LogoutOutlined, PlusOutlined, ProfileOutlined, ReadOutlined } from '@ant-design/icons';
+import {
+    AreaChartOutlined,
+    HomeOutlined,
+    LoginOutlined,
+    LogoutOutlined,
+    PlusOutlined,
+    ProfileOutlined,
+    ReadOutlined,
+    TrademarkCircleOutlined,
+} from '@ant-design/icons';
 import { limitText, removeUndefinedFromArray } from '@netsu/js-utils';
 import { Avatar, Button, Dropdown, Image, Layout, Menu, Select, theme } from 'antd';
 import { Content, Footer } from 'antd/es/layout/layout';
@@ -48,6 +57,12 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
     }
 
     if (userId && userProfile) {
+        navigationItems.push({
+            key: 'brands',
+            icon: <TrademarkCircleOutlined />,
+            label: t('app.brands'),
+            onClick: () => navigate(protectedRoutes.brands.path),
+        });
         navigationItems.push({
             key: 'create-content',
             icon: <PlusOutlined />,

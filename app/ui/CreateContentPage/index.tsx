@@ -6,13 +6,13 @@ import {
     DeleteOutlined,
     SaveOutlined,
     FileTextOutlined,
-    ReloadOutlined,
     SearchOutlined,
     CopyOutlined,
+    AppstoreAddOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse } from 'antd';
+import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select } from 'antd';
 import { Meteor } from 'meteor/meteor';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import { BasicSiteProps } from '../App';
 import {
@@ -24,6 +24,7 @@ import {
     SearchNewsResult,
     GeneratedNewsletterPreview,
 } from '/app/api/contents/models';
+import { BrandSummary, BrandContextForAI } from '/app/api/brands/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -73,6 +74,21 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [sectionNewsResults, setSectionNewsResults] = useState<Record<string, SearchNewsResult[]>>({});
     const requestedQueriesRef = useRef<Set<string>>(new Set());
     const [newsletterPreview, setNewsletterPreview] = useState<GeneratedNewsletterPreview | null>(null);
+    const [brands, setBrands] = useState<BrandSummary[]>([]);
+    const [brandsLoading, setBrandsLoading] = useState(false);
+    const [loadedContentBrand, setLoadedContentBrand] = useState<{ id: string; snapshot?: BrandContextForAI } | null>(null);
+
+    const fetchBrands = useCallback(async () => {
+        setBrandsLoading(true);
+        try {
+            const result = (await Meteor.callAsync('get.brands.mine')) as BrandSummary[];
+            setBrands(result || []);
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.brandsLoadError'));
+        } finally {
+            setBrandsLoading(false);
+        }
+    }, [t]);
 
     const handleCopyPreviewMarkdown = async () => {
         if (!newsletterPreview?.compiledMarkdown) return;
@@ -89,7 +105,6 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     };
     // Only favorites mode
 
-    const rssCount = rssItems?.length ?? 0;
     const currentSection = activeSectionIndex >= 0 ? sections[activeSectionIndex] : undefined;
     const currentSectionId = currentSection?.id ?? '';
     const currentSectionQueries = currentSection?.newsSearchQueries || [];
@@ -100,6 +115,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     useEffect(() => {
         const run = async () => {
             try {
+                setLoadedContentBrand(null);
                 const res = (await Meteor.callAsync('get.userProfiles.rssFavorites')) as { urls: string[] };
                 const urls = (res.urls || []).filter(Boolean);
                 setFavoriteUrls(urls);
@@ -117,12 +133,21 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             name: doc.name,
                             audience: doc.audience,
                             goal: doc.goal,
+                            brandId: doc.brandId,
                             newsletter: !!doc.networks?.newsletter,
                             instagram: !!doc.networks?.instagram,
                             twitter: !!doc.networks?.twitter,
                             tiktok: !!doc.networks?.tiktok,
                             linkedin: !!doc.networks?.linkedin,
                         });
+                        setLoadedContentBrand(
+                            doc.brandId
+                                ? {
+                                      id: doc.brandId,
+                                      snapshot: doc.brandSnapshot,
+                                  }
+                                : null,
+                        );
                         // ignorar seleções salvas; usar todos os favoritos
                         // Preload sections and selected items
                         const docSections = (doc.newsletterSections || []) as NewsletterSection[];
@@ -163,6 +188,10 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         run();
     }, [editingId]);
 
+    useEffect(() => {
+        fetchBrands();
+    }, [fetchBrands]);
+
     // manual URL input removed; only favorites are used
 
     // Observa valores do formulário para redes sociais (inclusive setFieldsValue)
@@ -171,6 +200,68 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const watchTwitter = Form.useWatch('twitter', form);
     const watchTiktok = Form.useWatch('tiktok', form);
     const watchLinkedin = Form.useWatch('linkedin', form);
+    const watchBrandId = Form.useWatch('brandId', form);
+
+    const resolveBrandContext = useCallback(
+        (brandId?: string | null): BrandContextForAI | undefined => {
+            if (!brandId) return undefined;
+            const brand = brands.find((item) => item._id === brandId);
+            if (brand) {
+                return {
+                    name: brand.name,
+                    description: brand.description,
+                    tone: brand.tone,
+                    audience: brand.audience,
+                    differentiators: brand.differentiators,
+                    keywords: brand.keywords,
+                };
+            }
+            if (loadedContentBrand && loadedContentBrand.id === brandId && loadedContentBrand.snapshot) {
+                return loadedContentBrand.snapshot;
+            }
+            return undefined;
+        },
+        [brands, loadedContentBrand],
+    );
+
+    const brandOptions = useMemo(() => {
+        const options = brands.map((brand) => ({ value: brand._id, label: brand.name }));
+        if (loadedContentBrand && loadedContentBrand.id && !options.some((option) => option.value === loadedContentBrand.id)) {
+            options.push({
+                value: loadedContentBrand.id,
+                label:
+                    loadedContentBrand.snapshot?.name
+                        ? `${loadedContentBrand.snapshot.name} ${t('createContent.brandMissingSuffix')}`
+                        : t('createContent.brandMissingLabel'),
+            });
+        }
+        return options;
+    }, [brands, loadedContentBrand, t]);
+
+    const selectedBrandSummary = useMemo<BrandSummary | undefined>(() => {
+        if (!watchBrandId) return undefined;
+        const found = brands.find((brand) => brand._id === watchBrandId);
+        if (found) return found;
+        if (loadedContentBrand && loadedContentBrand.id === watchBrandId && loadedContentBrand.snapshot) {
+            const snapshot = loadedContentBrand.snapshot;
+            return {
+                _id: watchBrandId,
+                name: snapshot.name || t('createContent.brandMissingName'),
+                description: snapshot.description,
+                tone: snapshot.tone,
+                audience: snapshot.audience,
+                differentiators: snapshot.differentiators,
+                keywords: snapshot.keywords,
+            };
+        }
+        return undefined;
+    }, [brands, watchBrandId, loadedContentBrand, t]);
+
+    const isBrandMissing = useMemo(() => {
+        if (!watchBrandId) return false;
+        const exists = brands.some((brand) => brand._id === watchBrandId);
+        return !exists && loadedContentBrand !== null && loadedContentBrand.id === watchBrandId;
+    }, [brands, loadedContentBrand, watchBrandId]);
 
     useEffect(() => {
         if (!watchNewsletter) return;
@@ -191,6 +282,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
         const fetchSuggestions = async () => {
             const newsletterValues = form.getFieldsValue(['name', 'audience', 'goal']);
+            const brandContext = resolveBrandContext(form.getFieldValue('brandId'));
             for (const section of sectionsToFetch) {
                 if (cancelled) break;
                 const sectionId = section.id as string;
@@ -205,6 +297,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         },
                         section: { title: section.title, description: section.description },
                         language: i18n.language,
+                        brand: brandContext,
                     })) as GenerateSectionSearchResult;
 
                     if (!cancelled && result?.queries?.length) {
@@ -229,7 +322,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         return () => {
             cancelled = true;
         };
-    }, [sections, watchNewsletter, form, i18n.language, t]);
+    }, [sections, watchNewsletter, form, i18n.language, t, resolveBrandContext, watchBrandId]);
 
     useEffect(() => {
         const existingIds = new Set(
@@ -341,6 +434,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 linkedin: !!values.linkedin,
             },
             newsletterSections: newsletterSectionsPayload,
+            brandId: values.brandId || undefined,
         };
     };
 
@@ -423,6 +517,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             }
 
             const formValues = await form.validateFields(['name', 'audience', 'goal']);
+            const brandContext = resolveBrandContext(form.getFieldValue('brandId'));
             
             setAILoading(true);
             
@@ -434,7 +529,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             const result = (await Meteor.callAsync('get.contents.generateSuggestion', {
                 contentTemplate: formValues,
                 numberOfSections,
-                language: currentLanguage
+                language: currentLanguage,
+                brand: brandContext,
             })) as GenerateSuggestionResult;
 
             form.setFieldsValue({
@@ -497,6 +593,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 },
                 section: { title: section.title, description: section.description },
                 language: i18n.language,
+                brand: resolveBrandContext(form.getFieldValue('brandId')),
             })) as GenerateSectionSearchResult;
 
             setSections((prev) =>
@@ -614,7 +711,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         <Form
                             form={form}
                             layout="vertical"
-                            initialValues={{ newsletter: false, instagram: false, twitter: false, tiktok: false, linkedin: false }}
+                            initialValues={{ brandId: undefined, newsletter: false, instagram: false, twitter: false, tiktok: false, linkedin: false }}
                             style={{ padding: '8px 0' }}
                             onValuesChange={(_, all) => {
                                 const any = !!(all?.newsletter || all?.instagram || all?.twitter || all?.tiktok || all?.linkedin);
@@ -643,6 +740,91 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                 }
                             }}
                         >
+                            <Form.Item
+                                name="brandId"
+                                label={
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontWeight: '600', fontSize: '14px' }}>{t('createContent.brandLabel')}</span>
+                                        <Button
+                                            size="small"
+                                            type="link"
+                                            icon={<AppstoreAddOutlined />}
+                                            onClick={() => navigate(protectedRoutes.brands.path)}
+                                        >
+                                            {t('createContent.manageBrands')}
+                                        </Button>
+                                    </div>
+                                }
+                            >
+                                <Select
+                                    allowClear
+                                    showSearch
+                                    placeholder={t('createContent.brandPlaceholder') as string}
+                                    loading={brandsLoading}
+                                    options={brandOptions}
+                                    optionFilterProp="label"
+                                />
+                            </Form.Item>
+
+                            <div style={{ marginBottom: 16 }}>
+                                {selectedBrandSummary ? (
+                                    <div
+                                        style={{
+                                            border: '1px solid #e0e7ff',
+                                            background: '#f5f7ff',
+                                            borderRadius: 8,
+                                            padding: 12,
+                                        }}
+                                    >
+                                        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                            <Typography.Text strong>{selectedBrandSummary.name}</Typography.Text>
+                                            {selectedBrandSummary.description && (
+                                                <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                                                    {selectedBrandSummary.description}
+                                                </Typography.Text>
+                                            )}
+                                            {selectedBrandSummary.tone && (
+                                                <Typography.Text style={{ fontSize: 12 }}>
+                                                    <strong>{t('createContent.brandTone')}:</strong> {selectedBrandSummary.tone}
+                                                </Typography.Text>
+                                            )}
+                                            {selectedBrandSummary.audience && (
+                                                <Typography.Text style={{ fontSize: 12 }}>
+                                                    <strong>{t('createContent.brandAudience')}:</strong> {selectedBrandSummary.audience}
+                                                </Typography.Text>
+                                            )}
+                                            {selectedBrandSummary.differentiators && (
+                                                <Typography.Text style={{ fontSize: 12 }}>
+                                                    <strong>{t('createContent.brandDifferentiators')}:</strong> {selectedBrandSummary.differentiators}
+                                                </Typography.Text>
+                                            )}
+                                            {selectedBrandSummary.keywords && selectedBrandSummary.keywords.length > 0 && (
+                                                <Space size={[4, 4]} wrap>
+                                                    {selectedBrandSummary.keywords.map((keyword) => (
+                                                        <Typography.Text key={keyword} code style={{ fontSize: 12 }}>
+                                                            {keyword}
+                                                        </Typography.Text>
+                                                    ))}
+                                                </Space>
+                                            )}
+                                            {isBrandMissing && (
+                                                <Typography.Text type="danger" style={{ fontSize: 12 }}>
+                                                    {t('createContent.brandMissingWarning')}
+                                                </Typography.Text>
+                                            )}
+                                        </Space>
+                                    </div>
+                                ) : brands.length === 0 ? (
+                                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                        {t('createContent.brandEmptyHint')}
+                                    </Typography.Text>
+                                ) : (
+                                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                        {t('createContent.brandHelper')}
+                                    </Typography.Text>
+                                )}
+                            </div>
+
                             <Form.Item 
                                 name="name" 
                                 label={<span style={{ fontWeight: '600', fontSize: '14px' }}>{t('createContent.nameLabel')}</span>} 

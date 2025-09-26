@@ -28,13 +28,22 @@ Meteor.methods({
         const res: FetchRssResult = { items };
         return res;
     },
-    'get.contents.generateSuggestion': async ({ contentTemplate, numberOfSections, language }: GenerateSuggestionInput) => {
+    'get.contents.generateSuggestion': async ({ contentTemplate, numberOfSections, language, brand }: GenerateSuggestionInput) => {
         const user = await currentUserAsync();
         if (!user) return noAuthError();
-        const result = await aiContentService.generateSuggestion({ contentTemplate, numberOfSections, language });
+        if (brand) {
+            check(brand, Object);
+            check(brand.name, Match.Maybe(String));
+            check(brand.description, Match.Maybe(String));
+            check(brand.tone, Match.Maybe(String));
+            check(brand.audience, Match.Maybe(String));
+            check(brand.differentiators, Match.Maybe(String));
+            check(brand.keywords, Match.Maybe([String]));
+        }
+        const result = await aiContentService.generateSuggestion({ contentTemplate, numberOfSections, language, brand });
         return result as GenerateSuggestionResult;
     },
-    'get.contents.generateSectionSearchQueries': async ({ newsletter, section, language }: GenerateSectionSearchInput) => {
+    'get.contents.generateSectionSearchQueries': async ({ newsletter, section, language, brand }: GenerateSectionSearchInput) => {
         const user = await currentUserAsync();
         if (!user) return noAuthError();
         check(newsletter, Object);
@@ -45,7 +54,16 @@ Meteor.methods({
         check(newsletter.goal, Match.Maybe(String));
         check(section.title, String);
         check(section.description, Match.Maybe(String));
-        const result = await aiContentService.generateSectionSearchQueries({ newsletter, section, language });
+        if (brand) {
+            check(brand, Object);
+            check(brand.name, Match.Maybe(String));
+            check(brand.description, Match.Maybe(String));
+            check(brand.tone, Match.Maybe(String));
+            check(brand.audience, Match.Maybe(String));
+            check(brand.differentiators, Match.Maybe(String));
+            check(brand.keywords, Match.Maybe([String]));
+        }
+        const result = await aiContentService.generateSectionSearchQueries({ newsletter, section, language, brand });
         return result;
     },
     'get.contents.searchNews': async ({ query, language, country }: SearchNewsInput) => {

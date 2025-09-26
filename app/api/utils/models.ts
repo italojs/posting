@@ -4,7 +4,8 @@ export enum AvailableCollectionNames {
     USERS = 'users',
     USER_PROFILE = 'user_profiles',
     CONTENTS = 'contents',
-    PROCESSED_NEWSLETTERS = 'processed_newsletters'
+    PROCESSED_NEWSLETTERS = 'processed_newsletters',
+    BRANDS = 'brands'
 }
 
 export interface FindCollectionParams extends SearchParams {

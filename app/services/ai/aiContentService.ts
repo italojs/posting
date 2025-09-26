@@ -9,16 +9,37 @@ import {
   NewsletterSectionGenerationResult,
   ProcessedArticle,
 } from '../../api/contents/models';
+import { BrandContextForAI } from '../../api/brands/models';
 
 const ARTICLE_TEXT_SUMMARY_LIMIT = 8000;
 
 export class AiContentService {
-  buildPrompt({ contentTemplate, numberOfSections, language }: GenerateSuggestionInput) {
+  private formatBrandDetails(brand?: BrandContextForAI): string | undefined {
+    if (!brand || !brand.name) return undefined;
+    const details: string[] = [`Name: ${brand.name}`];
+    if (brand.description) details.push(`Description: ${brand.description}`);
+    if (brand.tone) details.push(`Tone of voice: ${brand.tone}`);
+    if (brand.audience) details.push(`Primary audience: ${brand.audience}`);
+    if (brand.differentiators) details.push(`Differentiators: ${brand.differentiators}`);
+    if (brand.keywords && brand.keywords.length > 0) {
+      details.push(`Keywords: ${brand.keywords.join(', ')}`);
+    }
+    return details.join('\n');
+  }
+
+  buildPrompt({ contentTemplate, numberOfSections, language, brand }: GenerateSuggestionInput) {
     const { name, audience, goal } = contentTemplate;
+    const brandDetails = this.formatBrandDetails(brand);
+    const brandSection = brandDetails
+      ? `Brand guidelines:\n${brandDetails}`
+      : 'Brand guidelines:\nNot specified';
+
     return `Based on the following content:
 - Name: ${name}
 - Target audience: ${audience || 'not specified'}
 - Goal: ${goal || 'not specified'}
+
+${brandSection}
 
 Generate ${numberOfSections} sections for a newsletter, each with:
 1. A creative and attractive title
@@ -36,13 +57,18 @@ Respond only in JSON format with this structure:
 }`;
   }
 
-  buildSectionSearchPrompt({ newsletter, section, language }: GenerateSectionSearchInput) {
+  buildSectionSearchPrompt({ newsletter, section, language, brand }: GenerateSectionSearchInput) {
     const { name, audience, goal } = newsletter;
+    const brandDetails = this.formatBrandDetails(brand);
+    const brandSection = brandDetails
+      ? `\nBrand guidelines:\n${brandDetails}\n`
+      : '\n';
     return `You are an assistant helping a marketer curate a newsletter.
 Newsletter:
 - Title: ${name || 'not provided'}
 - Goal: ${goal || 'not provided'}
 - Audience: ${audience || 'not provided'}
+${brandSection}
 
 Section details:
 - Title: ${section.title}
@@ -201,12 +227,16 @@ Respond only in JSON with this structure:
     const truncatedText =
       article.text.length > maxLength ? `${article.text.slice(0, maxLength)}...` : article.text;
 
-    const systemPrompt = `You are a marketing assistant who summarizes articles for a curated newsletter. The current date is ${context.currentDate}. Always respond in ${context.languageName} (${context.languageTag}). Keep the tone informative and clear.`;
+    const brandDetails = this.formatBrandDetails(context.brand);
+    const systemPrompt = `You are a marketing assistant who summarizes articles for a curated newsletter. The current date is ${context.currentDate}. Always respond in ${context.languageName} (${context.languageTag}). Keep the tone informative and clear.${
+      brandDetails ? `\nRespect the following brand guidelines:\n${brandDetails}` : ''
+    }`;
 
     const userPrompt = `Newsletter:
 - Title: ${context.title || 'not provided'}
 - Goal: ${context.goal || 'not provided'}
 - Audience: ${context.audience || 'not provided'}
+${brandDetails ? `- Brand voice: ${context.brand?.tone || 'not provided'}` : ''}
 
 Article:
 - Title: ${article.title}
@@ -243,12 +273,18 @@ Summarize the article in up to five sentences, highlighting why it matters to th
       .map((item, index) => `${index + 1}. ${item.title}: ${item.summary}`)
       .join('\n');
 
-    const systemPrompt = `You are a copywriter who crafts engaging marketing newsletter sections. The current date is ${newsletter.currentDate}. All content must be written in ${newsletter.languageName} (${newsletter.languageTag}). Use a professional but warm tone.`;
+    const brandDetails = this.formatBrandDetails(newsletter.brand);
+    const systemPrompt = `You are a copywriter who crafts engaging marketing newsletter sections. The current date is ${newsletter.currentDate}. All content must be written in ${newsletter.languageName} (${newsletter.languageTag}). Use a professional but warm tone.${
+      brandDetails ? `\nMatch these brand guidelines:\n${brandDetails}` : ''
+    }`;
 
     const userPrompt = `Newsletter context:
 - Title: ${newsletter.title || 'not provided'}
 - Goal: ${newsletter.goal || 'not provided'}
 - Audience: ${newsletter.audience || 'not provided'}
+${brandDetails ? `- Brand tone: ${newsletter.brand?.tone || 'not provided'}` : ''}
+
+${brandDetails ? `Brand guidelines to follow:\n${brandDetails}\n` : ''}
 
 Target section:
 - Suggested title: ${section.title}

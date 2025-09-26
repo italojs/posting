@@ -1,7 +1,8 @@
 import { Meteor } from 'meteor/meteor';
 import { Mongo } from 'meteor/mongo';
 import UserProfileCollection from '../../userProfile/userProfile';
-import ContentsCollection from '../../contents/contents';
+import ContentsCollection, { ProcessedNewslettersCollection } from '../../contents/contents';
+import BrandsCollection from '../../brands/brands';
 import { AvailableCollectionNames, FindCollectionParams } from '../models';
 import { MongoDBSelector } from '/app/types/interfaces';
 import { internalServerError } from '/app/utils/serverErrors';
@@ -19,6 +20,8 @@ Meteor.methods({
             [AvailableCollectionNames.USER_PROFILE]: UserProfileCollection,
             [AvailableCollectionNames.USERS]: Meteor.users,
             [AvailableCollectionNames.CONTENTS]: ContentsCollection,
+            [AvailableCollectionNames.PROCESSED_NEWSLETTERS]: ProcessedNewslettersCollection,
+            [AvailableCollectionNames.BRANDS]: BrandsCollection,
         } as any;
 
         const collectionInstance = collectionMap[collection];

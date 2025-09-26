@@ -2,6 +2,7 @@ import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import * as cheerio from 'cheerio';
 import ContentsCollection from '../contents';
+import { BrandContextForAI } from '/app/api/brands/models';
 import {
     Content,
     CreateContentInput,
@@ -17,10 +18,45 @@ import {
 } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
-import { aiContentService } from '/app/services';
+import { aiContentService, brandsService } from '/app/services';
+
+interface ResolvedBrandContext {
+    brandId?: string;
+    brandSnapshot?: BrandContextForAI;
+}
+
+async function resolveBrandForUser(
+    userId: string,
+    rawBrandId?: string | null,
+    options?: { allowMissing?: boolean },
+): Promise<ResolvedBrandContext> {
+    const trimmed = typeof rawBrandId === 'string' ? rawBrandId.trim() : '';
+    if (!trimmed) {
+        return { brandId: undefined, brandSnapshot: undefined };
+    }
+
+    const brand = await brandsService.getByIdForUser(trimmed, userId);
+    if (!brand) {
+        if (options?.allowMissing) {
+            return { brandId: undefined, brandSnapshot: undefined };
+        }
+        return clientContentError('Marca não encontrada');
+    }
+
+    const brandSnapshot: BrandContextForAI = {
+        name: brand.name,
+        description: brand.description,
+        tone: brand.tone,
+        audience: brand.audience,
+        differentiators: brand.differentiators,
+        keywords: brand.keywords,
+    };
+
+    return { brandId: brand._id, brandSnapshot };
+}
 
 Meteor.methods({
-    'set.contents.create': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput) => {
+    'set.contents.create': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections, brandId }: CreateContentInput) => {
         check(name, String);
         check(audience, Match.Maybe(String));
         check(goal, Match.Maybe(String));
@@ -35,6 +71,7 @@ Meteor.methods({
 
         // Newsletter sections are optional; if present, do a light validation
         check(newsletterSections, Match.Maybe([Object]));
+        check(brandId, Match.Maybe(String));
 
         const user = await currentUserAsync();
         if (!user) return noAuthError();
@@ -45,6 +82,8 @@ Meteor.methods({
         if (!cleanedName) return clientContentError('Nome do conteúdo é obrigatório');
         const cleanedUrls = rssUrls.map((u) => u.trim()).filter(Boolean);
         if (cleanedUrls.length === 0) return clientContentError('Informe pelo menos um RSS');
+
+        const { brandId: resolvedBrandId, brandSnapshot } = await resolveBrandForUser(user._id, brandId);
 
     const doc: Omit<Content, '_id'> = {
             userId: user._id,
@@ -61,6 +100,8 @@ Meteor.methods({
                 linkedin: !!(networks as any).linkedin,
             },
             newsletterSections: newsletterSections && newsletterSections.length > 0 ? newsletterSections : undefined,
+            brandId: resolvedBrandId,
+            brandSnapshot,
             createdAt: new Date(),
         };
 
@@ -105,7 +146,7 @@ Meteor.methods({
         await ContentsCollection.removeAsync({ _id, userId: user._id });
         return { _id };
     },
-    'set.contents.update': async ({ _id, name, audience, goal, rssUrls, rssItems, networks, newsletterSections }: CreateContentInput & { _id: string }) => {
+    'set.contents.update': async ({ _id, name, audience, goal, rssUrls, rssItems, networks, newsletterSections, brandId }: CreateContentInput & { _id: string }) => {
         check(_id, String);
         check(name, String);
         check(audience, Match.Maybe(String));
@@ -119,6 +160,7 @@ Meteor.methods({
         check((networks as any).tiktok, Match.Maybe(Boolean));
         check((networks as any).linkedin, Match.Maybe(Boolean));
         check(newsletterSections, Match.Maybe([Object]));
+        check(brandId, Match.Maybe(String));
 
         const user = await currentUserAsync();
         if (!user) return noAuthError();
@@ -132,6 +174,8 @@ Meteor.methods({
         if (!cleanedName) return clientContentError('Nome do conteúdo é obrigatório');
         const cleanedUrls = rssUrls.map((u) => u.trim()).filter(Boolean);
         if (cleanedUrls.length === 0) return clientContentError('Informe pelo menos um RSS');
+
+        const { brandId: resolvedBrandId, brandSnapshot } = await resolveBrandForUser(user._id, brandId);
 
         await ContentsCollection.updateAsync(
             { _id, userId: user._id },
@@ -150,12 +194,14 @@ Meteor.methods({
                         linkedin: !!(networks as any).linkedin,
                     },
                     newsletterSections: newsletterSections && newsletterSections.length > 0 ? newsletterSections : undefined,
+                    brandId: resolvedBrandId,
+                    brandSnapshot,
                 },
             },
         );
         return { _id };
     },
-    'set.contents.processNewsletter': async ({ _id, name, audience, goal, rssUrls, rssItems, networks, newsletterSections, language }: ProcessNewsletterInput) => {
+    'set.contents.processNewsletter': async ({ _id, name, audience, goal, rssUrls, rssItems, networks, newsletterSections, language, brandId }: ProcessNewsletterInput) => {
         check(name, String);
         check(audience, Match.Maybe(String));
         check(goal, Match.Maybe(String));
@@ -170,17 +216,29 @@ Meteor.methods({
         check(newsletterSections, Match.Maybe([Object]));
         check(_id, Match.Maybe(String));
         check(language, Match.Maybe(String));
+        check(brandId, Match.Maybe(String));
 
         const user = await currentUserAsync();
         if (!user) return noAuthError();
 
         let contentIdForSave: string | undefined;
+        let existingContent: Content | undefined;
+
         if (_id) {
-            const ownedContent = await ContentsCollection.findOneAsync({ _id, userId: user._id });
+            existingContent = (await ContentsCollection.findOneAsync({ _id, userId: user._id })) as Content | undefined;
+            const ownedContent = existingContent;
             if (!ownedContent) {
                 return clientContentError('Conteúdo não encontrado');
             }
             contentIdForSave = _id;
+        }
+
+        let brandSnapshot: BrandContextForAI | undefined;
+        const resolvedBrand = await resolveBrandForUser(user._id, brandId, { allowMissing: true });
+        if (resolvedBrand.brandId) {
+            brandSnapshot = resolvedBrand.brandSnapshot;
+        } else if (existingContent?.brandSnapshot) {
+            brandSnapshot = existingContent.brandSnapshot;
         }
 
         if (!newsletterSections || newsletterSections.length === 0) {
@@ -193,6 +251,7 @@ Meteor.methods({
             title: name,
             goal,
             audience,
+            brand: brandSnapshot,
             languageName: resolvedLanguage.name,
             languageTag: resolvedLanguage.tag,
             currentDate: new Date().toISOString().split('T')[0],

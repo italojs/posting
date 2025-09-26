@@ -6,6 +6,7 @@ import NotFoundPage from "/app/ui/NotFoundPage";
 import SignupPage from "/app/ui/SignupPage";
 import UserProfilePage from "/app/ui/UserProfilePage";
 import FeedPage from "/app/ui/FeedPage";
+import BrandManagementPage from "/app/ui/BrandManagementPage";
 
 /**
  * User does not have to be logged in to view these routes
@@ -49,6 +50,10 @@ export const protectedRoutes = {
 	editContent: {
 		path: "/editar-conteudo/:id",
 		element: (<CreateContentPage />) as React.ReactElement,
+	},
+	brands: {
+		path: "/marcas",
+		element: (<BrandManagementPage />) as React.ReactElement,
 	},
 };
 
