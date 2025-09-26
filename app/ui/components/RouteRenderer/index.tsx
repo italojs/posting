@@ -30,7 +30,7 @@ interface RouteRenderMenuItem extends MenuItemType {
 const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userProfile, userRoles, profilePhoto }) => {
     const { token } = theme.useToken();
     const { i18n, t } = useTranslation('common');
-    const [, navigate] = useLocation();
+    const [currentLocation, navigate] = useLocation();
 
     const navigationItems: (RouteRenderMenuItem | undefined)[] = [
         {
@@ -73,11 +73,19 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
 
     const menuItems = removeUndefinedFromArray(navigationItems);
 
+    const normalizedLocation = currentLocation?.replace(/\/$/, '') || '/';
+
+    const selectedKey = (() => {
+        if (normalizedLocation === '/') return 'home';
+        if (normalizedLocation.startsWith(publicRoutes.feed.path)) return 'feed';
+        if (normalizedLocation.startsWith(protectedRoutes.brands.path)) return 'brands';
+        if (normalizedLocation.startsWith(protectedRoutes.createContent.path)) return 'create-content';
+        if (normalizedLocation.startsWith(protectedRoutes.editContent.path.split('/:')[0])) return 'create-content';
+        return undefined;
+    })();
+
     const logo = (
-        <div
-            onClick={() => navigate(publicRoutes.home.path)}
-            style={{ cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
-        >
+        <div onClick={() => navigate(publicRoutes.home.path)} className="app-shell__logo" style={{ cursor: 'pointer' }}>
             <Image src="/logo.png" width={120} preview={false} alt="logo" />
         </div>
     );
@@ -106,17 +114,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
             }}
             trigger={['click']}
         >
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s ease',
-                }}
-            >
+            <div className="app-shell__user fade-in-up">
                 {profilePhoto ? (
                     <Avatar
                         src={profilePhoto}
@@ -147,21 +145,18 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
     );
 
     return (
-        <Layout style={{ minHeight: '100vh', background: token.colorBgLayout }}>
+        <Layout className="app-shell">
             <Layout.Sider
+                className="app-shell__sider"
                 width={260}
                 theme="light"
-                style={{
-                    background: '#ffffff',
-                    borderInlineEnd: `1px solid ${token.colorSplit}`,
-                    padding: '24px 16px',
-                }}
+                style={{ padding: '24px 16px' }}
             >
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 24 }}>
                     {logo}
                     <Menu
                         mode="inline"
-                        selectable={false}
+                        selectedKeys={selectedKey ? [selectedKey] : []}
                         items={menuItems}
                         style={{
                             flex: 1,
@@ -187,19 +182,13 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
                 </div>
             </Layout.Sider>
 
-            <Content style={{ padding: '32px 24px' }}>
-                <div
-                    style={{
-                        maxWidth: 1040,
-                        margin: '0 auto',
-                        width: '100%',
-                    }}
-                >
+            <Content className="app-shell__content">
+                <div className="app-shell__inner fade-in-up">
                     {children}
                 </div>
             </Content>
 
-            <Footer style={{ textAlign: 'center', background: 'transparent' }}>
+            <Footer className="app-shell__footer">
                 {SITE_NAME} © {new Date().getFullYear()}
             </Footer>
         </Layout>
