@@ -23,63 +23,48 @@ Meteor.methods({
         language,
       });
 
-      // Save to database
-      const reelsScriptId = await ReelsScriptsCollection.insertAsync({
+      // Check if a script already exists for this user with the same title and content
+      // This prevents duplicate scripts when regenerating
+      const existingScript = await ReelsScriptsCollection.findOneAsync({
         userId,
-        contentId,
         title,
-        contentTemplate,
+        'contentTemplate.name': contentTemplate.name,
         articleSummary,
-        language,
-        script,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       });
 
-      return await ReelsScriptsCollection.findOneAsync(reelsScriptId);
+      let result;
+      
+      if (existingScript) {
+        // Update existing script (overwrite)
+        await ReelsScriptsCollection.updateAsync(existingScript._id, {
+          $set: {
+            script,
+            contentTemplate,
+            language,
+            updatedAt: new Date(),
+          },
+        });
+        result = await ReelsScriptsCollection.findOneAsync(existingScript._id);
+      } else {
+        // Create new script
+        const reelsScriptId = await ReelsScriptsCollection.insertAsync({
+          userId,
+          contentId,
+          title,
+          contentTemplate,
+          articleSummary,
+          language,
+          script,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        result = await ReelsScriptsCollection.findOneAsync(reelsScriptId);
+      }
+
+      return result;
     } catch (error) {
       console.error('Error creating reels script:', error);
       throw new Meteor.Error('script-generation-failed', 'Failed to generate reels script');
-    }
-  },
-
-  async 'reelsScripts.regenerate'(scriptId: string) {
-    check(scriptId, String);
-
-    const userId = Meteor.userId();
-    if (!userId) {
-      throw new Meteor.Error('not-authorized', 'You must be logged in');
-    }
-
-    const existingScript = await ReelsScriptsCollection.findOneAsync({
-      _id: scriptId,
-      userId,
-    });
-
-    if (!existingScript) {
-      throw new Meteor.Error('not-found', 'Reels script not found');
-    }
-
-    try {
-      // Regenerate the script
-      const newScript = await aiContentService.generateReelsScript({
-        contentTemplate: existingScript.contentTemplate,
-        articleSummary: existingScript.articleSummary,
-        language: existingScript.language,
-      });
-
-      // Update the script
-      await ReelsScriptsCollection.updateAsync(scriptId, {
-        $set: {
-          script: newScript,
-          updatedAt: new Date(),
-        },
-      });
-
-      return await ReelsScriptsCollection.findOneAsync(scriptId);
-    } catch (error) {
-      console.error('Error regenerating reels script:', error);
-      throw new Meteor.Error('script-regeneration-failed', 'Failed to regenerate reels script');
     }
   },
 

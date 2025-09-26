@@ -2040,7 +2040,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             loading={generatingReel}
                             size="small"
                         >
-                            Regenerar Script
+                            {t('createContent.regenerateScript')}
                         </Button>
                     </div>
                 </Card>

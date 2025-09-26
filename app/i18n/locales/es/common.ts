@@ -109,6 +109,7 @@ const common = {
     generateReelsScript: "Generar Script del Reel",
     generatingScript: "Generando script...",
     untitledArticle: "Artículo sin título",
+    regenerateScript: "Regenerar Script",
   },
   home: {
     createCta: "Crear contenido",

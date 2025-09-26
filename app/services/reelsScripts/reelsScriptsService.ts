@@ -54,18 +54,18 @@ export class ReelsScriptsService {
   }
 
   /**
-   * Regenerate a reels script using AI
+   * Regenerate a reels script by creating a new one with the same parameters
+   * This is a clean approach that reuses the create method
    */
-  async regenerateScript(scriptId: string): Promise<ReelsScript> {
-    return new Promise((resolve, reject) => {
-      Meteor.call('reelsScripts.regenerate', scriptId, (error: any, result: ReelsScript) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(result);
-        }
-      });
-    });
+  async regenerateScript(existingScriptData: {
+    title: string;
+    contentTemplate: any;
+    articleSummary: string;
+    language: string;
+    contentId?: string;
+  }): Promise<ReelsScript> {
+    // Simply create a new script with the same parameters
+    return this.createScript(existingScriptData);
   }
 
   /**
