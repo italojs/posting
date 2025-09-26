@@ -24,6 +24,7 @@
         "react-dom": "^18.2.0",
         "react-i18next": "^15.7.3",
         "rss-parser": "^3.13.0",
+    "mongodb": "^6.9.0",
         "wouter": "^3.6.0"
     },
     "devDependencies": {
