@@ -18,7 +18,7 @@ import {
 } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
-import { aiContentService, brandsService } from '/app/services';
+import { aiContentService, brandsService, subscriptionService } from '/app/services';
 
 interface ResolvedBrandContext {
     brandId?: string;
@@ -246,6 +246,7 @@ Meteor.methods({
         }
 
         const normalizedLanguage = typeof language === 'string' ? language.trim() : undefined;
+        const quotaContext = await subscriptionService.prepareNewsletterQuota(user._id);
         const resolvedLanguage = resolveLanguageInfo(normalizedLanguage);
         const newsletterContext: NewsletterGenerationContext = {
             title: name,
@@ -360,6 +361,8 @@ Meteor.methods({
                 },
             );
         }
+
+        await subscriptionService.commitNewsletterUsage(user._id, quotaContext);
 
         return finalNewsletter;
     },

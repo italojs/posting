@@ -9,12 +9,30 @@ This will become my Meteor.js course.
     "public": {
         "AWSRegion": "af-south-1",
         "AWSBucket": "myapp",
-        "version": "0.6.0"
+        "version": "0.6.0",
+        "STRIPE_PUBLISHABLE_KEY": "pk_test_xxx"
+    },
+    "private": {
+        "STRIPE_SECRET_KEY": "sk_test_xxx",
+        "STRIPE_NEWSLETTER_GROWTH_PRICE_ID": "price_growth_xxx",
+        "STRIPE_NEWSLETTER_SCALE_PRICE_ID": "price_scale_xxx"
     },
     "AWSAccessKeyId": "xxx",
     "AWSSecretAccessKey": "xxx"
 }
 ```
+
+### Stripe configuration
+
+You can also provide the same values through environment variables (`STRIPE_SECRET_KEY`, `STRIPE_NEWSLETTER_GROWTH_PRICE_ID`, `STRIPE_NEWSLETTER_SCALE_PRICE_ID`, `STRIPE_PUBLISHABLE_KEY`). These credentials are required to enable the paid plans and Stripe Checkout/Customer Portal flows.
+
+### Newsletter plans
+
+- **Plano Gratuito**: 1 newsletter por mês.
+- **Newsletter Growth**: 4 newsletters por mês (`price_growth_xxx`).
+- **Newsletter Scale**: newsletters ilimitadas por mês (`price_scale_xxx`).
+
+Usuários autenticados podem gerenciar a assinatura em `/assinatura`, onde o limite mensal atual e os planos disponíveis são exibidos. A geração de newsletters respeita automaticamente os limites definidos para cada plano.
 
 ---
 

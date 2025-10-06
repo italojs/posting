@@ -5,3 +5,4 @@ export * from './ai/aiContentService';
 export * from './userProfile/userProfileService';
 export * from './news/newsSearchService';
 export * from './brands/brandsService';
+export * from './billing/subscriptionService';

@@ -7,6 +7,7 @@ import SignupPage from "/app/ui/SignupPage";
 import UserProfilePage from "/app/ui/UserProfilePage";
 import FeedPage from "/app/ui/FeedPage";
 import BrandManagementPage from "/app/ui/BrandManagementPage";
+import BillingPage from "/app/ui/BillingPage";
 
 /**
  * User does not have to be logged in to view these routes
@@ -54,6 +55,10 @@ export const protectedRoutes = {
 	brands: {
 		path: "/marcas",
 		element: (<BrandManagementPage />) as React.ReactElement,
+	},
+	billing: {
+		path: "/assinatura",
+		element: (<BillingPage />) as React.ReactElement,
 	},
 };
 
