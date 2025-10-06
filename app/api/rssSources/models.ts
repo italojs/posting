@@ -5,6 +5,13 @@ export interface RssSource {
     name: string;
     url: string;
     category: RssCategory;
+    categories?: RssCategory[];
+    description?: string;
+    siteUrl?: string;
+    imageUrl?: string;
+    language?: string;
+    generator?: string;
+    copyright?: string;
     enabled?: boolean; // default true
     createdAt?: Date;
     updatedAt?: Date;

@@ -19,6 +19,13 @@ export class RssSourcesService {
         name: s.name,
         url: s.url,
         category: s.category,
+        categories: s.categories,
+        description: s.description,
+        siteUrl: s.siteUrl,
+        imageUrl: s.imageUrl,
+        language: s.language,
+        generator: s.generator,
+        copyright: s.copyright,
         enabled: s.enabled !== false,
         updatedAt: now,
       };
