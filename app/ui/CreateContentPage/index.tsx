@@ -10,7 +10,7 @@ import {
     CopyOutlined,
     AppstoreAddOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select } from 'antd';
+import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select, Tag } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation, useRoute } from 'wouter';
@@ -23,6 +23,7 @@ import {
     GenerateSectionSearchResult,
     SearchNewsResult,
     GeneratedNewsletterPreview,
+    GeneratedNewsletterSectionPreview,
 } from '/app/api/contents/models';
 import { BrandSummary, BrandContextForAI } from '/app/api/brands/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
@@ -30,6 +31,12 @@ import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
 
 type CreateContentPageProps = BasicSiteProps;
+type SectionGenerationEntry = {
+    preview: GeneratedNewsletterSectionPreview;
+    fingerprint: string;
+    generatedAt: string;
+};
+type SectionGenerationMap = Record<string, SectionGenerationEntry>;
 
 const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [form] = Form.useForm();
@@ -74,6 +81,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [sectionNewsResults, setSectionNewsResults] = useState<Record<string, SearchNewsResult[]>>({});
     const requestedQueriesRef = useRef<Set<string>>(new Set());
     const [newsletterPreview, setNewsletterPreview] = useState<GeneratedNewsletterPreview | null>(null);
+    const [sectionGenerations, setSectionGenerations] = useState<SectionGenerationMap>({});
+    const [sectionGenerationLoading, setSectionGenerationLoading] = useState<Record<string, boolean>>({});
     const [brands, setBrands] = useState<BrandSummary[]>([]);
     const [brandsLoading, setBrandsLoading] = useState(false);
     const [loadedContentBrand, setLoadedContentBrand] = useState<{ id: string; snapshot?: BrandContextForAI } | null>(null);
@@ -111,6 +120,42 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const currentSectionNewsResults = currentSectionId ? sectionNewsResults[currentSectionId] || [] : [];
     const currentSectionQueriesLoading = currentSectionId ? !!sectionQueryLoading[currentSectionId] : false;
     const currentSectionNewsLoading = currentSectionId ? !!sectionNewsLoading[currentSectionId] : false;
+    const currentSectionGeneration = currentSectionId ? sectionGenerations[currentSectionId] : undefined;
+    const currentSectionGenerationLoading = currentSectionId ? !!sectionGenerationLoading[currentSectionId] : false;
+    const sectionsWithContent = useMemo(
+        () =>
+            sections.filter(
+                (section) => (section.rssItems?.length || 0) > 0 || (section.newsArticles?.length || 0) > 0,
+            ),
+        [sections],
+    );
+    const generatedSectionsCount = useMemo(
+        () =>
+            sectionsWithContent.filter((section) => {
+                if (!section.id) return false;
+                return !!sectionGenerations[section.id];
+            }).length,
+        [sectionsWithContent, sectionGenerations],
+    );
+    const allSectionsGenerated = sectionsWithContent.length > 0 && generatedSectionsCount === sectionsWithContent.length;
+    const computeSectionFingerprint = useCallback((section: NewsletterSection): string => {
+        if (!section) return '';
+        const rssItems = (section.rssItems || []).map((item) => ({
+            link: item.link || '',
+            title: item.title || '',
+        }));
+        const newsArticles = (section.newsArticles || []).map((item) => ({
+            link: item.link || '',
+            title: item.title || '',
+        }));
+
+        return JSON.stringify({
+            title: (section.title || '').trim(),
+            description: (section.description || '').trim(),
+            rssItems,
+            newsArticles,
+        });
+    }, []);
 
     useEffect(() => {
         const run = async () => {
@@ -162,6 +207,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                 : undefined,
                         }));
                         setSections(normalizedSections);
+                        setSectionGenerations({});
                         requestedQueriesRef.current = new Set(
                             docSections
                                 .filter((section) => Array.isArray(section.newsSearchQueries) && section.newsSearchQueries.length > 0)
@@ -362,6 +408,42 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             }, {} as Record<string, boolean>);
         });
     }, [sections]);
+    useEffect(() => {
+        if (sections.length === 0 && Object.keys(sectionGenerations).length === 0) {
+            return;
+        }
+
+        const nextMap: SectionGenerationMap = {};
+        let shouldUpdate = false;
+        const validIds = new Set<string>();
+
+        for (const section of sections) {
+            if (!section.id) continue;
+            validIds.add(section.id);
+            const existing = sectionGenerations[section.id];
+            if (!existing) continue;
+            const fingerprint = computeSectionFingerprint(section);
+            if (existing.fingerprint === fingerprint) {
+                nextMap[section.id] = existing;
+            } else {
+                shouldUpdate = true;
+            }
+        }
+
+        if (!shouldUpdate) {
+            for (const key of Object.keys(sectionGenerations)) {
+                if (!validIds.has(key)) {
+                    shouldUpdate = true;
+                    break;
+                }
+            }
+        }
+
+        if (shouldUpdate) {
+            setSectionGenerations(nextMap);
+            setNewsletterPreview(null);
+        }
+    }, [sections, sectionGenerations, computeSectionFingerprint]);
 
     const handleFetchRss = async (auto = false) => {
         // Only fetch when at least one network is selected
@@ -452,6 +534,21 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         const isNewsletterFlow = !!payload.networks.newsletter;
         let navigateDestination: string | null = null;
 
+        let generatedSectionPayload: GeneratedNewsletterSectionPreview[] | undefined;
+        if (isNewsletterFlow) {
+            if (sectionsWithContent.length === 0) {
+                message.info(t('createContent.sectionGenerationStatusEmpty'));
+                return;
+            }
+            if (!allSectionsGenerated) {
+                message.warning(t('createContent.sectionGenerationMissing'));
+                return;
+            }
+            generatedSectionPayload = sections
+                .map((section) => (section.id ? sectionGenerations[section.id]?.preview : undefined))
+                .filter((section): section is GeneratedNewsletterSectionPreview => !!section);
+        }
+
         if (isNewsletterFlow) {
             setProcessingNewsletter(true);
             setNewsletterPreview(null);
@@ -481,6 +578,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             ...payload,
                             _id: savedId,
                             language: i18n.language,
+                            generatedSections: generatedSectionPayload,
                         })) as GeneratedNewsletterPreview;
                         setNewsletterPreview(preview);
                         message.success(t('createContent.processNewsletterSuccess'));
@@ -558,6 +656,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 setSectionNewsResults({});
                 setSectionQueryLoading({});
                 setSectionNewsLoading({});
+                setSectionGenerations({});
                 setNewsletterPreview(null);
                 setActiveSectionIndex(0);
             }
@@ -644,6 +743,68 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             errorResponse(error as Meteor.Error, t('createContent.sectionSearchNewsError'));
         } finally {
             setSectionNewsLoading((prev) => ({ ...prev, [sectionId]: false }));
+        }
+    };
+
+    const handleGenerateSectionContent = async (section: NewsletterSection) => {
+        const sectionId = section.id;
+        if (!sectionId) return;
+
+        const hasContent =
+            (section.rssItems && section.rssItems.length > 0) ||
+            (section.newsArticles && section.newsArticles.length > 0);
+
+        if (!hasContent) {
+            message.info(t('createContent.sectionGenerationNeedContent'));
+            return;
+        }
+
+        let baseValues: { name: string; audience?: string; goal?: string };
+        try {
+            baseValues = await form.validateFields(['name', 'audience', 'goal']);
+        } catch (error) {
+            // Validation errors already highlighted by the form
+            return;
+        }
+
+        setSectionGenerationLoading((prev) => ({ ...prev, [sectionId]: true }));
+        try {
+            const preview = (await Meteor.callAsync('set.contents.generateNewsletterSection', {
+                _id: editingId,
+                name: baseValues.name,
+                audience: baseValues.audience,
+                goal: baseValues.goal,
+                section: {
+                    ...section,
+                    rssItems: Array.isArray(section.rssItems) ? section.rssItems : [],
+                    newsArticles: Array.isArray(section.newsArticles) ? section.newsArticles : [],
+                    newsSearchQueries: Array.isArray(section.newsSearchQueries)
+                        ? section.newsSearchQueries
+                        : undefined,
+                },
+                language: i18n.language,
+                brandId: form.getFieldValue('brandId') || undefined,
+            })) as GeneratedNewsletterSectionPreview;
+
+            const fingerprint = computeSectionFingerprint(section);
+            setSectionGenerations((prev) => ({
+                ...prev,
+                [sectionId]: {
+                    preview,
+                    fingerprint,
+                    generatedAt: new Date().toISOString(),
+                },
+            }));
+            setNewsletterPreview(null);
+            message.success(t('createContent.sectionGenerationSuccess'));
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.sectionGenerationError'));
+        } finally {
+            setSectionGenerationLoading((prev) => {
+                const next = { ...prev };
+                delete next[sectionId];
+                return next;
+            });
         }
     };
 
@@ -1035,6 +1196,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 {sections.map((section, idx) => {
                                                     if (!section.title && !section.description) return null;
+                                                    const sectionGenerated = !!(section.id && sectionGenerations[section.id]);
                 
                                                     return (
                                                         <div
@@ -1091,6 +1253,11 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                     }}>
                                                                         {idx + 1}
                                                                     </div>
+                                                                    {sectionGenerated && (
+                                                                        <Tag color="green" style={{ marginLeft: 4 }}>
+                                                                            {t('createContent.sectionGeneratedBadge')}
+                                                                        </Tag>
+                                                                    )}
                                                                     <Button
                                                                         type="text"
                                                                         size="small"
@@ -1196,29 +1363,29 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                         justifyContent: 'space-between',
                                                         marginBottom: '12px'
                                                     }}>
-                                                        <Typography.Text 
-                                                            strong 
-                                                            style={{ 
-                                                                fontSize: '14px'
-                                                            }}
-                                                        >
+                                                        <Typography.Text strong style={{ fontSize: '14px' }}>
                                                             Editando Seção {activeSectionIndex + 1}:
                                                         </Typography.Text>
-                                                        <Button
-                                                            type="text"
-                                                            size="small"
-                                                            icon={<SaveOutlined />}
-                                                            style={{ 
-                                                                width: '24px',
-                                                                height: '24px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                color: '#5B5BD6'
-                                                            }}
-                                                            onClick={() => setActiveSectionIndex(-1)}
-                                                            title="Fechar edição"
-                                                        />
+                                                        <Space size={8} align="center">
+                                                            {currentSectionGeneration && (
+                                                                <Tag color="green">{t('createContent.sectionGeneratedBadge')}</Tag>
+                                                            )}
+                                                            <Button
+                                                                type="text"
+                                                                size="small"
+                                                                icon={<SaveOutlined />}
+                                                                style={{
+                                                                    width: '24px',
+                                                                    height: '24px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    color: '#5B5BD6',
+                                                                }}
+                                                                onClick={() => setActiveSectionIndex(-1)}
+                                                                title="Fechar edição"
+                                                            />
+                                                        </Space>
                                                         {/* Removido dropdown; seleção agora é uma lista agrupada abaixo */}
                                                     </div>
                                                     <Space direction="vertical" style={{ width: '100%' }}>
@@ -1256,6 +1423,25 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                 resize: 'none'
                                                             }}
                                                         />
+                                                        <div
+                                                            style={{
+                                                                display: 'flex',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center',
+                                                                gap: 12,
+                                                            }}
+                                                        >
+                                                            <Button
+                                                                type="primary"
+                                                                icon={<RobotOutlined />}
+                                                                onClick={() => currentSection && handleGenerateSectionContent(currentSection)}
+                                                                loading={currentSectionGenerationLoading}
+                                                            >
+                                                                {currentSectionGeneration
+                                                                    ? t('createContent.sectionRegenerateButton')
+                                                                    : t('createContent.sectionGenerateButton')}
+                                                            </Button>
+                                                        </div>
                                                         <div
                                                             style={{
                                                                 border: '1px solid #e5e7eb',
@@ -1643,8 +1829,66 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                 )}
                                                                 </>
                                                             );
+
                                                         })()}
-                                                    </Space>
+                                                        {currentSectionGeneration && (
+        <Card
+            size="small"
+            title={t('createContent.sectionPreviewTitle')}
+            style={{ background: '#f9fafb', borderColor: '#e5e7eb' }}
+        >
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {t('createContent.newsletterPreviewOriginalTitle', {
+                        title: currentSectionGeneration.preview.originalTitle,
+                    })}
+                </Typography.Text>
+                <Typography.Title level={5} style={{ marginBottom: 4 }}>
+                    {currentSectionGeneration.preview.generatedTitle}
+                </Typography.Title>
+                <Typography.Text style={{ color: '#4b5563' }}>
+                    {currentSectionGeneration.preview.summary}
+                </Typography.Text>
+                <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>
+                    {currentSectionGeneration.preview.body}
+                </Typography.Paragraph>
+                {currentSectionGeneration.preview.callToAction && (
+                    <Typography.Text strong style={{ color: '#2563eb' }}>
+                        {t('createContent.newsletterPreviewCallToAction', {
+                            cta: currentSectionGeneration.preview.callToAction,
+                        })}
+                    </Typography.Text>
+                )}
+                <div>
+                    <Typography.Text strong style={{ fontSize: 13 }}>
+                        {t('createContent.newsletterPreviewArticlesTitle')}
+                    </Typography.Text>
+                    <List
+                        dataSource={currentSectionGeneration.preview.articleSummaries}
+                        split={false}
+                        style={{ marginTop: 6 }}
+                        renderItem={(article) => (
+                            <List.Item style={{ padding: '4px 0' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    {article.url ? (
+                                        <a href={article.url} target="_blank" rel="noreferrer">
+                                            {article.title}
+                                        </a>
+                                    ) : (
+                                        <Typography.Text strong>{article.title}</Typography.Text>
+                                    )}
+                                    <Typography.Text style={{ fontSize: 12, color: '#6b7280' }}>
+                                        {article.summary}
+                                    </Typography.Text>
+                                </div>
+                            </List.Item>
+                        )}
+                    />
+                </div>
+            </Space>
+        </Card>
+    )}
+</Space>
                                                 </div>
                                             )}
                                         </div>
@@ -1785,31 +2029,43 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
             {/* Action Buttons */}
             <div style={{ textAlign: 'center' }}>
-                <Space>
-                    <Button 
-                        type="default" 
-                        icon={<RobotOutlined />} 
-                        onClick={handleGenerateAISuggestion} 
-                        loading={AILoading}
-                        style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
-                    >
-                        {t('createContent.generateAISuggestion')}
-                    </Button>
-                    {watchNewsletter && (
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Space wrap>
                         <Button
-                            type="primary"
-                            icon={<FileTextOutlined />}
-                            onClick={handleSave}
-                            loading={processingNewsletter || loading}
-                            disabled={sections.length === 0}
+                            type="default"
+                            icon={<RobotOutlined />}
+                            onClick={handleGenerateAISuggestion}
+                            loading={AILoading}
+                            style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
                         >
-                            {t('createContent.generateAndSaveNewsletter')}
+                            {t('createContent.generateAISuggestion')}
                         </Button>
-                    )}
-                    {!watchNewsletter && (
-                        <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                            {t('createContent.save')}
-                        </Button>
+                        {watchNewsletter && (
+                            <Button
+                                type="primary"
+                                icon={<FileTextOutlined />}
+                                onClick={handleSave}
+                                loading={processingNewsletter || loading}
+                                disabled={sectionsWithContent.length === 0 || !allSectionsGenerated}
+                            >
+                                {t('createContent.generateAndSaveNewsletter')}
+                            </Button>
+                        )}
+                        {!watchNewsletter && (
+                            <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
+                                {t('createContent.save')}
+                            </Button>
+                        )}
+                    </Space>
+                    {watchNewsletter && (
+                        <Typography.Text type={allSectionsGenerated ? 'success' : 'secondary'}>
+                            {sectionsWithContent.length > 0
+                                ? t('createContent.sectionGenerationStatus', {
+                                      generated: generatedSectionsCount,
+                                      total: sectionsWithContent.length,
+                                  })
+                                : t('createContent.sectionGenerationStatusEmpty')}
+                        </Typography.Text>
                     )}
                 </Space>
             </div>

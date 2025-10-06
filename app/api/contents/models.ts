@@ -108,6 +108,17 @@ export interface StoredNewsletterPreview extends GeneratedNewsletterPreview {
 export interface ProcessNewsletterInput extends CreateContentInput {
     _id?: string;
     language?: string;
+    generatedSections?: GeneratedNewsletterSectionPreview[];
+}
+
+export interface ProcessNewsletterSectionInput {
+    _id?: string;
+    name: string;
+    audience?: string;
+    goal?: string;
+    section: NewsletterSection;
+    language?: string;
+    brandId?: string;
 }
 
 export interface NewsletterGenerationContext {
