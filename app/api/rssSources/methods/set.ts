@@ -1,6 +1,6 @@
-import { check } from 'meteor/check';
+import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
-import { BulkUpsertRssSourcesInput } from '../models';
+import { AddRssSourceInput, BulkUpsertRssSourcesInput } from '../models';
 import { rssSourcesService } from '/app/services';
 
 Meteor.methods({
@@ -8,5 +8,15 @@ Meteor.methods({
         check(sources, [Object]);
 
         return rssSourcesService.bulkUpsert({ sources });
+    },
+    'set.rssSources.addManual': async (input: AddRssSourceInput) => {
+        check(input, {
+            name: Match.Maybe(String),
+            url: String,
+            category: Match.Maybe(String),
+            description: Match.Maybe(String),
+        });
+
+        return rssSourcesService.addManual(input);
     },
 });

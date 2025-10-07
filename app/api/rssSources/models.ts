@@ -31,3 +31,14 @@ export interface GetRssSourcesListResult {
 export interface BulkUpsertRssSourcesInput {
     sources: RssSource[]; // _id optional; upsert by url
 }
+
+export interface AddRssSourceInput {
+    name?: string;
+    url: string;
+    category?: RssCategory;
+    description?: string;
+}
+
+export interface AddRssSourceResult {
+    source: RssSource;
+}
