@@ -9,8 +9,9 @@ import {
     SearchOutlined,
     CopyOutlined,
     AppstoreAddOutlined,
+    TwitterOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select } from 'antd';
+import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select, Radio } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation, useRoute } from 'wouter';
@@ -23,6 +24,8 @@ import {
     GenerateSectionSearchResult,
     SearchNewsResult,
     GeneratedNewsletterPreview,
+    GenerateTwitterThreadResult,
+    TwitterThread,
 } from '/app/api/contents/models';
 import { BrandSummary, BrandContextForAI } from '/app/api/brands/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
@@ -59,6 +62,22 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         .custom-collapse .ant-collapse-content-box {
             padding: 16px !important;
         }
+        
+        /* Custom scrollbar styles */
+        .rss-articles-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .rss-articles-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .rss-articles-scroll::-webkit-scrollbar-thumb {
+            background: #1DA1F2;
+            border-radius: 3px;
+        }
+        .rss-articles-scroll::-webkit-scrollbar-thumb:hover {
+            background: #0d8bd9;
+        }
     `;
     const [isEdit, params] = useRoute(protectedRoutes.editContent.path);
     const editingId = isEdit ? (params as any)?.id as string : undefined;
@@ -77,6 +96,11 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [brands, setBrands] = useState<BrandSummary[]>([]);
     const [brandsLoading, setBrandsLoading] = useState(false);
     const [loadedContentBrand, setLoadedContentBrand] = useState<{ id: string; snapshot?: BrandContextForAI } | null>(null);
+
+    // Twitter Thread states
+    const [selectedTwitterArticle, setSelectedTwitterArticle] = useState<RssItem | null>(null);
+    const [generatingThread, setGeneratingThread] = useState(false);
+    const [generatedThread, setGeneratedThread] = useState<TwitterThread | null>(null);
 
     const fetchBrands = useCallback(async () => {
         setBrandsLoading(true);
@@ -647,6 +671,67 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         }
     };
 
+    // Twitter Thread functions
+    const handleGenerateTwitterThread = async () => {
+        if (!selectedTwitterArticle) {
+            message.error(t('createContent.selectArticlePrompt'));
+            return;
+        }
+
+        setGeneratingThread(true);
+        try {
+            const brandContext = resolveBrandContext(watchBrandId);
+            
+            // Use text extraction for better content analysis
+            let articleWithFullText = selectedTwitterArticle;
+            if (selectedTwitterArticle.link) {
+                try {
+                    const extractedText = await Meteor.callAsync('extract.articleText', {
+                        url: selectedTwitterArticle.link
+                    }) as { text: string };
+                    
+                    if (extractedText?.text) {
+                        articleWithFullText = {
+                            ...selectedTwitterArticle,
+                            contentSnippet: extractedText.text
+                        };
+                    }
+                } catch (error) {
+                    // Silently fallback to original content if extraction fails
+                }
+            }
+            
+            const result = (await Meteor.callAsync('get.contents.generateTwitterThread', {
+                article: articleWithFullText,
+                brand: brandContext,
+                language: i18n.language,
+            })) as GenerateTwitterThreadResult;
+
+            setGeneratedThread(result.thread);
+            message.success(t('createContent.threadGenerated'));
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.threadGenerationError'));
+        } finally {
+            setGeneratingThread(false);
+        }
+    };
+
+    const handleCopyIndividualTweet = async (tweet: string, index: number) => {
+        const numberedTweet = `${index + 1}/ ${tweet}`;
+        
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            await navigator.clipboard.writeText(numberedTweet);
+            message.success(t('createContent.tweetCopied', { number: index + 1 }));
+        } else {
+            message.error(t('createContent.clipboardNotSupported'));
+        }
+    };
+
+    const handleResetTwitterThread = () => {
+        setSelectedTwitterArticle(null);
+        setGeneratedThread(null);
+    };
+
     
 
     if (!userId) {
@@ -951,6 +1036,283 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             </div>
                         </Form>
                     </Card>
+
+                    {/* Card 2: Twitter Thread Generation */}
+                    <Form form={form}>
+                        <Form.Item shouldUpdate noStyle>
+                            {({ getFieldValue }) => {
+                                const isTwitter = !!getFieldValue('twitter');
+                                if (!isTwitter) return null;
+                                
+                                return (
+                                    <Card 
+                                        title={
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ 
+                                                    backgroundColor: '#1DA1F2', 
+                                                    color: 'white', 
+                                                    borderRadius: '50%', 
+                                                    width: '32px', 
+                                                    height: '32px', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    2
+                                                </div>
+                                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                                    {t('createContent.twitterThreadTitle')}
+                                                </span>
+                                            </div>
+                                        }
+                                        styles={{
+                                            header: { borderBottom: 'none' },
+                                            body: { paddingTop: 0 }
+                                        }}
+                                    >
+                                        <div style={{ padding: '8px 0' }}>
+                                            <Typography.Text type="secondary" style={{ marginBottom: '16px', display: 'block' }}>
+                                                {t('createContent.twitterThreadHelp')}
+                                            </Typography.Text>
+
+                                            {/* RSS Articles Grouped by Source - Moved to top */}
+                                            {rssItems.length > 0 && (
+                                                <div style={{ margin: '0 0 16px' }}>
+                                                    <Typography.Text strong style={{ fontSize: 13 }}>
+                                                        {t('createContent.selectArticlePrompt')} ({rssItems.length} {t('createContent.itemsFound', { count: rssItems.length })})
+                                                    </Typography.Text>
+                                                    
+                                                    <div style={{ marginTop: 12 }}>
+                                                        {(() => {
+                                                            // Group articles by source like in newsletter
+                                                            const getKey = (it: RssItem) => it.link || it.title || '';
+                                                            const groups: { [key: string]: RssItem[] } = {};
+                                                            rssItems.forEach((item) => {
+                                                                const sourceName = item.source || 'Unknown';
+                                                                if (!groups[sourceName]) groups[sourceName] = [];
+                                                                groups[sourceName].push(item);
+                                                            });
+                                                            const groupedArticles = Object.entries(groups).map(([name, items]) => ({ name, items }));
+                                                            
+                                                            return (
+                                                                <Collapse
+                                                                    className="custom-collapse"
+                                                                    items={groupedArticles.map((group) => ({
+                                                                        key: group.name,
+                                                                        label: (
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                                                                <span style={{ fontWeight: '600', fontSize: '15px', color: '#1f2937' }}>
+                                                                                    {group.name}
+                                                                                </span>
+                                                                                <Badge count={group.items.length} overflowCount={99} style={{ backgroundColor: '#1DA1F2' }} />
+                                                                            </div>
+                                                                        ),
+                                                                        children: (
+                                                                            <div 
+                                                                                className="rss-articles-scroll"
+                                                                                style={{ 
+                                                                                    paddingTop: '0px',
+                                                                                    maxHeight: '300px',
+                                                                                    overflowY: 'auto',
+                                                                                    overflowX: 'hidden',
+                                                                                    paddingRight: '8px'
+                                                                                }}
+                                                                            >
+                                                                                <List
+                                                                                    dataSource={group.items}
+                                                                                    split={false}
+                                                                                    renderItem={(it) => {
+                                                                                        const linkKey = getKey(it);
+                                                                                        const isSelected: boolean = selectedTwitterArticle && getKey(selectedTwitterArticle) === linkKey ? true : false;
+                                                                                        
+                                                                                        return (
+                                                                                            <List.Item
+                                                                                                style={{
+                                                                                                    background: isSelected ? '#e6f7ff' : 'transparent',
+                                                                                                    border: isSelected ? '2px solid #1DA1F2' : '1px solid transparent',
+                                                                                                    borderRadius: '6px',
+                                                                                                    marginBottom: '8px',
+                                                                                                    padding: '12px',
+                                                                                                    cursor: 'pointer',
+                                                                                                    transition: 'all 0.2s ease'
+                                                                                                }}
+                                                                                                onClick={() => {
+                                                                                                    if (!linkKey) return;
+                                                                                                    // Toggle selection - if same article, deselect, otherwise select
+                                                                                                    if (isSelected) {
+                                                                                                        setSelectedTwitterArticle(null);
+                                                                                                        setGeneratedThread(null);
+                                                                                                    } else {
+                                                                                                        setSelectedTwitterArticle(it);
+                                                                                                        setGeneratedThread(null);
+                                                                                                    }
+                                                                                                }}
+                                                                                            >
+                                                                                                <List.Item.Meta
+                                                                                                    avatar={
+                                                                                                        <Radio
+                                                                                                            checked={isSelected}
+                                                                                                            onChange={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                if (e.target.checked) {
+                                                                                                                    setSelectedTwitterArticle(it);
+                                                                                                                    setGeneratedThread(null);
+                                                                                                                } else {
+                                                                                                                    setSelectedTwitterArticle(null);
+                                                                                                                    setGeneratedThread(null);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        />
+                                                                                                    }
+                                                                                                    title={
+                                                                                                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>
+                                                                                                            {it.link ? (
+                                                                                                                <a 
+                                                                                                                    href={it.link} 
+                                                                                                                    target="_blank" 
+                                                                                                                    rel="noreferrer"
+                                                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                                                    style={{ color: '#1d4ed8', textDecoration: 'none' }}
+                                                                                                                >
+                                                                                                                    {it.title || it.link}
+                                                                                                                </a>
+                                                                                                            ) : (
+                                                                                                                it.title || 'No title'
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    }
+                                                                                                    description={
+                                                                                                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                                                                                                            {it.contentSnippet && (
+                                                                                                                <div>{it.contentSnippet.substring(0, 150)}{it.contentSnippet.length > 150 && '...'}</div>
+                                                                                                            )}
+                                                                                                            {it.pubDate && (
+                                                                                                                <div style={{ marginTop: '4px' }}>
+                                                                                                                    {new Date(it.pubDate).toLocaleDateString()}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    }
+                                                                                                />
+                                                                                            </List.Item>
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        ),
+                                                                    }))}
+                                                                />
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Generate Button */}
+                                            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                                                <Button
+                                                    type="primary"
+                                                    icon={<TwitterOutlined />}
+                                                    onClick={handleGenerateTwitterThread}
+                                                    loading={generatingThread}
+                                                    disabled={!selectedTwitterArticle || rssItems.length === 0}
+                                                    style={{ background: '#1DA1F2', borderColor: '#1DA1F2' }}
+                                                >
+                                                    {t('createContent.generateThread')}
+                                                </Button>
+                                                {selectedTwitterArticle && (
+                                                    <Button
+                                                        type="link"
+                                                        onClick={handleResetTwitterThread}
+                                                        style={{ marginLeft: '8px' }}
+                                                    >
+                                                        Reset
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {/* Selected Article Preview */}
+                                            {selectedTwitterArticle && (
+                                                <div style={{ padding: '12px', background: '#f0f8ff', borderRadius: '6px', border: '1px solid #1DA1F2', marginBottom: '16px' }}>
+                                                    <Typography.Text strong style={{ fontSize: '13px', color: '#1DA1F2' }}>
+                                                        {t('createContent.selectArticlePrompt')}:
+                                                    </Typography.Text>
+                                                    <div style={{ marginTop: '8px' }}>
+                                                        <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
+                                                            {selectedTwitterArticle.title}
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: '#666' }}>
+                                                            {selectedTwitterArticle.source} {selectedTwitterArticle.pubDate && `• ${new Date(selectedTwitterArticle.pubDate).toLocaleDateString()}`}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Thread Preview - Moved to appear after article selection */}
+                                            {generatedThread && (
+                                                <div style={{ marginBottom: '24px' }}>
+                                                    <div style={{ marginBottom: '16px' }}>
+                                                        <Typography.Text strong style={{ fontSize: '16px' }}>
+                                                            {t('createContent.threadPreview')}
+                                                        </Typography.Text>
+                                                    </div>
+                                                    
+                                                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                                        {generatedThread.tweets.map((tweet, index) => (
+                                                            <Card 
+                                                                key={index}
+                                                                size="small"
+                                                                style={{ 
+                                                                    background: '#f8f9fa',
+                                                                    border: '1px solid #e9ecef'
+                                                                }}
+                                                            >
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                    <div style={{ flex: 1, marginRight: '12px' }}>
+                                                                        <div style={{ fontSize: '12px', color: '#1DA1F2', fontWeight: '600', marginBottom: '4px' }}>
+                                                                            Tweet {index + 1}
+                                                                        </div>
+                                                                        <Typography.Text style={{ fontSize: '13px' }}>
+                                                                            {tweet}
+                                                                        </Typography.Text>
+                                                                        <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                                                                            {t('createContent.characterCount', { count: `${index + 1}/ ${tweet}`.length })}
+                                                                        </div>
+                                                                    </div>
+                                                                    <Button
+                                                                        icon={<CopyOutlined />}
+                                                                        size="small"
+                                                                        onClick={() => handleCopyIndividualTweet(tweet, index)}
+                                                                        style={{ 
+                                                                            background: '#1DA1F2', 
+                                                                            borderColor: '#1DA1F2',
+                                                                            color: 'white'
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </Card>
+                                                        ))}
+                                                    </Space>
+
+                                                    {generatedThread.articleUrl && (
+                                                        <div style={{ marginTop: '16px', padding: '12px', background: '#f0f8ff', borderRadius: '6px' }}>
+                                                            <Typography.Text style={{ fontSize: '12px', color: '#1890ff' }}>
+                                                                <strong>Fonte:</strong> <a href={generatedThread.articleUrl} target="_blank" rel="noopener noreferrer">
+                                                                    {generatedThread.articleTitle}
+                                                                </a>
+                                                            </Typography.Text>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Card>
+                                );
+                            }}
+                        </Form.Item>
+                    </Form>
 
                     
 

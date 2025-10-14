@@ -185,6 +185,24 @@ export interface GenerateSectionSearchResult {
     queries: string[];
 }
 
+// ---- TWITTER THREAD MODELS ----
+export interface TwitterThread {
+    tweets: string[];
+    articleTitle: string;
+    articleUrl?: string;
+    source?: string;
+}
+
+export interface GenerateTwitterThreadInput {
+    article: RssItem;
+    brand?: BrandContextForAI;
+    language: string;
+}
+
+export interface GenerateTwitterThreadResult {
+    thread: TwitterThread;
+}
+
 // ---- SET METHOD MODELS ----
 export interface CreateContentInput {
     name: string;

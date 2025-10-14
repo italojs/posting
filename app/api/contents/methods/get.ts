@@ -3,15 +3,17 @@ import { Meteor } from 'meteor/meteor';
 import {
     FetchRssInput,
     FetchRssResult,
-    GenerateSectionSearchInput,
     GenerateSuggestionInput,
     GenerateSuggestionResult,
+    GenerateSectionSearchInput,
     SearchNewsInput,
     SearchNewsResult,
+    GenerateTwitterThreadInput,
 } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 import { contentsService, rssAggregationService, aiContentService, newsSearchService } from '/app/services';
+import { extractCleanText } from './set'; // Static import optimization
 
 Meteor.methods({
     'get.contents.byId': async ({ _id }: { _id: string }) => {
@@ -74,5 +76,38 @@ Meteor.methods({
         check(country, Match.Maybe(String));
         const result = await newsSearchService.search({ query, language, country });
         return result as SearchNewsResult;
+    },
+
+    'get.contents.generateTwitterThread': async ({ article, brand, language }: GenerateTwitterThreadInput) => {
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+        
+        // Streamlined validation
+        check(article, Object);
+        check(language, String);
+        
+        // Optional brand validation (only if provided)
+        if (brand) {
+            check(brand, Object);
+        }
+        
+        return await aiContentService.generateTwitterThread({ article, brand, language });
+    },
+
+    'extract.articleText': async ({ url }: { url: string }) => {
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+        
+        check(url, String);
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Meteor.Error('fetch-error', `HTTP ${response.status}: Failed to fetch article`);
+        }
+        
+        const html = await response.text();
+        const text = extractCleanText(html);
+        
+        return { text };
     },
 });

@@ -531,3 +531,5 @@ function buildNewsletterMarkdown(
 
     return parts.join('\n').trim();
 }
+
+export { extractCleanText };
