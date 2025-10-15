@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { ConfigProvider, theme } from 'antd';
+import type { ThemeConfig } from 'antd';
 import enUS from 'antd/es/locale/en_US';
 import ptBR from 'antd/es/locale/pt_BR';
 import esES from 'antd/es/locale/es_ES';
@@ -139,23 +140,53 @@ const App: React.FC = () => {
 
     const antdLocale = i18n.language.startsWith('pt') ? ptBR : i18n.language.startsWith('es') ? esES : enUS;
 
+    const themeConfig: ThemeConfig = {
+        algorithm: theme.defaultAlgorithm,
+        token: {
+            colorPrimary: '#3b82f6',
+            colorInfo: '#2563eb',
+            colorSuccess: '#10b981',
+            colorWarning: '#f59e0b',
+            colorError: '#ef4444',
+            colorBgLayout: 'transparent',
+            colorText: '#0f172a',
+            colorTextSecondary: '#475569',
+            colorBorder: 'rgba(148,163,184,0.4)',
+            borderRadius: 12,
+            borderRadiusLG: 18,
+            borderRadiusSM: 10,
+            fontFamily:
+                "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
+        },
+        components: {
+            Button: {
+                controlHeightLG: 48,
+                borderRadius: 999,
+            },
+            Layout: {
+                bodyBg: 'transparent',
+                siderBg: 'rgba(255,255,255,0.88)',
+                headerBg: 'transparent',
+            },
+            Menu: {
+                itemBorderRadius: 10,
+                itemHoverBg: 'rgba(15,23,42,0.05)',
+                itemSelectedBg: 'rgba(59,130,246,0.16)',
+                itemSelectedColor: '#0f172a',
+            },
+            Card: {
+                borderRadiusLG: 18,
+            },
+        },
+    };
+
     // user is not logged in
     if (userId === null) {
         // you can add any config providers here to cover all public routes
         return (
             <ConfigProvider
                 locale={antdLocale}
-                theme={{
-                    // Light, clean theme
-                    algorithm: theme.defaultAlgorithm,
-                    token: {
-                        colorPrimary: '#4f46e5',
-                        borderRadius: 8,
-                        fontFamily:
-                            "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
-                        colorBgLayout: '#f7f8fa',
-                    },
-                }}
+                theme={themeConfig}
             >
                 <Switch>
                     {Object.values(publicRoutes).map((route) => (
@@ -175,16 +206,7 @@ const App: React.FC = () => {
     return (
         <ConfigProvider
             locale={antdLocale}
-            theme={{
-                algorithm: theme.defaultAlgorithm,
-                token: {
-                    colorPrimary: '#4f46e5',
-                    borderRadius: 8,
-                    fontFamily:
-                        "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
-                    colorBgLayout: '#f7f8fa',
-                },
-            }}
+            theme={themeConfig}
         >
             <Switch>
                 {userRoles.includes(AvailableUserRoles.ADMIN) &&

@@ -1,3 +1,11 @@
+import * as dotenv from 'dotenv';
+
+// load variables from .env
+dotenv.config();
+
+// debug: verify if the variables were loaded
+console.log('[SERVER STARTUP] OPENAI_API_KEY loaded from .env:', !!process.env.OPENAI_API_KEY);
+
 import { Roles } from 'meteor/alanning:roles';
 import { Meteor } from 'meteor/meteor';
 import { createDefaultUserAccount } from './utils/dummyData';
@@ -11,12 +19,15 @@ import '/app/api/utils/methods';
 import '/app/api/contents/methods';
 import '/app/api/rssSources/methods';
 import '/app/api/brands/methods';
+import '/app/api/billing/methods';
 
 // databases
 import '/app/api/userProfile/userProfile';
 import '/app/api/contents/contents';
 import '/app/api/rssSources/rssSources';
 import '/app/api/brands/brands';
+import '/app/api/billing/userSubscriptions';
+import '/app/api/billing/newsletterUsage';
 
 // publications
 

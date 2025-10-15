@@ -9,8 +9,9 @@ import {
     SearchOutlined,
     CopyOutlined,
     AppstoreAddOutlined,
+    TwitterOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select } from 'antd';
+import { Alert, Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select, Tag, Radio } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation, useRoute } from 'wouter';
@@ -23,13 +24,23 @@ import {
     GenerateSectionSearchResult,
     SearchNewsResult,
     GeneratedNewsletterPreview,
+    GeneratedNewsletterSectionPreview,
+    GenerateTwitterThreadResult,
+    TwitterThread,
 } from '/app/api/contents/models';
 import { BrandSummary, BrandContextForAI } from '/app/api/brands/models';
+import { BillingPlanId, SubscriptionOverview } from '/app/api/billing/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
 
 type CreateContentPageProps = BasicSiteProps;
+type SectionGenerationEntry = {
+    preview: GeneratedNewsletterSectionPreview;
+    fingerprint: string;
+    generatedAt: string;
+};
+type SectionGenerationMap = Record<string, SectionGenerationEntry>;
 
 const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [form] = Form.useForm();
@@ -38,6 +49,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [loading, setLoading] = useState(false);
     const [AILoading, setAILoading] = useState(false);
     const [processingNewsletter, setProcessingNewsletter] = useState(false);
+    const [subscriptionOverview, setSubscriptionOverview] = useState<SubscriptionOverview | null>(null);
     
     // Custom CSS for Collapse
     const collapseStyles = `
@@ -59,6 +71,22 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         .custom-collapse .ant-collapse-content-box {
             padding: 16px !important;
         }
+        
+        /* Custom scrollbar styles */
+        .rss-articles-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .rss-articles-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .rss-articles-scroll::-webkit-scrollbar-thumb {
+            background: #1DA1F2;
+            border-radius: 3px;
+        }
+        .rss-articles-scroll::-webkit-scrollbar-thumb:hover {
+            background: #0d8bd9;
+        }
     `;
     const [isEdit, params] = useRoute(protectedRoutes.editContent.path);
     const editingId = isEdit ? (params as any)?.id as string : undefined;
@@ -74,9 +102,16 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [sectionNewsResults, setSectionNewsResults] = useState<Record<string, SearchNewsResult[]>>({});
     const requestedQueriesRef = useRef<Set<string>>(new Set());
     const [newsletterPreview, setNewsletterPreview] = useState<GeneratedNewsletterPreview | null>(null);
+    const [sectionGenerations, setSectionGenerations] = useState<SectionGenerationMap>({});
+    const [sectionGenerationLoading, setSectionGenerationLoading] = useState<Record<string, boolean>>({});
     const [brands, setBrands] = useState<BrandSummary[]>([]);
     const [brandsLoading, setBrandsLoading] = useState(false);
     const [loadedContentBrand, setLoadedContentBrand] = useState<{ id: string; snapshot?: BrandContextForAI } | null>(null);
+
+    // Twitter Thread states
+    const [selectedTwitterArticle, setSelectedTwitterArticle] = useState<RssItem | null>(null);
+    const [generatingThread, setGeneratingThread] = useState(false);
+    const [generatedThread, setGeneratedThread] = useState<TwitterThread | null>(null);
 
     const fetchBrands = useCallback(async () => {
         setBrandsLoading(true);
@@ -111,6 +146,52 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const currentSectionNewsResults = currentSectionId ? sectionNewsResults[currentSectionId] || [] : [];
     const currentSectionQueriesLoading = currentSectionId ? !!sectionQueryLoading[currentSectionId] : false;
     const currentSectionNewsLoading = currentSectionId ? !!sectionNewsLoading[currentSectionId] : false;
+    const currentSectionGeneration = currentSectionId ? sectionGenerations[currentSectionId] : undefined;
+    const currentSectionGenerationLoading = currentSectionId ? !!sectionGenerationLoading[currentSectionId] : false;
+    const sectionsWithContent = useMemo(
+        () =>
+            sections.filter(
+                (section) => (section.rssItems?.length || 0) > 0 || (section.newsArticles?.length || 0) > 0,
+            ),
+        [sections],
+    );
+    const generatedSectionsCount = useMemo(
+        () =>
+            sectionsWithContent.filter((section) => {
+                if (!section.id) return false;
+                return !!sectionGenerations[section.id];
+            }).length,
+        [sectionsWithContent, sectionGenerations],
+    );
+    const allSectionsGenerated = sectionsWithContent.length > 0 && generatedSectionsCount === sectionsWithContent.length;
+    const freePlanLimit = subscriptionOverview?.plan?.monthlyNewsletterLimit ?? null;
+    const usedNewsletters = subscriptionOverview?.usage?.newsletterCount ?? 0;
+    const remainingNewsletters = freePlanLimit != null ? Math.max(freePlanLimit - usedNewsletters, 0) : null;
+    const showFreePlanLimitAlert = subscriptionOverview?.plan?.id === BillingPlanId.FREE && freePlanLimit != null;
+    const freePlanLimitLabel = useMemo(() => {
+        if (freePlanLimit == null) return '';
+        return freePlanLimit === 1
+            ? t('createContent.freePlanLimitSingle')
+            : t('createContent.freePlanLimitMultiple', { count: freePlanLimit });
+    }, [freePlanLimit, t]);
+    const computeSectionFingerprint = useCallback((section: NewsletterSection): string => {
+        if (!section) return '';
+        const rssItems = (section.rssItems || []).map((item) => ({
+            link: item.link || '',
+            title: item.title || '',
+        }));
+        const newsArticles = (section.newsArticles || []).map((item) => ({
+            link: item.link || '',
+            title: item.title || '',
+        }));
+
+        return JSON.stringify({
+            title: (section.title || '').trim(),
+            description: (section.description || '').trim(),
+            rssItems,
+            newsArticles,
+        });
+    }, []);
 
     useEffect(() => {
         const run = async () => {
@@ -162,6 +243,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                 : undefined,
                         }));
                         setSections(normalizedSections);
+                        setSectionGenerations({});
                         requestedQueriesRef.current = new Set(
                             docSections
                                 .filter((section) => Array.isArray(section.newsSearchQueries) && section.newsSearchQueries.length > 0)
@@ -191,6 +273,31 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     useEffect(() => {
         fetchBrands();
     }, [fetchBrands]);
+
+    useEffect(() => {
+        if (!userId) return;
+
+        let cancelled = false;
+
+        const loadSubscriptionOverview = async () => {
+            try {
+                const overview = (await Meteor.callAsync('get.billing.subscriptionOverview')) as SubscriptionOverview;
+                if (!cancelled) {
+                    setSubscriptionOverview(overview);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    errorResponse(error as Meteor.Error, t('createContent.subscriptionOverviewError'));
+                }
+            }
+        };
+
+        loadSubscriptionOverview();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [userId, t]);
 
     // manual URL input removed; only favorites are used
 
@@ -362,6 +469,42 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             }, {} as Record<string, boolean>);
         });
     }, [sections]);
+    useEffect(() => {
+        if (sections.length === 0 && Object.keys(sectionGenerations).length === 0) {
+            return;
+        }
+
+        const nextMap: SectionGenerationMap = {};
+        let shouldUpdate = false;
+        const validIds = new Set<string>();
+
+        for (const section of sections) {
+            if (!section.id) continue;
+            validIds.add(section.id);
+            const existing = sectionGenerations[section.id];
+            if (!existing) continue;
+            const fingerprint = computeSectionFingerprint(section);
+            if (existing.fingerprint === fingerprint) {
+                nextMap[section.id] = existing;
+            } else {
+                shouldUpdate = true;
+            }
+        }
+
+        if (!shouldUpdate) {
+            for (const key of Object.keys(sectionGenerations)) {
+                if (!validIds.has(key)) {
+                    shouldUpdate = true;
+                    break;
+                }
+            }
+        }
+
+        if (shouldUpdate) {
+            setSectionGenerations(nextMap);
+            setNewsletterPreview(null);
+        }
+    }, [sections, sectionGenerations, computeSectionFingerprint]);
 
     const handleFetchRss = async (auto = false) => {
         // Only fetch when at least one network is selected
@@ -452,6 +595,21 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         const isNewsletterFlow = !!payload.networks.newsletter;
         let navigateDestination: string | null = null;
 
+        let generatedSectionPayload: GeneratedNewsletterSectionPreview[] | undefined;
+        if (isNewsletterFlow) {
+            if (sectionsWithContent.length === 0) {
+                message.info(t('createContent.sectionGenerationStatusEmpty'));
+                return;
+            }
+            if (!allSectionsGenerated) {
+                message.warning(t('createContent.sectionGenerationMissing'));
+                return;
+            }
+            generatedSectionPayload = sections
+                .map((section) => (section.id ? sectionGenerations[section.id]?.preview : undefined))
+                .filter((section): section is GeneratedNewsletterSectionPreview => !!section);
+        }
+
         if (isNewsletterFlow) {
             setProcessingNewsletter(true);
             setNewsletterPreview(null);
@@ -481,6 +639,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             ...payload,
                             _id: savedId,
                             language: i18n.language,
+                            generatedSections: generatedSectionPayload,
                         })) as GeneratedNewsletterPreview;
                         setNewsletterPreview(preview);
                         message.success(t('createContent.processNewsletterSuccess'));
@@ -558,6 +717,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 setSectionNewsResults({});
                 setSectionQueryLoading({});
                 setSectionNewsLoading({});
+                setSectionGenerations({});
                 setNewsletterPreview(null);
                 setActiveSectionIndex(0);
             }
@@ -647,6 +807,129 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         }
     };
 
+    const handleGenerateSectionContent = async (section: NewsletterSection) => {
+        const sectionId = section.id;
+        if (!sectionId) return;
+
+        const hasContent =
+            (section.rssItems && section.rssItems.length > 0) ||
+            (section.newsArticles && section.newsArticles.length > 0);
+
+        if (!hasContent) {
+            message.info(t('createContent.sectionGenerationNeedContent'));
+            return;
+        }
+
+        let baseValues: { name: string; audience?: string; goal?: string };
+        try {
+            baseValues = await form.validateFields(['name', 'audience', 'goal']);
+        } catch (error) {
+            // Validation errors already highlighted by the form
+            return;
+        }
+
+        setSectionGenerationLoading((prev) => ({ ...prev, [sectionId]: true }));
+        try {
+            const preview = (await Meteor.callAsync('set.contents.generateNewsletterSection', {
+                _id: editingId,
+                name: baseValues.name,
+                audience: baseValues.audience,
+                goal: baseValues.goal,
+                section: {
+                    ...section,
+                    rssItems: Array.isArray(section.rssItems) ? section.rssItems : [],
+                    newsArticles: Array.isArray(section.newsArticles) ? section.newsArticles : [],
+                    newsSearchQueries: Array.isArray(section.newsSearchQueries)
+                        ? section.newsSearchQueries
+                        : undefined,
+                },
+                language: i18n.language,
+                brandId: form.getFieldValue('brandId') || undefined,
+            })) as GeneratedNewsletterSectionPreview;
+
+            const fingerprint = computeSectionFingerprint(section);
+            setSectionGenerations((prev) => ({
+                ...prev,
+                [sectionId]: {
+                    preview,
+                    fingerprint,
+                    generatedAt: new Date().toISOString(),
+                },
+            }));
+            setNewsletterPreview(null);
+            message.success(t('createContent.sectionGenerationSuccess'));
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.sectionGenerationError'));
+        } finally {
+            setSectionGenerationLoading((prev) => {
+                const next = { ...prev };
+                delete next[sectionId];
+                return next;
+            });
+        }
+    };
+
+    // Twitter Thread functions
+    const handleGenerateTwitterThread = async () => {
+        if (!selectedTwitterArticle) {
+            message.error(t('createContent.selectArticlePrompt'));
+            return;
+        }
+
+        setGeneratingThread(true);
+        try {
+            const brandContext = resolveBrandContext(watchBrandId);
+            
+            // Use text extraction for better content analysis
+            let articleWithFullText = selectedTwitterArticle;
+            if (selectedTwitterArticle.link) {
+                try {
+                    const extractedText = await Meteor.callAsync('extract.articleText', {
+                        url: selectedTwitterArticle.link
+                    }) as { text: string };
+                    
+                    if (extractedText?.text) {
+                        articleWithFullText = {
+                            ...selectedTwitterArticle,
+                            contentSnippet: extractedText.text
+                        };
+                    }
+                } catch (error) {
+                    // Silently fallback to original content if extraction fails
+                }
+            }
+            
+            const result = (await Meteor.callAsync('get.contents.generateTwitterThread', {
+                article: articleWithFullText,
+                brand: brandContext,
+                language: i18n.language,
+            })) as GenerateTwitterThreadResult;
+
+            setGeneratedThread(result.thread);
+            message.success(t('createContent.threadGenerated'));
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.threadGenerationError'));
+        } finally {
+            setGeneratingThread(false);
+        }
+    };
+
+    const handleCopyIndividualTweet = async (tweet: string, index: number) => {
+        const numberedTweet = `${index + 1}/ ${tweet}`;
+        
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            await navigator.clipboard.writeText(numberedTweet);
+            message.success(t('createContent.tweetCopied', { number: index + 1 }));
+        } else {
+            message.error(t('createContent.clipboardNotSupported'));
+        }
+    };
+
+    const handleResetTwitterThread = () => {
+        setSelectedTwitterArticle(null);
+        setGeneratedThread(null);
+    };
+
     
 
     if (!userId) {
@@ -667,6 +950,18 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     {t('createContent.subtitle')}
                 </Typography.Text>
             </div>
+            {showFreePlanLimitAlert && (
+                <Alert
+                    type="warning"
+                    showIcon
+                    message={t('createContent.freePlanLimitTitle')}
+                    description={t('createContent.freePlanLimitDescription', {
+                        limitLabel: freePlanLimitLabel,
+                        used: usedNewsletters,
+                        remaining: remainingNewsletters ?? 0,
+                    })}
+                />
+            )}
 
             {/* Layout em uma única coluna */}
             <div 
@@ -952,6 +1247,283 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         </Form>
                     </Card>
 
+                    {/* Card 2: Twitter Thread Generation */}
+                    <Form form={form}>
+                        <Form.Item shouldUpdate noStyle>
+                            {({ getFieldValue }) => {
+                                const isTwitter = !!getFieldValue('twitter');
+                                if (!isTwitter) return null;
+                                
+                                return (
+                                    <Card 
+                                        title={
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ 
+                                                    backgroundColor: '#1DA1F2', 
+                                                    color: 'white', 
+                                                    borderRadius: '50%', 
+                                                    width: '32px', 
+                                                    height: '32px', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    2
+                                                </div>
+                                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                                    {t('createContent.twitterThreadTitle')}
+                                                </span>
+                                            </div>
+                                        }
+                                        styles={{
+                                            header: { borderBottom: 'none' },
+                                            body: { paddingTop: 0 }
+                                        }}
+                                    >
+                                        <div style={{ padding: '8px 0' }}>
+                                            <Typography.Text type="secondary" style={{ marginBottom: '16px', display: 'block' }}>
+                                                {t('createContent.twitterThreadHelp')}
+                                            </Typography.Text>
+
+                                            {/* RSS Articles Grouped by Source - Moved to top */}
+                                            {rssItems.length > 0 && (
+                                                <div style={{ margin: '0 0 16px' }}>
+                                                    <Typography.Text strong style={{ fontSize: 13 }}>
+                                                        {t('createContent.selectArticlePrompt')} ({rssItems.length} {t('createContent.itemsFound', { count: rssItems.length })})
+                                                    </Typography.Text>
+                                                    
+                                                    <div style={{ marginTop: 12 }}>
+                                                        {(() => {
+                                                            // Group articles by source like in newsletter
+                                                            const getKey = (it: RssItem) => it.link || it.title || '';
+                                                            const groups: { [key: string]: RssItem[] } = {};
+                                                            rssItems.forEach((item) => {
+                                                                const sourceName = item.source || 'Unknown';
+                                                                if (!groups[sourceName]) groups[sourceName] = [];
+                                                                groups[sourceName].push(item);
+                                                            });
+                                                            const groupedArticles = Object.entries(groups).map(([name, items]) => ({ name, items }));
+                                                            
+                                                            return (
+                                                                <Collapse
+                                                                    className="custom-collapse"
+                                                                    items={groupedArticles.map((group) => ({
+                                                                        key: group.name,
+                                                                        label: (
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                                                                <span style={{ fontWeight: '600', fontSize: '15px', color: '#1f2937' }}>
+                                                                                    {group.name}
+                                                                                </span>
+                                                                                <Badge count={group.items.length} overflowCount={99} style={{ backgroundColor: '#1DA1F2' }} />
+                                                                            </div>
+                                                                        ),
+                                                                        children: (
+                                                                            <div 
+                                                                                className="rss-articles-scroll"
+                                                                                style={{ 
+                                                                                    paddingTop: '0px',
+                                                                                    maxHeight: '300px',
+                                                                                    overflowY: 'auto',
+                                                                                    overflowX: 'hidden',
+                                                                                    paddingRight: '8px'
+                                                                                }}
+                                                                            >
+                                                                                <List
+                                                                                    dataSource={group.items}
+                                                                                    split={false}
+                                                                                    renderItem={(it) => {
+                                                                                        const linkKey = getKey(it);
+                                                                                        const isSelected: boolean = selectedTwitterArticle && getKey(selectedTwitterArticle) === linkKey ? true : false;
+                                                                                        
+                                                                                        return (
+                                                                                            <List.Item
+                                                                                                style={{
+                                                                                                    background: isSelected ? '#e6f7ff' : 'transparent',
+                                                                                                    border: isSelected ? '2px solid #1DA1F2' : '1px solid transparent',
+                                                                                                    borderRadius: '6px',
+                                                                                                    marginBottom: '8px',
+                                                                                                    padding: '12px',
+                                                                                                    cursor: 'pointer',
+                                                                                                    transition: 'all 0.2s ease'
+                                                                                                }}
+                                                                                                onClick={() => {
+                                                                                                    if (!linkKey) return;
+                                                                                                    // Toggle selection - if same article, deselect, otherwise select
+                                                                                                    if (isSelected) {
+                                                                                                        setSelectedTwitterArticle(null);
+                                                                                                        setGeneratedThread(null);
+                                                                                                    } else {
+                                                                                                        setSelectedTwitterArticle(it);
+                                                                                                        setGeneratedThread(null);
+                                                                                                    }
+                                                                                                }}
+                                                                                            >
+                                                                                                <List.Item.Meta
+                                                                                                    avatar={
+                                                                                                        <Radio
+                                                                                                            checked={isSelected}
+                                                                                                            onChange={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                if (e.target.checked) {
+                                                                                                                    setSelectedTwitterArticle(it);
+                                                                                                                    setGeneratedThread(null);
+                                                                                                                } else {
+                                                                                                                    setSelectedTwitterArticle(null);
+                                                                                                                    setGeneratedThread(null);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        />
+                                                                                                    }
+                                                                                                    title={
+                                                                                                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>
+                                                                                                            {it.link ? (
+                                                                                                                <a 
+                                                                                                                    href={it.link} 
+                                                                                                                    target="_blank" 
+                                                                                                                    rel="noreferrer"
+                                                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                                                    style={{ color: '#1d4ed8', textDecoration: 'none' }}
+                                                                                                                >
+                                                                                                                    {it.title || it.link}
+                                                                                                                </a>
+                                                                                                            ) : (
+                                                                                                                it.title || 'No title'
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    }
+                                                                                                    description={
+                                                                                                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                                                                                                            {it.contentSnippet && (
+                                                                                                                <div>{it.contentSnippet.substring(0, 150)}{it.contentSnippet.length > 150 && '...'}</div>
+                                                                                                            )}
+                                                                                                            {it.pubDate && (
+                                                                                                                <div style={{ marginTop: '4px' }}>
+                                                                                                                    {new Date(it.pubDate).toLocaleDateString()}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    }
+                                                                                                />
+                                                                                            </List.Item>
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        ),
+                                                                    }))}
+                                                                />
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Generate Button */}
+                                            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                                                <Button
+                                                    type="primary"
+                                                    icon={<TwitterOutlined />}
+                                                    onClick={handleGenerateTwitterThread}
+                                                    loading={generatingThread}
+                                                    disabled={!selectedTwitterArticle || rssItems.length === 0}
+                                                    style={{ background: '#1DA1F2', borderColor: '#1DA1F2' }}
+                                                >
+                                                    {t('createContent.generateThread')}
+                                                </Button>
+                                                {selectedTwitterArticle && (
+                                                    <Button
+                                                        type="link"
+                                                        onClick={handleResetTwitterThread}
+                                                        style={{ marginLeft: '8px' }}
+                                                    >
+                                                        Reset
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {/* Selected Article Preview */}
+                                            {selectedTwitterArticle && (
+                                                <div style={{ padding: '12px', background: '#f0f8ff', borderRadius: '6px', border: '1px solid #1DA1F2', marginBottom: '16px' }}>
+                                                    <Typography.Text strong style={{ fontSize: '13px', color: '#1DA1F2' }}>
+                                                        {t('createContent.selectArticlePrompt')}:
+                                                    </Typography.Text>
+                                                    <div style={{ marginTop: '8px' }}>
+                                                        <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
+                                                            {selectedTwitterArticle.title}
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: '#666' }}>
+                                                            {selectedTwitterArticle.source} {selectedTwitterArticle.pubDate && `• ${new Date(selectedTwitterArticle.pubDate).toLocaleDateString()}`}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Thread Preview - Moved to appear after article selection */}
+                                            {generatedThread && (
+                                                <div style={{ marginBottom: '24px' }}>
+                                                    <div style={{ marginBottom: '16px' }}>
+                                                        <Typography.Text strong style={{ fontSize: '16px' }}>
+                                                            {t('createContent.threadPreview')}
+                                                        </Typography.Text>
+                                                    </div>
+                                                    
+                                                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                                        {generatedThread.tweets.map((tweet, index) => (
+                                                            <Card 
+                                                                key={index}
+                                                                size="small"
+                                                                style={{ 
+                                                                    background: '#f8f9fa',
+                                                                    border: '1px solid #e9ecef'
+                                                                }}
+                                                            >
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                    <div style={{ flex: 1, marginRight: '12px' }}>
+                                                                        <div style={{ fontSize: '12px', color: '#1DA1F2', fontWeight: '600', marginBottom: '4px' }}>
+                                                                            Tweet {index + 1}
+                                                                        </div>
+                                                                        <Typography.Text style={{ fontSize: '13px' }}>
+                                                                            {tweet}
+                                                                        </Typography.Text>
+                                                                        <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                                                                            {t('createContent.characterCount', { count: `${index + 1}/ ${tweet}`.length })}
+                                                                        </div>
+                                                                    </div>
+                                                                    <Button
+                                                                        icon={<CopyOutlined />}
+                                                                        size="small"
+                                                                        onClick={() => handleCopyIndividualTweet(tweet, index)}
+                                                                        style={{ 
+                                                                            background: '#1DA1F2', 
+                                                                            borderColor: '#1DA1F2',
+                                                                            color: 'white'
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </Card>
+                                                        ))}
+                                                    </Space>
+
+                                                    {generatedThread.articleUrl && (
+                                                        <div style={{ marginTop: '16px', padding: '12px', background: '#f0f8ff', borderRadius: '6px' }}>
+                                                            <Typography.Text style={{ fontSize: '12px', color: '#1890ff' }}>
+                                                                <strong>Fonte:</strong> <a href={generatedThread.articleUrl} target="_blank" rel="noopener noreferrer">
+                                                                    {generatedThread.articleTitle}
+                                                                </a>
+                                                            </Typography.Text>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Card>
+                                );
+                            }}
+                        </Form.Item>
+                    </Form>
+
                     
 
                     {/* Card 3: Content Generation */}
@@ -1035,6 +1607,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 {sections.map((section, idx) => {
                                                     if (!section.title && !section.description) return null;
+                                                    const sectionGenerated = !!(section.id && sectionGenerations[section.id]);
                 
                                                     return (
                                                         <div
@@ -1091,6 +1664,11 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                     }}>
                                                                         {idx + 1}
                                                                     </div>
+                                                                    {sectionGenerated && (
+                                                                        <Tag color="green" style={{ marginLeft: 4 }}>
+                                                                            {t('createContent.sectionGeneratedBadge')}
+                                                                        </Tag>
+                                                                    )}
                                                                     <Button
                                                                         type="text"
                                                                         size="small"
@@ -1196,29 +1774,29 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                         justifyContent: 'space-between',
                                                         marginBottom: '12px'
                                                     }}>
-                                                        <Typography.Text 
-                                                            strong 
-                                                            style={{ 
-                                                                fontSize: '14px'
-                                                            }}
-                                                        >
+                                                        <Typography.Text strong style={{ fontSize: '14px' }}>
                                                             Editando Seção {activeSectionIndex + 1}:
                                                         </Typography.Text>
-                                                        <Button
-                                                            type="text"
-                                                            size="small"
-                                                            icon={<SaveOutlined />}
-                                                            style={{ 
-                                                                width: '24px',
-                                                                height: '24px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                color: '#5B5BD6'
-                                                            }}
-                                                            onClick={() => setActiveSectionIndex(-1)}
-                                                            title="Fechar edição"
-                                                        />
+                                                        <Space size={8} align="center">
+                                                            {currentSectionGeneration && (
+                                                                <Tag color="green">{t('createContent.sectionGeneratedBadge')}</Tag>
+                                                            )}
+                                                            <Button
+                                                                type="text"
+                                                                size="small"
+                                                                icon={<SaveOutlined />}
+                                                                style={{
+                                                                    width: '24px',
+                                                                    height: '24px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    color: '#5B5BD6',
+                                                                }}
+                                                                onClick={() => setActiveSectionIndex(-1)}
+                                                                title="Fechar edição"
+                                                            />
+                                                        </Space>
                                                         {/* Removido dropdown; seleção agora é uma lista agrupada abaixo */}
                                                     </div>
                                                     <Space direction="vertical" style={{ width: '100%' }}>
@@ -1256,6 +1834,25 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                 resize: 'none'
                                                             }}
                                                         />
+                                                        <div
+                                                            style={{
+                                                                display: 'flex',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center',
+                                                                gap: 12,
+                                                            }}
+                                                        >
+                                                            <Button
+                                                                type="primary"
+                                                                icon={<RobotOutlined />}
+                                                                onClick={() => currentSection && handleGenerateSectionContent(currentSection)}
+                                                                loading={currentSectionGenerationLoading}
+                                                            >
+                                                                {currentSectionGeneration
+                                                                    ? t('createContent.sectionRegenerateButton')
+                                                                    : t('createContent.sectionGenerateButton')}
+                                                            </Button>
+                                                        </div>
                                                         <div
                                                             style={{
                                                                 border: '1px solid #e5e7eb',
@@ -1643,8 +2240,66 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                                 )}
                                                                 </>
                                                             );
+
                                                         })()}
-                                                    </Space>
+                                                        {currentSectionGeneration && (
+        <Card
+            size="small"
+            title={t('createContent.sectionPreviewTitle')}
+            style={{ background: '#f9fafb', borderColor: '#e5e7eb' }}
+        >
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {t('createContent.newsletterPreviewOriginalTitle', {
+                        title: currentSectionGeneration.preview.originalTitle,
+                    })}
+                </Typography.Text>
+                <Typography.Title level={5} style={{ marginBottom: 4 }}>
+                    {currentSectionGeneration.preview.generatedTitle}
+                </Typography.Title>
+                <Typography.Text style={{ color: '#4b5563' }}>
+                    {currentSectionGeneration.preview.summary}
+                </Typography.Text>
+                <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>
+                    {currentSectionGeneration.preview.body}
+                </Typography.Paragraph>
+                {currentSectionGeneration.preview.callToAction && (
+                    <Typography.Text strong style={{ color: '#2563eb' }}>
+                        {t('createContent.newsletterPreviewCallToAction', {
+                            cta: currentSectionGeneration.preview.callToAction,
+                        })}
+                    </Typography.Text>
+                )}
+                <div>
+                    <Typography.Text strong style={{ fontSize: 13 }}>
+                        {t('createContent.newsletterPreviewArticlesTitle')}
+                    </Typography.Text>
+                    <List
+                        dataSource={currentSectionGeneration.preview.articleSummaries}
+                        split={false}
+                        style={{ marginTop: 6 }}
+                        renderItem={(article) => (
+                            <List.Item style={{ padding: '4px 0' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    {article.url ? (
+                                        <a href={article.url} target="_blank" rel="noreferrer">
+                                            {article.title}
+                                        </a>
+                                    ) : (
+                                        <Typography.Text strong>{article.title}</Typography.Text>
+                                    )}
+                                    <Typography.Text style={{ fontSize: 12, color: '#6b7280' }}>
+                                        {article.summary}
+                                    </Typography.Text>
+                                </div>
+                            </List.Item>
+                        )}
+                    />
+                </div>
+            </Space>
+        </Card>
+    )}
+</Space>
                                                 </div>
                                             )}
                                         </div>
@@ -1785,31 +2440,43 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
 
             {/* Action Buttons */}
             <div style={{ textAlign: 'center' }}>
-                <Space>
-                    <Button 
-                        type="default" 
-                        icon={<RobotOutlined />} 
-                        onClick={handleGenerateAISuggestion} 
-                        loading={AILoading}
-                        style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
-                    >
-                        {t('createContent.generateAISuggestion')}
-                    </Button>
-                    {watchNewsletter && (
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Space wrap>
                         <Button
-                            type="primary"
-                            icon={<FileTextOutlined />}
-                            onClick={handleSave}
-                            loading={processingNewsletter || loading}
-                            disabled={sections.length === 0}
+                            type="default"
+                            icon={<RobotOutlined />}
+                            onClick={handleGenerateAISuggestion}
+                            loading={AILoading}
+                            style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
                         >
-                            {t('createContent.generateAndSaveNewsletter')}
+                            {t('createContent.generateAISuggestion')}
                         </Button>
-                    )}
-                    {!watchNewsletter && (
-                        <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                            {t('createContent.save')}
-                        </Button>
+                        {watchNewsletter && (
+                            <Button
+                                type="primary"
+                                icon={<FileTextOutlined />}
+                                onClick={handleSave}
+                                loading={processingNewsletter || loading}
+                                disabled={sectionsWithContent.length === 0 || !allSectionsGenerated}
+                            >
+                                {t('createContent.generateAndSaveNewsletter')}
+                            </Button>
+                        )}
+                        {!watchNewsletter && (
+                            <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
+                                {t('createContent.save')}
+                            </Button>
+                        )}
+                    </Space>
+                    {watchNewsletter && (
+                        <Typography.Text type={allSectionsGenerated ? 'success' : 'secondary'}>
+                            {sectionsWithContent.length > 0
+                                ? t('createContent.sectionGenerationStatus', {
+                                      generated: generatedSectionsCount,
+                                      total: sectionsWithContent.length,
+                                  })
+                                : t('createContent.sectionGenerationStatusEmpty')}
+                        </Typography.Text>
                     )}
                 </Space>
             </div>

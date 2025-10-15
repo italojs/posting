@@ -92,6 +92,7 @@ const CONCURRENCY = parseInt(process.env.CONCURRENCY || '4', 10);
 const DRY_RUN = /^1|true$/i.test(process.env.DRY_RUN || '');
 const ENABLE_ALL = !/^0|false$/i.test(process.env.ENABLE_ALL || '');
 const FETCH_TITLE = !process.argv.includes('--no-fetch-title');
+const DEFAULT_CATEGORY = 'general';
 
 // =============================
 // Utilities
@@ -113,7 +114,62 @@ async function fetchTitleIfNeeded(source) {
   } catch (e) {
     console.warn(`[WARN] Failed to get title from ${source.url}: ${e.message}`);
   }
-  return { ...source, name: source.name || source.url };
+  return out;
+}
+
+function flattenCategoryEntry(entry) {
+  if (!entry) return [];
+  if (Array.isArray(entry)) return entry.flatMap(flattenCategoryEntry);
+  if (typeof entry === 'string') return [entry];
+  if (typeof entry === 'object') {
+    const { name, text, _ } = entry;
+    const values = [name, text, _];
+    if (entry.$ && typeof entry.$ === 'object') {
+      values.push(entry.$.text, entry.$.label);
+    }
+    if (Array.isArray(entry.categories)) {
+      values.push(...entry.categories.flatMap(flattenCategoryEntry));
+    }
+    if (Array.isArray(entry.subcategories)) {
+      values.push(...entry.subcategories.flatMap(flattenCategoryEntry));
+    }
+    return values.filter(Boolean).map(cleanText);
+  }
+  return [];
+}
+
+function extractCategoriesFromFeed(feed) {
+  const collected = [];
+  if (Array.isArray(feed?.categories)) collected.push(...feed.categories);
+  if (feed?.category) collected.push(feed.category);
+  if (feed?.itunes?.category) collected.push(feed.itunes.category);
+  if (feed?.itunes?.categories) collected.push(...flattenCategoryEntry(feed.itunes.categories));
+  if (Array.isArray(feed?.items)) {
+    for (const item of feed.items.slice(0, 5)) {
+      if (Array.isArray(item?.categories)) collected.push(...item.categories);
+    }
+  }
+  return uniqueStrings(collected);
+}
+
+function finalizeSource(source) {
+  const categories = Array.isArray(source?.categories) ? uniqueStrings(source.categories) : [];
+  const primaryCategory = cleanText(source?.category) || categories[0] || DEFAULT_CATEGORY;
+  const name = optionalText(source?.name) || (() => {
+    try { return new URL(source.url).hostname; } catch { return source.url; }
+  })();
+  return {
+    ...source,
+    name,
+    category: primaryCategory || DEFAULT_CATEGORY,
+    categories: categories.length ? categories : undefined,
+    description: optionalText(source?.description),
+    siteUrl: optionalText(source?.siteUrl),
+    imageUrl: optionalText(source?.imageUrl),
+    language: optionalText(source?.language),
+    generator: optionalText(source?.generator),
+    copyright: optionalText(source?.copyright),
+  };
 }
 
 function normalizeSource(raw) {
@@ -121,10 +177,50 @@ function normalizeSource(raw) {
   if (!url) throw new Error('Source without URL');
   return {
     url,
-    name: raw.name ? String(raw.name).trim() : '',
-    category: raw.category || 'general',
-    enabled: raw.enabled === false ? false : true,
-  };
+    name: optionalText(rawEntry.name),
+    category: cleanText(primaryCategory) || DEFAULT_CATEGORY,
+    categories: categories.length ? categories : undefined,
+    description: optionalText(rawEntry.description),
+    siteUrl: optionalText(rawEntry.siteUrl),
+    imageUrl: optionalText(rawEntry.imageUrl),
+    language: optionalText(rawEntry.language),
+    generator: optionalText(rawEntry.generator),
+    copyright: optionalText(rawEntry.copyright),
+    enabled: rawEntry.enabled === false ? false : true,
+  });
+}
+
+async function enrichSourceWithFeed(source) {
+  if (!FETCH_TITLE) return finalizeSource(source);
+  try {
+    const feed = await parser.parseURL(source.url);
+    const feedCategories = extractCategoriesFromFeed(feed);
+    const mergedCategories = uniqueStrings([...(source.categories || []), ...feedCategories]);
+    const siteUrl = optionalText(feed?.link) || source.siteUrl;
+    const description = optionalText(feed?.description) || source.description;
+    const language = optionalText(feed?.language) || source.language;
+    const generator = optionalText(feed?.generator) || source.generator;
+    const copyright = optionalText(feed?.copyright) || source.copyright;
+    const imageUrl = optionalText(feed?.image?.url || feed?.itunes?.image) || source.imageUrl;
+    const resolvedCategory = source.category && source.category !== DEFAULT_CATEGORY
+      ? source.category
+      : mergedCategories[0] || DEFAULT_CATEGORY;
+    return finalizeSource({
+      ...source,
+      name: optionalText(feed?.title) || source.name,
+      category: resolvedCategory,
+      categories: mergedCategories.length ? mergedCategories : undefined,
+      description,
+      siteUrl,
+      language,
+      generator,
+      copyright,
+      imageUrl,
+    });
+  } catch (e) {
+    console.warn(`[WARN] Falha ao obter metadados de ${source.url}: ${e.message}`);
+    return finalizeSource(source);
+  }
 }
 
 // =============================
@@ -132,7 +228,7 @@ function normalizeSource(raw) {
 // =============================
 async function upsertSources(db, sources) {
   const col = db.collection(COLLECTION_NAME);
-  let inserted = 0, updated = 0, skipped = 0, errors = 0;
+  let inserted = 0, updated = 0, errors = 0;
   for (const s of sources) {
     try {
       const now = new Date();
@@ -141,6 +237,13 @@ async function upsertSources(db, sources) {
         name: s.name || s.url,
         url: s.url,
         category: s.category,
+        categories: s.categories,
+        description: s.description,
+        siteUrl: s.siteUrl,
+        imageUrl: s.imageUrl,
+        language: s.language,
+        generator: s.generator,
+        copyright: s.copyright,
         enabled: s.enabled !== false && ENABLE_ALL ? true : s.enabled !== false,
         updatedAt: now,
       };
@@ -164,7 +267,7 @@ async function upsertSources(db, sources) {
       console.error(`[ERROR] ${s.url}:`, e.message);
     }
   }
-  return { inserted, updated, skipped, errors };
+  return { inserted, updated, errors };
 }
 
 async function processSources(rawList) {
@@ -180,10 +283,10 @@ async function processSources(rawList) {
   const withTitles = [];
   const chunks = chunkArray(unique, CONCURRENCY);
   for (const c of chunks) {
-    const results = await Promise.all(c.map(fetchTitleIfNeeded));
-    withTitles.push(...results);
+    const results = await Promise.all(c.map(enrichSourceWithFeed));
+    enriched.push(...results);
   }
-  return withTitles;
+  return enriched.map(finalizeSource);
 }
 
 async function main() {
