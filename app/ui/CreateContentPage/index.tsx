@@ -11,7 +11,7 @@ import {
     AppstoreAddOutlined,
     TwitterOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select, Tag, Radio } from 'antd';
+import { Alert, Button, Card, Checkbox, Form, Input, List, Space, Typography, message, Badge, Collapse, Select, Tag, Radio } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation, useRoute } from 'wouter';
@@ -29,6 +29,7 @@ import {
     TwitterThread,
 } from '/app/api/contents/models';
 import { BrandSummary, BrandContextForAI } from '/app/api/brands/models';
+import { BillingPlanId, SubscriptionOverview } from '/app/api/billing/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -48,6 +49,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [loading, setLoading] = useState(false);
     const [AILoading, setAILoading] = useState(false);
     const [processingNewsletter, setProcessingNewsletter] = useState(false);
+    const [subscriptionOverview, setSubscriptionOverview] = useState<SubscriptionOverview | null>(null);
     
     // Custom CSS for Collapse
     const collapseStyles = `
@@ -162,6 +164,16 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         [sectionsWithContent, sectionGenerations],
     );
     const allSectionsGenerated = sectionsWithContent.length > 0 && generatedSectionsCount === sectionsWithContent.length;
+    const freePlanLimit = subscriptionOverview?.plan?.monthlyNewsletterLimit ?? null;
+    const usedNewsletters = subscriptionOverview?.usage?.newsletterCount ?? 0;
+    const remainingNewsletters = freePlanLimit != null ? Math.max(freePlanLimit - usedNewsletters, 0) : null;
+    const showFreePlanLimitAlert = subscriptionOverview?.plan?.id === BillingPlanId.FREE && freePlanLimit != null;
+    const freePlanLimitLabel = useMemo(() => {
+        if (freePlanLimit == null) return '';
+        return freePlanLimit === 1
+            ? t('createContent.freePlanLimitSingle')
+            : t('createContent.freePlanLimitMultiple', { count: freePlanLimit });
+    }, [freePlanLimit, t]);
     const computeSectionFingerprint = useCallback((section: NewsletterSection): string => {
         if (!section) return '';
         const rssItems = (section.rssItems || []).map((item) => ({
@@ -261,6 +273,31 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     useEffect(() => {
         fetchBrands();
     }, [fetchBrands]);
+
+    useEffect(() => {
+        if (!userId) return;
+
+        let cancelled = false;
+
+        const loadSubscriptionOverview = async () => {
+            try {
+                const overview = (await Meteor.callAsync('get.billing.subscriptionOverview')) as SubscriptionOverview;
+                if (!cancelled) {
+                    setSubscriptionOverview(overview);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    errorResponse(error as Meteor.Error, t('createContent.subscriptionOverviewError'));
+                }
+            }
+        };
+
+        loadSubscriptionOverview();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [userId, t]);
 
     // manual URL input removed; only favorites are used
 
@@ -913,6 +950,18 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     {t('createContent.subtitle')}
                 </Typography.Text>
             </div>
+            {showFreePlanLimitAlert && (
+                <Alert
+                    type="warning"
+                    showIcon
+                    message={t('createContent.freePlanLimitTitle')}
+                    description={t('createContent.freePlanLimitDescription', {
+                        limitLabel: freePlanLimitLabel,
+                        used: usedNewsletters,
+                        remaining: remainingNewsletters ?? 0,
+                    })}
+                />
+            )}
 
             {/* Layout em uma única coluna */}
             <div 

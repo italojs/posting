@@ -43,6 +43,8 @@ const RSS_SOURCES = [
   'https://www.reutersagency.com/feed/?best-topics=business-finance',
   'https://www.sciencedaily.com/rss/top/science.xml',
   'https://www.npr.org/rss/rss.php?id=1001',
+  'https://cprss.s3.amazonaws.com/nodeweekly.com.xml',
+  'https://bun.com/rss.xml'
 ];
 
 // =============================

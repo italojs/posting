@@ -15,6 +15,11 @@ const common = {
   createContent: {
     title: "Criar conteúdo",
     subtitle: "Configure suas preferências de criação de conteúdo",
+    subscriptionOverviewError: "Não foi possível carregar os dados da sua assinatura.",
+    freePlanLimitTitle: "Plano gratuito: limite de newsletters",
+    freePlanLimitSingle: "1 newsletter",
+    freePlanLimitMultiple: "{{count}} newsletters",
+    freePlanLimitDescription: "No plano gratuito você pode gerar até {{limitLabel}} por mês. Você já gerou {{used}} neste ciclo e ainda pode criar {{remaining}}.",
     brandsLoadError: "Não foi possível carregar suas marcas",
     brandLabel: "Marca",
     manageBrands: "Gerenciar marcas",

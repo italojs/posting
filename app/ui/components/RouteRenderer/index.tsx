@@ -40,13 +40,16 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
             label: t('app.home'),
             onClick: () => navigate(publicRoutes.home.path),
         },
-        {
+    ];
+
+    if (userId) {
+        navigationItems.push({
             key: 'feed',
             icon: <ReadOutlined />,
             label: t('app.feed'),
-            onClick: () => navigate(publicRoutes.feed.path),
-        },
-    ];
+            onClick: () => navigate(protectedRoutes.feed.path),
+        });
+    }
 
     if (userRoles?.includes(AvailableUserRoles.ADMIN)) {
         navigationItems.push({
@@ -84,7 +87,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
 
     const selectedKey = (() => {
         if (normalizedLocation === '/') return 'home';
-        if (normalizedLocation.startsWith(publicRoutes.feed.path)) return 'feed';
+        if (normalizedLocation.startsWith(protectedRoutes.feed.path)) return 'feed';
         if (normalizedLocation.startsWith(protectedRoutes.brands.path)) return 'brands';
         if (normalizedLocation.startsWith(protectedRoutes.billing.path)) return 'billing';
         if (normalizedLocation.startsWith(protectedRoutes.createContent.path)) return 'create-content';

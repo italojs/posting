@@ -24,6 +24,11 @@ const common = {
   createContent: {
     title: "Create content",
     subtitle: "Set up your content creation preferences",
+    subscriptionOverviewError: "We couldn't load your subscription data.",
+    freePlanLimitTitle: "Free plan newsletter limit",
+    freePlanLimitSingle: "1 newsletter",
+    freePlanLimitMultiple: "{{count}} newsletters",
+    freePlanLimitDescription: "On the free plan you can generate up to {{limitLabel}} per month. You've already generated {{used}} this cycle and still have {{remaining}} remaining.",
     brandsLoadError: "Couldn't load your brands",
     brandLabel: "Brand",
     manageBrands: "Manage brands",
