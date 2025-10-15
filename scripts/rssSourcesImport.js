@@ -1,25 +1,25 @@
 #!/usr/bin/env node
 /**
- * Script standalone para cadastrar/atualizar fontes RSS na collection `rss_sources`.
- * - Não depende de Meteor.
- * - Mantém a mesma lógica de upsert usada no serviço interno (upsert por URL).
- * - Tudo em um único arquivo, incluindo a lista de RSS.
+ * Standalone script to register/update RSS sources in the `rss_sources` collection.
+ * - Does not depend on Meteor.
+ * - Maintains the same upsert logic used in the internal service (upsert by URL).
+ * - Everything in a single file, including the RSS list.
  *
- * Uso:
- *  1. Instale dependências (uma vez):
+ * Usage:
+ *  1. Install dependencies (once):
  *     npm install mongodb rss-parser
- *  2. Defina a variável de ambiente MONGO_URL (se necessário):
+ *  2. Set the MONGO_URL environment variable (if needed):
  *     export MONGO_URL="mongodb://localhost:27017/meteor"
- *  3. Rode:
+ *  3. Run:
  *     node scripts/rssSourcesImport.js
  *
- * Flags/Variáveis opcionais:
-*  --no-fetch-title   Não busca o feed para extrair título/metadados (usa valores fornecidos ou a própria URL)
- *  CONCURRENCY=5      Ajusta quantas requisições de feed simultâneas (default 4)
- *  DRY_RUN=1          Apenas mostra o que faria, sem gravar no banco
- *  ENABLE_ALL=0       Se quiser manter enabled=false quando especificado (por padrão força enabled=true a menos que explicitamente false na lista)
+ * Optional flags/variables:
+ *  --no-fetch-title   Don't try to fetch the feed to discover title (uses provided "name" or the URL itself)
+ *  CONCURRENCY=5      Adjusts how many simultaneous feed requests (default 4)
+ *  DRY_RUN=1          Only shows what it would do, without saving to database
+ *  ENABLE_ALL=0       If you want to keep enabled=false when specified (by default forces enabled=true unless explicitly false in the list)
  *
- * Saída: resumo de quantos foram inseridos, atualizados, ignorados, erros.
+ * Output: summary of how many were inserted, updated, ignored, errors.
  */
 
 const { MongoClient } = require('mongodb');
@@ -27,30 +27,60 @@ const Parser = require('rss-parser');
 const parser = new Parser();
 
 // =============================
-// LISTA DE RSS (edite à vontade)
-// Informe apenas as URLs; o script busca título, categorias e metadados direto do XML.
+// RSS LIST (edit as needed)
+// category: use existing values in your system (e.g.: technology, business, science, sports, entertainment, general)
+// enabled: if you want to disable any, set to false
+// name can be omitted; if omitted and title fetching is enabled, will try to use the feed title
 // =============================
 const RSS_SOURCES = [
-  'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml',
-  'https://feeds.arstechnica.com/arstechnica/index',
-  'https://feeds.feedburner.com/TechCrunch/',
-  'https://www.theverge.com/rss/index.xml',
-  'https://www.wired.com/feed/category/business/latest/rss',
-  'https://www.wired.com/feed/category/science/latest/rss',
-  'https://feeds.bbci.co.uk/news/world/rss.xml',
-  'https://feeds.bbci.co.uk/news/technology/rss.xml',
-  'https://www.reutersagency.com/feed/?best-topics=technology',
-  'https://www.reutersagency.com/feed/?best-topics=business-finance',
-  'https://www.sciencedaily.com/rss/top/science.xml',
-  'https://www.npr.org/rss/rss.php?id=1001',
-  'https://cprss.s3.amazonaws.com/nodeweekly.com.xml',
-  'https://bun.com/rss.xml'
+  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml', name: 'NYTimes Technology', category: 'technology' },
+  { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica', category: 'technology' },
+  { url: 'https://feeds.feedburner.com/TechCrunch/', name: 'TechCrunch', category: 'technology' },
+  { url: 'https://www.theverge.com/rss/index.xml', name: 'The Verge', category: 'technology' },
+  { url: 'https://www.wired.com/feed/category/business/latest/rss', name: 'Wired Business', category: 'business' },
+  { url: 'https://www.wired.com/feed/category/science/latest/rss', name: 'Wired Science', category: 'science' },
+  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC World', category: 'general' },
+  { url: 'https://feeds.bbci.co.uk/news/technology/rss.xml', name: 'BBC Technology', category: 'technology' },
+  { url: 'https://www.reutersagency.com/feed/?best-topics=technology', name: 'Reuters Technology', category: 'technology' },
+  { url: 'https://www.reutersagency.com/feed/?best-topics=business-finance', name: 'Reuters Business', category: 'business' },
+  // Example with omitted name (will be fetched from feed):
+  { url: 'https://www.sciencedaily.com/rss/top/science.xml', category: 'science' },
+  
+  // New suggested feeds:
+  { url: 'https://feeds.feedburner.com/Mashable', name: 'Mashable', category: 'technology' },
+  { url: 'https://www.bleepingcomputer.com/feed/', name: 'Bleeping Computers', category: 'technology' },
+  { url: 'https://hacker-news.firebaseio.com/topstories.json', name: 'Hacker News (Top)', category: 'technology' },
+  { url: 'https://feeds.hbr.org/harvardbusiness', name: 'Harvard Business Review', category: 'business' },
+  { url: 'https://www.economist.com/latest/rss.xml', name: 'The Economist', category: 'business' },
+  { url: 'https://www.forbes.com/business/feed/', name: 'Forbes Business', category: 'business' },
+  { url: 'https://www.nasa.gov/rss/dyn/breaking_news.rss', name: 'NASA Breaking News', category: 'science' },
+  { url: 'https://www.nature.com/nature.rss', name: 'Nature', category: 'science' },
+  { url: 'https://www.scientificamerican.com/feed/', name: 'Scientific American', category: 'science' },
+  { url: 'https://feeds.npr.org/1001/rss.xml', name: 'NPR News', category: 'general' },
+  { url: 'https://www.aljazeera.com/xml/rss/all.xml', name: 'Al Jazeera (Global)', category: 'general' },
+
+  // Brazilian feeds
+  { url: 'https://tecnoblog.net/feed', name: 'Tecnoblog', category: 'technology' },
+  { url: 'https://canaltech.com.br/rss/', name: 'Canaltech', category: 'technology' },
+  { url: 'https://tudocelular.com/feed', name: 'Tudo Celular', category: 'technology' },
+  { url: 'https://macmagazine.com.br/feed/', name: 'MacMagazine', category: 'technology' },
+  { url: 'https://www.infomoney.com.br/feed/rss/', name: 'InfoMoney', category: 'business' },
+  { url: 'https://www.inovacaotecnologica.com.br/boletim/rss.xml', name: 'Inovação Tecnológica', category: 'science' },
+
+  // Spanish feeds
+  { url: 'https://www.elpais.com/rss/tags/ultimas-noticias.xml', name: 'El País (Espanha)', category: 'general' },
+  { url: 'https://www.clarin.com/rss/tecnologia/', name: 'Clarín Tech (Argentina)', category: 'technology' },
+  { url: 'https://www.eleconomista.es/rss/rss_ultima.php', name: 'El Economista (Espanha)', category: 'business' },
+  { url: 'https://www.bbc.com/mundo/index.xml', name: 'BBC Mundo', category: 'general' },
+  { url: 'https://www.xataka.com/index.xml', name: 'Xataka (Espanha)', category: 'technology' },
+  { url: 'https://www.microsiervos.com/feed/', name: 'Microsiervos', category: 'science' }, 
+  { url: 'https://www.muyinteresante.es/rss', name: 'Muy Interesante', category: 'science' },
 ];
 
 // =============================
 // Config
 // =============================
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/meteor';
+const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:3001/meteor';
 const DB_NAME_FROM_URL = (() => {
   try {
     const dbName = new URL(MONGO_URL.replace('mongodb://', 'http://')).pathname.replace(/\//g, '') || 'meteor';
@@ -65,7 +95,7 @@ const FETCH_TITLE = !process.argv.includes('--no-fetch-title');
 const DEFAULT_CATEGORY = 'general';
 
 // =============================
-// Utilidades
+// Utilities
 // =============================
 function chunkArray(arr, size) {
   const out = []; let i = 0;
@@ -73,27 +103,16 @@ function chunkArray(arr, size) {
   return out;
 }
 
-function cleanText(value) {
-  if (value == null) return '';
-  return String(value).trim();
-}
-
-function optionalText(value) {
-  const text = cleanText(value);
-  return text || undefined;
-}
-
-function uniqueStrings(values) {
-  const set = new Set();
-  const out = [];
-  for (const val of values || []) {
-    const text = cleanText(val);
-    if (!text) continue;
-    const key = text.toLowerCase();
-    if (!set.has(key)) {
-      set.add(key);
-      out.push(text);
+async function fetchTitleIfNeeded(source) {
+  if (!FETCH_TITLE) return source;
+  if (source.name && source.name.trim()) return source; // already has name
+  try {
+    const feed = await parser.parseURL(source.url);
+    if (feed?.title) {
+      return { ...source, name: feed.title.trim() };
     }
+  } catch (e) {
+    console.warn(`[WARN] Failed to get title from ${source.url}: ${e.message}`);
   }
   return out;
 }
@@ -154,15 +173,9 @@ function finalizeSource(source) {
 }
 
 function normalizeSource(raw) {
-  const rawEntry = typeof raw === 'string' ? { url: raw } : raw || {};
-  const url = cleanText(rawEntry.url);
-  if (!url) throw new Error('Fonte sem URL');
-  const manualCategories = [];
-  if (Array.isArray(rawEntry.categories)) manualCategories.push(...rawEntry.categories);
-  if (rawEntry.category) manualCategories.push(rawEntry.category);
-  const categories = uniqueStrings(manualCategories);
-  const primaryCategory = categories[0] || DEFAULT_CATEGORY;
-  return finalizeSource({
+  const url = (raw.url || '').trim();
+  if (!url) throw new Error('Source without URL');
+  return {
     url,
     name: optionalText(rawEntry.name),
     category: cleanText(primaryCategory) || DEFAULT_CATEGORY,
@@ -211,7 +224,7 @@ async function enrichSourceWithFeed(source) {
 }
 
 // =============================
-// Lógica principal de upsert
+// Main upsert logic
 // =============================
 async function upsertSources(db, sources) {
   const col = db.collection(COLLECTION_NAME);
@@ -258,19 +271,16 @@ async function upsertSources(db, sources) {
 }
 
 async function processSources(rawList) {
-  // 1. Normaliza
+  // 1. Normalize
   const normalized = rawList.map(normalizeSource);
-  // 2. Remove duplicadas por URL mantendo a primeira
+  // 2. Remove duplicates by URL keeping the first one
   const seen = new Set();
   const unique = [];
   for (const s of normalized) {
     if (!seen.has(s.url)) { seen.add(s.url); unique.push(s); }
   }
-  // 3. Enriquecimento com metadados do feed
-  if (!FETCH_TITLE) {
-    return unique.map(finalizeSource);
-  }
-  const enriched = [];
+  // 3. Fetch titles in batches with concurrency limit
+  const withTitles = [];
   const chunks = chunkArray(unique, CONCURRENCY);
   for (const c of chunks) {
     const results = await Promise.all(c.map(enrichSourceWithFeed));
@@ -284,15 +294,15 @@ async function main() {
   console.log('Mongo URL:', MONGO_URL);
   console.log('Database:', DB_NAME_FROM_URL);
   console.log('Collection:', COLLECTION_NAME);
-  console.log('Total fontes (entrada):', RSS_SOURCES.length);
-  console.log('Modo DRY_RUN:', DRY_RUN);
-  console.log('Fetch título de feeds:', FETCH_TITLE);
-  console.log('Forçar enabled=true:', ENABLE_ALL);
+  console.log('Total sources (input):', RSS_SOURCES.length);
+  console.log('DRY_RUN mode:', DRY_RUN);
+  console.log('Fetch feed titles:', FETCH_TITLE);
+  console.log('Force enabled=true:', ENABLE_ALL);
 
   let client;
   try {
     const processed = await processSources(RSS_SOURCES);
-    console.log('Total fontes (processadas únicas):', processed.length);
+    console.log('Total sources (processed unique):', processed.length);
 
     client = await MongoClient.connect(MONGO_URL, { useUnifiedTopology: true });
     const dbName = DB_NAME_FROM_URL;
@@ -300,13 +310,13 @@ async function main() {
 
     const result = await upsertSources(db, processed);
 
-    console.log('\nResumo:');
-    console.log(' Inseridos :', result.inserted);
-    console.log(' Atualizados:', result.updated);
-    console.log(' Erros     :', result.errors);
-    if (DRY_RUN) console.log(' (Nenhuma alteração gravada por DRY_RUN)');
+    console.log('\nSummary:');
+    console.log(' Inserted :', result.inserted);
+    console.log(' Updated  :', result.updated);
+    console.log(' Errors   :', result.errors);
+    if (DRY_RUN) console.log(' (No changes saved due to DRY_RUN)');
   } catch (e) {
-    console.error('Falha geral:', e);
+    console.error('General failure:', e);
     process.exitCode = 1;
   } finally {
     if (client) await client.close().catch(() => {});
