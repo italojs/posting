@@ -129,6 +129,20 @@ const common = {
     addSourceAlreadyExists: "Esse feed já está cadastrado.",
     addSourceInvalidUrl: "URL inválida para feed RSS.",
     addSourceError: "Não foi possível cadastrar o feed.",
+    
+    // Twitter Thread
+    twitterThreadTitle: "Gerar Thread do Twitter",
+    twitterThreadHelp: "Selecione um artigo RSS para gerar uma thread do Twitter com 3-5 tweets",
+    generateThread: "Gerar Thread",
+    threadGenerated: "Thread do Twitter gerada com sucesso!",
+    threadGenerationError: "Falha ao gerar thread do Twitter",
+    selectArticlePrompt: "Selecione um artigo para gerar uma thread do Twitter",
+    threadPreview: "Visualização da Thread",
+    copyThread: "Copiar Thread",
+    threadCopied: "Thread copiada para a área de transferência",
+    tweetCopied: "Tweet {{number}} copiado!",
+    clipboardNotSupported: "Clipboard não suportado neste navegador",
+    characterCount: "{{count}}/280 caracteres",
   },
   brands: {
     title: "Minhas marcas",

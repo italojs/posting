@@ -113,6 +113,20 @@ const common = {
     favoritesAdded: "Añadido a favoritos",
     favoritesRemoved: "Eliminado de favoritos",
     favoritesError: "No se pudieron actualizar los favoritos",
+    
+    // Twitter Thread
+    twitterThreadTitle: "Generar Thread de Twitter",
+    twitterThreadHelp: "Selecciona un artículo RSS para generar un thread de Twitter con 3-5 tweets",
+    generateThread: "Generar Thread",
+    threadGenerated: "¡Thread de Twitter generado con éxito!",
+    threadGenerationError: "Error al generar thread de Twitter",
+    selectArticlePrompt: "Selecciona un artículo para generar un thread de Twitter",
+    threadPreview: "Vista Previa del Thread",
+    copyThread: "Copiar Thread",
+    threadCopied: "Thread copiado al portapapeles",
+    tweetCopied: "¡Tweet {{number}} copiado!",
+    clipboardNotSupported: "Portapapeles no soportado en este navegador",
+    characterCount: "{{count}}/280 caracteres",
   },
   brands: {
     title: "Mis marcas",

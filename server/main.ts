@@ -1,3 +1,11 @@
+import * as dotenv from 'dotenv';
+
+// load variables from .env
+dotenv.config();
+
+// debug: verify if the variables were loaded
+console.log('[SERVER STARTUP] OPENAI_API_KEY loaded from .env:', !!process.env.OPENAI_API_KEY);
+
 import { Roles } from 'meteor/alanning:roles';
 import { Meteor } from 'meteor/meteor';
 import { createDefaultUserAccount } from './utils/dummyData';

@@ -8,6 +8,9 @@ import {
   NewsletterArticleSummary,
   NewsletterSectionGenerationResult,
   ProcessedArticle,
+  GenerateTwitterThreadInput,
+  GenerateTwitterThreadResult,
+  TwitterThread,
 } from '../../api/contents/models';
 import { BrandContextForAI } from '../../api/brands/models';
 
@@ -83,8 +86,15 @@ Respond only in JSON with this structure:
   }
 
   private getApiKey() {
-    const openaiApiKey = Meteor.settings.private?.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) throw new Meteor.Error('api-key-missing', 'OpenAI API key not configured');
+    const settingsKey = Meteor.settings.private?.OPENAI_API_KEY;
+    const envKey = process.env.OPENAI_API_KEY;
+    const openaiApiKey = settingsKey || envKey;
+    
+    if (!openaiApiKey) {
+      console.error('OpenAI API key not found in Meteor.settings.private or environment variables');
+      throw new Meteor.Error('api-key-missing', 'OpenAI API key not configured');
+    }
+    
     return openaiApiKey;
   }
 
@@ -344,6 +354,89 @@ Reply **only** in JSON with this structure (content in ${newsletter.languageName
       callToAction: callToActionValue,
     };
   }
+
+  /**
+   * Otimized Twitter thread generation - Single AI call approach
+   */
+  async generateTwitterThread(input: GenerateTwitterThreadInput): Promise<GenerateTwitterThreadResult> {
+    const prompt = this.buildOptimizedTwitterPrompt(input);
+    
+    const aiResponse = await this.sendChatRequest([{ role: 'user', content: prompt }], {
+      maxTokens: 800,
+      temperature: 0.7,
+    });
+
+    const cleanedResponse = this.cleanAiJsonResponse(aiResponse);
+    const parsedResponse = JSON.parse(cleanedResponse);
+
+    if (!Array.isArray(parsedResponse.tweets)) {
+      throw new Meteor.Error('ai-response-invalid', 'AI response missing tweets array');
+    }
+
+    const tweets = parsedResponse.tweets
+      .filter((tweet: any) => typeof tweet === 'string' && tweet.trim())
+      .map((tweet: string) => tweet.trim())
+      .slice(0, 5);
+
+    if (tweets.length === 0) {
+      throw new Meteor.Error('ai-response-invalid', 'No valid tweets generated');
+    }
+
+    const thread: TwitterThread = {
+      tweets,
+      articleTitle: input.article.title || 'No title',
+      articleUrl: input.article.link,
+      source: input.article.source,
+    };
+
+    return { thread };
+  }
+
+  /**
+   * Optimized single-prompt approach for Twitter threads
+   */
+  private buildOptimizedTwitterPrompt({ article, language, brand }: GenerateTwitterThreadInput): string {
+    const brandDetails = this.formatBrandDetails(brand);
+    const brandSection = brandDetails
+      ? `\nBrand guidelines to follow:\n${brandDetails}\n`
+      : '\n';
+
+    const articleContent = article.contentSnippet || article.title || 'No content available';
+
+    return `You are a social media expert creating an engaging Twitter thread directly from an article.
+
+Article details:
+- Title: ${article.title || 'No title'}
+- Source: ${article.source || 'Unknown source'}
+- URL: ${article.link || 'No URL'}
+
+Article content:
+"""
+${articleContent}
+"""
+${brandSection}
+
+Create a Twitter thread with 3-5 tweets in ${language} that:
+
+1. **Tweet 1 (Hook)**: Attention-grabbing opener based on the most compelling insight (max 260 characters)
+2. **Tweets 2-4 (Content)**: Break down key points into digestible, valuable insights (max 260 characters each)
+3. **Tweet 5 (Optional CTA)**: Thought-provoking conclusion or call-to-action (max 260 characters)
+
+Requirements:
+- DO NOT include thread numbering (1/, 2/, 3/, etc.) - interface handles numbering
+- Each tweet MUST be under 260 characters (leaves room for "1/ ", "2/ " prefix)
+- Write all content in ${language}
+- Maintain ${brand?.tone || 'professional and engaging'} tone
+- Extract the most valuable insights directly from the article content
+- Make each tweet standalone but connected to the thread
+- Use emojis sparingly and strategically
+
+Respond only in JSON format:
+{
+  "tweets": ["Tweet content...", "Tweet content...", "Tweet content..."]
+}`;
+  }
+
 }
 
 export const aiContentService = new AiContentService();

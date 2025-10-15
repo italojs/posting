@@ -3,6 +3,15 @@ const common = {
     title: "Microblog",
     createContent: "Create content",
     brands: "Brands",
+        copyThread: "Copy Thread",
+    threadCopied: "Thread copied to clipboard",
+    tweetCount: "Tweet {{number}}",
+    characterCount: "{{count}}/250 characters",
+    extractingArticle: "Extracting article text...",
+    extractionFailed: "Failed to extract article text",
+    generateThread: "Generate Twitter Thread"
+  },
+  navigation: {
     logout: "Log out",
     language: "Language",
     home: "Home",
@@ -113,6 +122,20 @@ const common = {
   favoritesAdded: "Added to favorites",
   favoritesRemoved: "Removed from favorites",
   favoritesError: "Couldn't update favorites",
+  
+  // Twitter Thread
+  twitterThreadTitle: "Generate Twitter Thread",
+  twitterThreadHelp: "Select an RSS article to generate a Twitter thread with 3-5 tweets",
+  generateThread: "Generate Thread",
+  threadGenerated: "Twitter thread generated successfully!",
+  threadGenerationError: "Failed to generate Twitter thread",
+  selectArticlePrompt: "Select an article to generate a Twitter thread",
+  threadPreview: "Thread Preview",
+  copyThread: "Copy Thread",
+  threadCopied: "Thread copied to clipboard",
+  tweetCopied: "Tweet {{number}} copied!",
+  clipboardNotSupported: "Clipboard not supported in this browser",
+  characterCount: "{{count}}/280 characters",
   },
   brands: {
     title: "My brands",
