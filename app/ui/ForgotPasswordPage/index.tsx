@@ -7,6 +7,7 @@ import { useLocation } from 'wouter';
 import { publicRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
+import i18n from '/app/i18n';
 
 const ForgotPasswordPage: React.FC = () => {
     const { t } = useTranslation('common');
@@ -25,7 +26,12 @@ const ForgotPasswordPage: React.FC = () => {
 
         setLoading(true);
 
-        Meteor.callAsync('users.forgotPassword', { email: cleanedEmail })
+        const currentLanguage = i18n.language as 'pt' | 'en' | 'es';
+        
+        Meteor.callAsync('users.forgotPassword', { 
+            email: cleanedEmail, 
+            language: currentLanguage 
+        })
             .then(() => {
                 setEmailSent(true);
                 message.success(t('auth.resetLinkSent'));

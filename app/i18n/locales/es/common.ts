@@ -296,7 +296,17 @@ const common = {
     loginError: "No se pudo iniciar sesión",
     createAccountError: "No se pudo crear la cuenta",
     forgotPasswordError: "Error al solicitar recuperación de contraseña",
-    resetPasswordError: "Error al restablecer contraseña"
+    resetPasswordError: "Error al restablecer contraseña",
+    
+    // Email templates
+    emailResetPasswordSubject: "Restablecer tu contraseña - Posting Platform",
+    emailResetPasswordGreeting: "Hola {{email}}",
+    emailResetPasswordBody: "Solicitaste restablecer tu contraseña en Posting Platform.",
+    emailResetPasswordButtonText: "Restablecer Contraseña",
+    emailResetPasswordLinkText: "O copia y pega este enlace en tu navegador:",
+    emailResetPasswordWarning: "Si no solicitaste este restablecimiento, puedes ignorar este email con seguridad.",
+    emailResetPasswordExpiration: "Esta solicitud expirará en 3 días.",
+    emailResetPasswordSignature: "Equipo Posting Platform"
   },
   
   // System error messages

@@ -1,6 +1,60 @@
 import { Accounts } from 'meteor/accounts-base';
 import { Meteor } from 'meteor/meteor';
 
+// Import translations
+import ptCommon from '/app/i18n/locales/pt/common';
+import enCommon from '/app/i18n/locales/en/common';
+import esCommon from '/app/i18n/locales/es/common';
+
+const translations = {
+    pt: ptCommon,
+    en: enCommon,
+    es: esCommon
+};
+
+/**
+ * Get the current language from the global context set by the method call
+ * Falls back to Portuguese if not set
+ */
+const getUserLanguage = (): 'pt' | 'en' | 'es' => {
+    try {
+        // Get language from global context (set by the method call)
+        const contextLanguage = (global as any).currentEmailLanguage;
+        console.log(`Email template getting language from context: ${contextLanguage}`);
+        
+        if (contextLanguage && ['pt', 'en', 'es'].includes(contextLanguage)) {
+            return contextLanguage;
+        }
+        
+        console.log('No valid language in context, defaulting to Portuguese');
+        return 'pt'; // Default to Portuguese
+    } catch (error) {
+        console.warn('Error getting user language from context, defaulting to Portuguese:', error);
+        return 'pt';
+    }
+};
+
+/**
+ * Get translated text with interpolation support
+ */
+const t = (key: string, lang: 'pt' | 'en' | 'es', params: Record<string, string> = {}) => {
+    const keys = key.split('.');
+    let value: any = translations[lang];
+    
+    for (const k of keys) {
+        value = value?.[k];
+    }
+    
+    if (typeof value !== 'string') {
+        return key; // Return key if translation not found
+    }
+    
+    // Simple interpolation
+    return value.replace(/\{\{(\w+)\}\}/g, (match: string, paramKey: string) => {
+        return params[paramKey] || match;
+    });
+};
+
 /**
  * Configure email templates and accounts settings
  * This should be called during server startup
@@ -16,46 +70,48 @@ export const configureAccountsEmails = () => {
     
     // Configure reset password email template
     Accounts.emailTemplates.resetPassword = {
-        subject() {
-            return 'Redefinir sua senha - Posting Platform';
+        subject(user) {
+            const lang = getUserLanguage();
+            return t('auth.emailResetPasswordSubject', lang);
         },
         text(user, url) {
+            const lang = getUserLanguage();
             const userEmail = user.emails?.[0]?.address || 'usuário';
             
             return `
-Olá ${userEmail},
+${t('auth.emailResetPasswordGreeting', lang, { email: userEmail })}
 
-Você solicitou a redefinição de sua senha na Posting Platform.
+${t('auth.emailResetPasswordBody', lang)}
 
-Para criar uma nova senha, clique no link abaixo ou cole-o no seu navegador:
 ${url}
 
-Se você não solicitou esta redefinição, pode ignorar este email com segurança.
+${t('auth.emailResetPasswordWarning', lang)}
 
-Esta solicitação expirará em 3 dias.
+${t('auth.emailResetPasswordExpiration', lang)}
 
-Equipe Posting Platform
+${t('auth.emailResetPasswordSignature', lang)}
             `.trim();
         },
         html(user, url) {
+            const lang = getUserLanguage();
             const userEmail = user.emails?.[0]?.address || 'usuário';
             
             return `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #1890ff; text-align: center;">Redefinir sua senha</h2>
+    <h2 style="color: #1890ff; text-align: center;">${t('auth.resetPasswordTitle', lang)}</h2>
     
-    <p>Olá <strong>${userEmail}</strong>,</p>
+    <p><strong>${t('auth.emailResetPasswordGreeting', lang, { email: userEmail })}</strong>,</p>
     
-    <p>Você solicitou a redefinição de sua senha na <strong>Posting Platform</strong>.</p>
+    <p>${t('auth.emailResetPasswordBody', lang)}</p>
     
     <div style="text-align: center; margin: 30px 0;">
         <a href="${url}" 
            style="background-color: #1890ff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-            Redefinir Senha
+            ${t('auth.emailResetPasswordButtonText', lang)}
         </a>
     </div>
     
-    <p>Ou copie e cole este link no seu navegador:</p>
+    <p>${t('auth.emailResetPasswordLinkText', lang)}</p>
     <p style="word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 4px;">
         ${url}
     </p>
@@ -63,12 +119,12 @@ Equipe Posting Platform
     <hr style="margin: 30px 0; border: none; border-top: 1px solid #e8e8e8;">
     
     <p style="color: #666; font-size: 14px;">
-        Se você não solicitou esta redefinição, pode ignorar este email com segurança.<br>
-        Esta solicitação expirará em 3 dias.
+        ${t('auth.emailResetPasswordWarning', lang)}<br>
+        ${t('auth.emailResetPasswordExpiration', lang)}
     </p>
     
     <p style="color: #666; font-size: 14px;">
-        Equipe Posting Platform
+        ${t('auth.emailResetPasswordSignature', lang)}
     </p>
 </div>
             `.trim();

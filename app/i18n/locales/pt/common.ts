@@ -297,7 +297,17 @@ const common = {
     loginError: "Não foi possível fazer login",
     createAccountError: "Não foi possível criar conta",
     forgotPasswordError: "Erro ao solicitar recuperação de senha",
-    resetPasswordError: "Erro ao redefinir senha"
+    resetPasswordError: "Erro ao redefinir senha",
+    
+    // Email templates
+    emailResetPasswordSubject: "Redefinir sua senha - Posting Platform",
+    emailResetPasswordGreeting: "Olá {{email}}",
+    emailResetPasswordBody: "Você solicitou a redefinição de sua senha na Posting Platform.",
+    emailResetPasswordButtonText: "Redefinir Senha",
+    emailResetPasswordLinkText: "Ou copie e cole este link no seu navegador:",
+    emailResetPasswordWarning: "Se você não solicitou esta redefinição, pode ignorar este email com segurança.",
+    emailResetPasswordExpiration: "Esta solicitação expirará em 3 dias.",
+    emailResetPasswordSignature: "Equipe Posting Platform"
   },
   
   // System error messages

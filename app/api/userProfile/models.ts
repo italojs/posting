@@ -28,6 +28,11 @@ interface UserProfile {
      * User's favorite RSS feed URLs
      */
     favoritesRssUrls?: string[];
+
+    /**
+     * User's preferred language
+     */
+    preferredLanguage?: 'pt' | 'en' | 'es';
 }
 
 export default UserProfile;

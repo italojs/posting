@@ -305,7 +305,17 @@ const common = {
     loginError: "Could not log in",
     createAccountError: "Could not create account",
     forgotPasswordError: "Error requesting password reset",
-    resetPasswordError: "Error resetting password"
+    resetPasswordError: "Error resetting password",
+    
+    // Email templates
+    emailResetPasswordSubject: "Reset your password - Posting Platform",
+    emailResetPasswordGreeting: "Hello {{email}}",
+    emailResetPasswordBody: "You requested a password reset for your Posting Platform account.",
+    emailResetPasswordButtonText: "Reset Password",
+    emailResetPasswordLinkText: "Or copy and paste this link in your browser:",
+    emailResetPasswordWarning: "If you didn't request this reset, you can safely ignore this email.",
+    emailResetPasswordExpiration: "This request will expire in 3 days.",
+    emailResetPasswordSignature: "Posting Platform Team"
   },
   
   // System error messages

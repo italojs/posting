@@ -5,8 +5,9 @@ import { emailRegex } from '@netsu/js-utils';
 import { clientContentError } from '/app/utils/serverErrors';
 
 Meteor.methods({
-    'users.forgotPassword': async ({ email }: { email: string }) => {
+    'users.forgotPassword': async ({ email, language = 'pt' }: { email: string; language?: 'pt' | 'en' | 'es' }) => {
         check(email, String);
+        check(language, String);
 
         const cleanedEmail = email.trim().toLowerCase();
 
@@ -25,10 +26,17 @@ Meteor.methods({
         }
 
         try {
+            // Store language temporarily in a global context for email template access
+            (global as any).currentEmailLanguage = language;
+            console.log(`Setting email language context to: ${language}`);
+            
             // Send reset password email
             await Accounts.sendResetPasswordEmail(user._id, cleanedEmail);
             
-            console.log(`Password reset email sent to: ${cleanedEmail}`);
+            // Clear the temporary language context
+            delete (global as any).currentEmailLanguage;
+            
+            console.log(`Password reset email sent to: ${cleanedEmail} in ${language}`);
             
             return { 
                 success: true, 
