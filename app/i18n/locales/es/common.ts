@@ -268,6 +268,24 @@ const common = {
     logIn: "Iniciar sesión",
     signUp: "Registrarse",
     
+    // Forgot Password
+    forgotPassword: "¿Olvidaste tu contraseña?",
+    forgotPasswordTitle: "Recuperar contraseña",
+    forgotPasswordSubtitle: "Ingresa tu email para recibir un enlace de recuperación",
+    sendResetLink: "Enviar enlace de recuperación",
+    resetLinkSent: "¡Enlace de recuperación enviado! Revisa tu email.",
+    backToLogin: "Volver al login",
+    
+    // Reset Password
+    resetPasswordTitle: "Restablecer contraseña",
+    resetPasswordSubtitle: "Ingresa tu nueva contraseña",
+    newPassword: "Nueva contraseña",
+    confirmPassword: "Confirmar contraseña",
+    resetPassword: "Restablecer contraseña",
+    passwordResetSuccess: "¡Contraseña restablecida exitosamente! Has iniciado sesión.",
+    passwordsDoNotMatch: "Las contraseñas no coinciden",
+    invalidResetToken: "Enlace de recuperación inválido o expirado",
+    
     // Validation messages
     emailInvalid: "Email es inválido",
     passwordTooShort: "Contraseña muy corta",
@@ -276,7 +294,9 @@ const common = {
     
     // Error messages
     loginError: "No se pudo iniciar sesión",
-    createAccountError: "No se pudo crear la cuenta"
+    createAccountError: "No se pudo crear la cuenta",
+    forgotPasswordError: "Error al solicitar recuperación de contraseña",
+    resetPasswordError: "Error al restablecer contraseña"
   },
   
   // System error messages

@@ -69,7 +69,17 @@ const LoginPage: React.FC = () => {
                         {t('auth.logIn')}
                     </Button>
 
-                    <Typography.Paragraph style={{ marginBottom: 0 }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <Button 
+                            type="link" 
+                            onClick={() => navigate(publicRoutes.forgotPassword.path)}
+                            style={{ padding: 0 }}
+                        >
+                            {t('auth.forgotPassword')}
+                        </Button>
+                    </div>
+
+                    <Typography.Paragraph style={{ marginBottom: 0, textAlign: 'center' }}>
                         {t('auth.dontHaveAccount')}{' '}
                         <Button type="link" onClick={() => navigate(publicRoutes.signup.path)}>
                             {t('auth.createOne')}
