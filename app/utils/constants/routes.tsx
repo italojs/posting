@@ -9,6 +9,7 @@ import FeedPage from "/app/ui/FeedPage";
 import BrandManagementPage from "/app/ui/BrandManagementPage";
 import ForgotPasswordPage from "/app/ui/ForgotPasswordPage";
 import ResetPasswordPage from "/app/ui/ResetPasswordPage";
+import BillingPage from "/app/ui/BillingPage";
 
 /**
  * User does not have to be logged in to view these routes
@@ -35,10 +36,6 @@ export const publicRoutes = {
 		path: "/profile/:username",
 		element: (<UserProfilePage />) as React.ReactElement,
 	},
-	feed: {
-		path: "/feed",
-		element: (<FeedPage />) as React.ReactElement,
-	},
 	home: {
 		path: "/",
 		element: (<MainPage />) as React.ReactElement,
@@ -53,6 +50,10 @@ export const publicRoutes = {
  * User has to be logged in to view these routes
  */
 export const protectedRoutes = {
+	feed: {
+		path: "/feed",
+		element: (<FeedPage />) as React.ReactElement,
+	},
 	createContent: {
 		path: "/criar-conteudo",
 		element: (<CreateContentPage />) as React.ReactElement,
@@ -64,6 +65,10 @@ export const protectedRoutes = {
 	brands: {
 		path: "/marcas",
 		element: (<BrandManagementPage />) as React.ReactElement,
+	},
+	billing: {
+		path: "/assinatura",
+		element: (<BillingPage />) as React.ReactElement,
 	},
 };
 

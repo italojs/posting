@@ -13,12 +13,13 @@ import {
     NewsletterSection,
     ProcessedArticle,
     ProcessNewsletterInput,
+    ProcessNewsletterSectionInput,
     RssItem,
     SelectedNewsArticle,
 } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
-import { aiContentService, brandsService } from '/app/services';
+import { aiContentService, brandsService, subscriptionService } from '/app/services';
 
 interface ResolvedBrandContext {
     brandId?: string;
@@ -201,7 +202,98 @@ Meteor.methods({
         );
         return { _id };
     },
-    'set.contents.processNewsletter': async ({ _id, name, audience, goal, rssUrls, rssItems, networks, newsletterSections, language, brandId }: ProcessNewsletterInput) => {
+    'set.contents.generateNewsletterSection': async ({
+        _id,
+        name,
+        audience,
+        goal,
+        section,
+        language,
+        brandId,
+    }: ProcessNewsletterSectionInput) => {
+        check(name, String);
+        check(audience, Match.Maybe(String));
+        check(goal, Match.Maybe(String));
+        check(section, Object);
+        check(section.title, Match.Maybe(String));
+        check(section.description, Match.Maybe(String));
+        check((section as any).rssItems, Match.Maybe([Object]));
+        check((section as any).newsArticles, Match.Maybe([Object]));
+        check((section as any).newsSearchQueries, Match.Maybe([String]));
+        check(language, Match.Maybe(String));
+        check(_id, Match.Maybe(String));
+        check(brandId, Match.Maybe(String));
+
+        const user = await currentUserAsync();
+        if (!user) return noAuthError();
+
+        let existingContent: Content | undefined;
+
+        if (_id) {
+            existingContent = (await ContentsCollection.findOneAsync({ _id, userId: user._id })) as Content | undefined;
+            if (!existingContent) {
+                return clientContentError('Conteúdo não encontrado');
+            }
+        }
+
+        const normalizedLanguage = typeof language === 'string' ? language.trim() : undefined;
+        const resolvedLanguage = resolveLanguageInfo(normalizedLanguage);
+
+        const resolvedBrand = await resolveBrandForUser(user._id, brandId, { allowMissing: true });
+        let brandSnapshot: BrandContextForAI | undefined;
+        if (resolvedBrand.brandId) {
+            brandSnapshot = resolvedBrand.brandSnapshot;
+        } else if (existingContent?.brandSnapshot) {
+            brandSnapshot = existingContent.brandSnapshot;
+        }
+
+        const newsletterContext: NewsletterGenerationContext = {
+            title: name,
+            goal,
+            audience,
+            brand: brandSnapshot,
+            languageName: resolvedLanguage.name,
+            languageTag: resolvedLanguage.tag,
+            currentDate: new Date().toISOString().split('T')[0],
+            labels: resolvedLanguage.labels,
+        };
+
+        const normalizedSection: NewsletterSection = {
+            id: section.id,
+            title: (section.title || '').trim() || 'Section',
+            description: section.description ? section.description.trim() : undefined,
+            rssItems: Array.isArray(section.rssItems) ? section.rssItems : [],
+            newsArticles: Array.isArray(section.newsArticles) ? section.newsArticles : [],
+            newsSearchQueries: Array.isArray(section.newsSearchQueries) ? section.newsSearchQueries : undefined,
+        };
+
+        const hasRssItems = normalizedSection.rssItems.length > 0;
+        const hasNewsArticles = Array.isArray(normalizedSection.newsArticles) && normalizedSection.newsArticles.length > 0;
+
+        if (!hasRssItems && !hasNewsArticles) {
+            return clientContentError('Selecione pelo menos um conteúdo para a seção');
+        }
+
+        const preview = await generateNewsletterSectionPreview(normalizedSection, newsletterContext);
+        if (!preview) {
+            return clientContentError('Não foi possível gerar conteúdo para esta seção');
+        }
+
+        return preview;
+    },
+    'set.contents.processNewsletter': async ({
+        _id,
+        name,
+        audience,
+        goal,
+        rssUrls,
+        rssItems,
+        networks,
+        newsletterSections,
+        language,
+        brandId,
+        generatedSections: preGeneratedSections,
+    }: ProcessNewsletterInput) => {
         check(name, String);
         check(audience, Match.Maybe(String));
         check(goal, Match.Maybe(String));
@@ -217,6 +309,7 @@ Meteor.methods({
         check(_id, Match.Maybe(String));
         check(language, Match.Maybe(String));
         check(brandId, Match.Maybe(String));
+        check(preGeneratedSections, Match.Maybe([Object]));
 
         const user = await currentUserAsync();
         if (!user) return noAuthError();
@@ -241,11 +334,12 @@ Meteor.methods({
             brandSnapshot = existingContent.brandSnapshot;
         }
 
-        if (!newsletterSections || newsletterSections.length === 0) {
+        if ((!newsletterSections || newsletterSections.length === 0) && (!preGeneratedSections || preGeneratedSections.length === 0)) {
             return { success: false, error: 'No sections available for processing', processedLinks: 0 };
         }
 
         const normalizedLanguage = typeof language === 'string' ? language.trim() : undefined;
+        const quotaContext = await subscriptionService.prepareNewsletterQuota(user._id);
         const resolvedLanguage = resolveLanguageInfo(normalizedLanguage);
         const newsletterContext: NewsletterGenerationContext = {
             title: name,
@@ -258,78 +352,26 @@ Meteor.methods({
             labels: resolvedLanguage.labels,
         };
 
-        const sectionResults = await Promise.all(
-            newsletterSections.map(async (section: NewsletterSection, index) => {
-                const processedArticles = await processSectionItems(section.rssItems, section.newsArticles);
-                if (processedArticles.length === 0) {
-                    return null;
-                }
-
-                return {
-                    title: section.title || `Section ${index + 1}`,
-                    description: section.description,
-                    content: processedArticles,
-                };
-            }),
-        );
-
-        const sessions = sectionResults.filter((section): section is NonNullable<typeof section> => section !== null);
-
-        if (sessions.length === 0) {
-            return { success: false, error: 'No content was successfully extracted', processedLinks: 0 };
-        }
-
-        const generatedSections: GeneratedNewsletterSectionPreview[] = [];
-
-        for (const session of sessions) {
-            const articleSummaries: NewsletterArticleSummary[] = [];
-
-            for (const article of session.content) {
-                try {
-                    const summary = await aiContentService.summarizeNewsletterArticle({
-                        article,
-                        context: newsletterContext,
-                    });
-                    articleSummaries.push({
-                        title: article.title,
-                        url: article.url,
-                        summary,
-                    });
-                } catch (error) {
-                    console.error('Failed to summarize article', article.url, error);
-                }
-            }
-
-            if (articleSummaries.length === 0) {
-                continue;
-            }
-
-            try {
-                const generatedContent = await aiContentService.generateNewsletterSection({
-                    newsletter: newsletterContext,
-                    section: {
-                        title: session.title,
-                        description: session.description,
-                    },
-                    articleSummaries,
-                });
-
-                generatedSections.push({
-                    originalTitle: session.title,
-                    originalDescription: session.description,
-                    articleSummaries,
-                    generatedTitle: generatedContent.title,
-                    summary: generatedContent.summary,
-                    body: generatedContent.body,
-                    callToAction: generatedContent.callToAction,
-                });
-            } catch (error) {
-                console.error('Failed to generate newsletter section content', session.title, error);
-            }
-        }
+        let generatedSections: GeneratedNewsletterSectionPreview[] = normalizeGeneratedSections(preGeneratedSections);
 
         if (generatedSections.length === 0) {
-            return { success: false, error: 'Unable to generate newsletter sections', processedLinks: 0 };
+            const normalizedSections = (newsletterSections || []).map((section: NewsletterSection, index) => ({
+                ...section,
+                title: section.title || `Section ${index + 1}`,
+                rssItems: Array.isArray(section.rssItems) ? section.rssItems : [],
+                newsArticles: Array.isArray(section.newsArticles) ? section.newsArticles : [],
+            }));
+
+            for (const section of normalizedSections) {
+                const preview = await generateNewsletterSectionPreview(section, newsletterContext);
+                if (preview) {
+                    generatedSections.push(preview);
+                }
+            }
+
+            if (generatedSections.length === 0) {
+                return { success: false, error: 'Unable to generate newsletter sections', processedLinks: 0 };
+            }
         }
 
         const compiledMarkdown = buildNewsletterMarkdown(
@@ -360,6 +402,8 @@ Meteor.methods({
                 },
             );
         }
+
+        await subscriptionService.commitNewsletterUsage(user._id, quotaContext);
 
         return finalNewsletter;
     },
@@ -501,6 +545,121 @@ function extractCleanText(html: string): string {
         .text()
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+async function generateNewsletterSectionPreview(
+    section: NewsletterSection,
+    newsletterContext: NewsletterGenerationContext,
+): Promise<GeneratedNewsletterSectionPreview | null> {
+    const processedArticles = await processSectionItems(section.rssItems || [], section.newsArticles);
+    if (processedArticles.length === 0) {
+        return null;
+    }
+
+    const articleSummaries: NewsletterArticleSummary[] = [];
+
+    for (const article of processedArticles) {
+        try {
+            const summary = await aiContentService.summarizeNewsletterArticle({
+                article,
+                context: newsletterContext,
+            });
+            articleSummaries.push({
+                title: article.title,
+                url: article.url,
+                summary,
+            });
+        } catch (error) {
+            console.error('Failed to summarize article', article.url, error);
+        }
+    }
+
+    if (articleSummaries.length === 0) {
+        return null;
+    }
+
+    try {
+        const generatedContent = await aiContentService.generateNewsletterSection({
+            newsletter: newsletterContext,
+            section: {
+                title: section.title,
+                description: section.description,
+            },
+            articleSummaries,
+        });
+
+        return {
+            originalTitle: section.title,
+            originalDescription: section.description,
+            articleSummaries,
+            generatedTitle: generatedContent.title,
+            summary: generatedContent.summary,
+            body: generatedContent.body,
+            callToAction: generatedContent.callToAction,
+        };
+    } catch (error) {
+        console.error('Failed to generate newsletter section content', section.title, error);
+        return null;
+    }
+}
+
+function normalizeGeneratedSections(rawSections?: any[]): GeneratedNewsletterSectionPreview[] {
+    if (!Array.isArray(rawSections)) {
+        return [];
+    }
+
+    const normalized: GeneratedNewsletterSectionPreview[] = [];
+
+    for (const entry of rawSections) {
+        if (!entry || typeof entry !== 'object') continue;
+
+        const generatedTitle = typeof entry.generatedTitle === 'string' ? entry.generatedTitle.trim() : '';
+        const summary = typeof entry.summary === 'string' ? entry.summary.trim() : '';
+        const body = typeof entry.body === 'string' ? entry.body.trim() : '';
+        if (!generatedTitle || !body) continue;
+
+        const rawArticleSummaries = Array.isArray(entry.articleSummaries) ? entry.articleSummaries : [];
+        const articleSummaries = rawArticleSummaries
+            .map((item: any) => {
+                if (!item || typeof item !== 'object') return null;
+                const title = typeof item.title === 'string' ? item.title : undefined;
+                const url = typeof item.url === 'string' ? item.url : undefined;
+                const summaryText = typeof item.summary === 'string' ? item.summary : undefined;
+                if (!title && !summaryText) return null;
+                const normalizedSummary: NewsletterArticleSummary = {
+                    title: (title || summaryText || 'Untitled').trim(),
+                    url: url || '',
+                    summary: (summaryText || '').trim(),
+                };
+                return normalizedSummary;
+            })
+            .filter((item: NewsletterArticleSummary | null): item is NewsletterArticleSummary => !!item);
+
+        if (articleSummaries.length === 0) continue;
+
+        const normalizedSection: GeneratedNewsletterSectionPreview = {
+            originalTitle:
+                typeof entry.originalTitle === 'string' && entry.originalTitle.trim()
+                    ? entry.originalTitle.trim()
+                    : generatedTitle,
+            originalDescription:
+                typeof entry.originalDescription === 'string' && entry.originalDescription.trim()
+                    ? entry.originalDescription.trim()
+                    : undefined,
+            articleSummaries,
+            generatedTitle,
+            summary: summary || articleSummaries[0].summary,
+            body,
+            callToAction:
+                typeof entry.callToAction === 'string' && entry.callToAction.trim()
+                    ? entry.callToAction.trim()
+                    : undefined,
+        };
+
+        normalized.push(normalizedSection);
+    }
+
+    return normalized;
 }
 
 function buildNewsletterMarkdown(

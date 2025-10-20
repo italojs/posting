@@ -13,6 +13,7 @@
         "@aws-sdk/s3-request-presigner": "^3.878.0",
         "@babel/runtime": "^7.20.7",
         "@netsu/js-utils": "^2.0.2",
+        "@stripe/stripe-js": "^8.0.0",
         "antd": "^5.24.1",
         "cheerio": "^1.1.2",
         "dotenv": "^17.2.2",
@@ -25,6 +26,7 @@
         "react-dom": "^18.2.0",
         "react-i18next": "^15.7.3",
         "rss-parser": "^3.13.0",
+        "stripe": "^19.1.0",
         "wouter": "^3.6.0"
     },
     "devDependencies": {
