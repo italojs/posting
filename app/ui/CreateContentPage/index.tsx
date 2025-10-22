@@ -27,6 +27,8 @@ import {
     GeneratedNewsletterSectionPreview,
     GenerateTwitterThreadResult,
     TwitterThread,
+    GenerateLinkedInPostResult,
+    LinkedInPost,
 } from '/app/api/contents/models';
 import { BrandSummary, BrandContextForAI } from '/app/api/brands/models';
 import { BillingPlanId, SubscriptionOverview } from '/app/api/billing/models';
@@ -112,6 +114,11 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [selectedTwitterArticle, setSelectedTwitterArticle] = useState<RssItem | null>(null);
     const [generatingThread, setGeneratingThread] = useState(false);
     const [generatedThread, setGeneratedThread] = useState<TwitterThread | null>(null);
+
+    // LinkedIn Post states
+    const [selectedLinkedInArticle, setSelectedLinkedInArticle] = useState<RssItem | null>(null);
+    const [generatingLinkedInPost, setGeneratingLinkedInPost] = useState(false);
+    const [generatedLinkedInPost, setGeneratedLinkedInPost] = useState<LinkedInPost | null>(null);
 
     const fetchBrands = useCallback(async () => {
         setBrandsLoading(true);
@@ -880,27 +887,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         try {
             const brandContext = resolveBrandContext(watchBrandId);
             
-            // Use text extraction for better content analysis
-            let articleWithFullText = selectedTwitterArticle;
-            if (selectedTwitterArticle.link) {
-                try {
-                    const extractedText = await Meteor.callAsync('extract.articleText', {
-                        url: selectedTwitterArticle.link
-                    }) as { text: string };
-                    
-                    if (extractedText?.text) {
-                        articleWithFullText = {
-                            ...selectedTwitterArticle,
-                            contentSnippet: extractedText.text
-                        };
-                    }
-                } catch (error) {
-                    // Silently fallback to original content if extraction fails
-                }
-            }
-            
             const result = (await Meteor.callAsync('get.contents.generateTwitterThread', {
-                article: articleWithFullText,
+                article: selectedTwitterArticle,
                 brand: brandContext,
                 language: i18n.language,
             })) as GenerateTwitterThreadResult;
@@ -928,6 +916,51 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const handleResetTwitterThread = () => {
         setSelectedTwitterArticle(null);
         setGeneratedThread(null);
+    };
+
+    // LinkedIn Post functions
+    const handleGenerateLinkedInPost = async () => {
+        if (!selectedLinkedInArticle) {
+            message.error(t('createContent.selectArticleForLinkedin'));
+            return;
+        }
+
+        setGeneratingLinkedInPost(true);
+        try {
+            const brandContext = resolveBrandContext(watchBrandId);
+            
+            const result = (await Meteor.callAsync('get.contents.generateLinkedInPost', {
+                article: selectedLinkedInArticle,
+                brand: brandContext,
+                language: i18n.language,
+            })) as GenerateLinkedInPostResult;
+
+            setGeneratedLinkedInPost(result.post);
+            message.success(t('createContent.linkedinPostGenerated'));
+        } catch (error) {
+            errorResponse(error as Meteor.Error, t('createContent.linkedinPostGenerationError'));
+        } finally {
+            setGeneratingLinkedInPost(false);
+        }
+    };
+
+    const handleCopyLinkedInPost = async () => {
+        if (!generatedLinkedInPost?.content) {
+            message.error('No LinkedIn post to copy');
+            return;
+        }
+        
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            await navigator.clipboard.writeText(generatedLinkedInPost.content);
+            message.success(t('createContent.linkedinPostCopied'));
+        } else {
+            message.error(t('createContent.clipboardNotSupported'));
+        }
+    };
+
+    const handleResetLinkedInPost = () => {
+        setSelectedLinkedInArticle(null);
+        setGeneratedLinkedInPost(null);
     };
 
     
@@ -1460,7 +1493,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                 </div>
                                             )}
 
-                                            {/* Thread Preview - Moved to appear after article selection */}
+                                            {/* Thread Preview */}
                                             {generatedThread && (
                                                 <div style={{ marginBottom: '24px' }}>
                                                     <div style={{ marginBottom: '16px' }}>
@@ -1524,9 +1557,264 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         </Form.Item>
                     </Form>
 
+                    {/* Card LinkedIn: LinkedIn Post Generation */}
+                    <Form form={form}>
+                        <Form.Item shouldUpdate noStyle>
+                            {({ getFieldValue }) => {
+                                const isLinkedIn = !!getFieldValue('linkedin');
+                                if (!isLinkedIn) return null;
+                                
+                                return (
+                                    <Card 
+                                        title={
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ 
+                                                    backgroundColor: '#0077B5', 
+                                                    color: 'white', 
+                                                    borderRadius: '50%', 
+                                                    width: '32px', 
+                                                    height: '32px', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    2
+                                                </div>
+                                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                                    {t('createContent.linkedinPostTitle')}
+                                                </span>
+                                            </div>
+                                        }
+                                        styles={{
+                                            header: { borderBottom: 'none' },
+                                            body: { paddingTop: 0 }
+                                        }}
+                                    >
+                                        <div style={{ padding: '8px 0' }}>
+                                            <Typography.Text type="secondary" style={{ marginBottom: '16px', display: 'block' }}>
+                                                {t('createContent.linkedinPostHelp')}
+                                            </Typography.Text>
+
+                                            {/* RSS Articles Grouped by Source */}
+                                            {rssItems.length > 0 && (
+                                                <div style={{ margin: '0 0 16px' }}>
+                                                    <Typography.Text strong style={{ fontSize: 13 }}>
+                                                        {t('createContent.selectArticleForLinkedin')} ({rssItems.length} {t('createContent.itemsFound', { count: rssItems.length })})
+                                                    </Typography.Text>
+                                                    
+                                                    <div style={{ marginTop: 12 }}>
+                                                        {(() => {
+                                                            // Group articles by source like in newsletter
+                                                            const getKey = (it: RssItem) => it.link || it.title || '';
+                                                            const groups: { [key: string]: RssItem[] } = {};
+                                                            rssItems.forEach((item) => {
+                                                                const sourceName = item.source || 'Unknown';
+                                                                if (!groups[sourceName]) groups[sourceName] = [];
+                                                                groups[sourceName].push(item);
+                                                            });
+                                                            const groupedArticles = Object.entries(groups).map(([name, items]) => ({ name, items }));
+                                                            
+                                                            return (
+                                                                <Collapse
+                                                                    className="custom-collapse"
+                                                                    items={groupedArticles.map((group) => ({
+                                                                        key: group.name,
+                                                                        label: (
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                                                                <span style={{ fontWeight: '600', fontSize: '15px', color: '#1f2937' }}>
+                                                                                    {group.name}
+                                                                                </span>
+                                                                                <Badge count={group.items.length} overflowCount={99} style={{ backgroundColor: '#0077B5' }} />
+                                                                            </div>
+                                                                        ),
+                                                                        children: (
+                                                                            <div 
+                                                                                className="rss-articles-scroll"
+                                                                                style={{ 
+                                                                                    paddingTop: '0px',
+                                                                                    maxHeight: '300px',
+                                                                                    overflowY: 'auto',
+                                                                                    overflowX: 'hidden',
+                                                                                    paddingRight: '8px'
+                                                                                }}
+                                                                            >
+                                                                                <List
+                                                                                    dataSource={group.items}
+                                                                                    split={false}
+                                                                                    renderItem={(it) => {
+                                                                                        const linkKey = getKey(it);
+                                                                                        const isSelected: boolean = selectedLinkedInArticle && getKey(selectedLinkedInArticle) === linkKey ? true : false;
+                                                                                        
+                                                                                        return (
+                                                                                            <List.Item
+                                                                                                style={{
+                                                                                                    background: isSelected ? '#e6f7ff' : 'transparent',
+                                                                                                    border: isSelected ? '2px solid #0077B5' : '1px solid transparent',
+                                                                                                    borderRadius: '6px',
+                                                                                                    marginBottom: '8px',
+                                                                                                    padding: '12px',
+                                                                                                    cursor: 'pointer',
+                                                                                                    transition: 'all 0.2s ease'
+                                                                                                }}
+                                                                                                onClick={() => {
+                                                                                                    if (!linkKey) return;
+                                                                                                    // Toggle selection - if same article, deselect, otherwise select
+                                                                                                    if (isSelected) {
+                                                                                                        setSelectedLinkedInArticle(null);
+                                                                                                        setGeneratedLinkedInPost(null);
+                                                                                                    } else {
+                                                                                                        setSelectedLinkedInArticle(it);
+                                                                                                        setGeneratedLinkedInPost(null);
+                                                                                                    }
+                                                                                                }}
+                                                                                            >
+                                                                                                <List.Item.Meta
+                                                                                                    avatar={
+                                                                                                        <Radio
+                                                                                                            checked={isSelected}
+                                                                                                            onChange={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                if (e.target.checked) {
+                                                                                                                    setSelectedLinkedInArticle(it);
+                                                                                                                    setGeneratedLinkedInPost(null);
+                                                                                                                } else {
+                                                                                                                    setSelectedLinkedInArticle(null);
+                                                                                                                    setGeneratedLinkedInPost(null);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        />
+                                                                                                    }
+                                                                                                    title={
+                                                                                                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>
+                                                                                                            {it.link ? (
+                                                                                                                <a 
+                                                                                                                    href={it.link} 
+                                                                                                                    target="_blank" 
+                                                                                                                    rel="noreferrer"
+                                                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                                                    style={{ color: '#1d4ed8', textDecoration: 'none' }}
+                                                                                                                >
+                                                                                                                    {it.title || it.link}
+                                                                                                                </a>
+                                                                                                            ) : (
+                                                                                                                it.title || 'No title'
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    }
+                                                                                                    description={
+                                                                                                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                                                                                                            {it.contentSnippet && (
+                                                                                                                <div>{it.contentSnippet.substring(0, 150)}{it.contentSnippet.length > 150 && '...'}</div>
+                                                                                                            )}
+                                                                                                            {it.pubDate && (
+                                                                                                                <div style={{ marginTop: '4px', fontSize: '11px', color: '#9ca3af' }}>
+                                                                                                                    {new Date(it.pubDate).toLocaleDateString()}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    }
+                                                                                                />
+                                                                                            </List.Item>
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        )
+                                                                    }))}
+                                                                />
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* LinkedIn Post Generation Controls */}
+                                            <div style={{ margin: '16px 0' }}>
+                                                <Button
+                                                    type="primary"
+                                                    icon={<RobotOutlined />}
+                                                    onClick={handleGenerateLinkedInPost}
+                                                    loading={generatingLinkedInPost}
+                                                    disabled={!selectedLinkedInArticle}
+                                                    style={{ backgroundColor: '#0077B5', borderColor: '#0077B5' }}
+                                                >
+                                                    {t('createContent.generateLinkedinPost')}
+                                                </Button>
+                                                
+                                                {selectedLinkedInArticle && (
+                                                    <Button
+                                                        type="link"
+                                                        onClick={handleResetLinkedInPost}
+                                                        style={{ marginLeft: '12px' }}
+                                                    >
+                                                        Reset
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {/* LinkedIn Post Preview */}
+                                            {generatedLinkedInPost && (
+                                                <div style={{ 
+                                                    margin: '20px 0', 
+                                                    border: '1px solid #d9d9d9', 
+                                                    borderRadius: '8px',
+                                                    padding: '16px',
+                                                    backgroundColor: '#fafafa'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                        <Typography.Text strong style={{ fontSize: '16px' }}>
+                                                            {t('createContent.linkedinPostPreview')}
+                                                        </Typography.Text>
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
+                                                                {t('createContent.linkedinWordCount', { count: generatedLinkedInPost.content.split(' ').length })}
+                                                            </Typography.Text>
+                                                            <Button
+                                                                size="small"
+                                                                icon={<CopyOutlined />}
+                                                                onClick={handleCopyLinkedInPost}
+                                                            >
+                                                                {t('createContent.copyLinkedinPost')}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div style={{ 
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #e8e8e8',
+                                                        borderRadius: '6px',
+                                                        padding: '16px',
+                                                        whiteSpace: 'pre-wrap',
+                                                        fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
+                                                        lineHeight: '1.6',
+                                                        fontSize: '14px'
+                                                    }}>
+                                                        {generatedLinkedInPost.content}
+                                                    </div>
+                                                    
+                                                    {generatedLinkedInPost.articleUrl && (
+                                                        <div style={{ marginTop: '12px' }}>
+                                                            <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
+                                                                Source: <a href={generatedLinkedInPost.articleUrl} target="_blank" rel="noreferrer">
+                                                                    {generatedLinkedInPost.articleTitle}
+                                                                </a>
+                                                            </Typography.Text>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </Card>
+                                );
+                            }}
+                        </Form.Item>
+                    </Form>
+
                     
 
-                    {/* Card 3: Content Generation */}
+                    {/* Card 2: Newsletter Content Generation */}
                     <Form form={form}>
                         <Form.Item shouldUpdate noStyle>
                             {({ getFieldValue }) => {

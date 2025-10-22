@@ -148,6 +148,18 @@ const common = {
     tweetCopied: "Tweet {{number}} copiado!",
     clipboardNotSupported: "Clipboard não suportado neste navegador",
     characterCount: "{{count}}/280 caracteres",
+
+    // LinkedIn Post
+    linkedinPostTitle: "Gerar Post do LinkedIn",
+    linkedinPostHelp: "Selecione um artigo RSS para gerar um post profissional do LinkedIn",
+    generateLinkedinPost: "Gerar Post do LinkedIn",
+    linkedinPostGenerated: "Post do LinkedIn gerado com sucesso!",
+    linkedinPostGenerationError: "Falha ao gerar post do LinkedIn",
+    selectArticleForLinkedin: "Selecione um artigo para gerar um post do LinkedIn",
+    linkedinPostPreview: "Visualização do Post do LinkedIn",
+    copyLinkedinPost: "Copiar Post",
+    linkedinPostCopied: "Post do LinkedIn copiado para a área de transferência",
+    linkedinWordCount: "{{count}} palavras",
   },
   brands: {
     title: "Minhas marcas",
@@ -347,7 +359,7 @@ const common = {
     
     // Error messages
     loginError: "Não foi possível fazer login",
-    createAccountError: "Não foi possível criar conta"
+    createAccountError: "Não foi possível criar conta",
   },
   
   // System error messages

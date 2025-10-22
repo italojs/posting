@@ -691,4 +691,19 @@ function buildNewsletterMarkdown(
     return parts.join('\n').trim();
 }
 
-export { extractCleanText };
+// Helper function to extract full article text from URL
+async function extractArticleText(article: any): Promise<string | null> {
+    if (!article.link) return null;
+    
+    try {
+        const response = await fetch(article.link);
+        if (!response.ok) return null;
+        
+        const html = await response.text();
+        return extractCleanText(html) || null;
+    } catch (error) {
+        return null;
+    }
+}
+
+export { extractCleanText, extractArticleText };
