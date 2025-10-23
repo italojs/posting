@@ -1,10 +1,11 @@
 import { Accounts } from 'meteor/accounts-base';
 import { Meteor } from 'meteor/meteor';
 
-// Import translations
 import ptCommon from '/app/i18n/locales/pt/common';
 import enCommon from '/app/i18n/locales/en/common';
 import esCommon from '/app/i18n/locales/es/common';
+
+type Language = 'pt' | 'en' | 'es';
 
 const translations = {
     pt: ptCommon,
@@ -12,106 +13,58 @@ const translations = {
     es: esCommon
 };
 
-/**
- * Get the current language from the global context set by the method call
- * Falls back to Portuguese if not set
- */
-const getUserLanguage = (): 'pt' | 'en' | 'es' => {
-    try {
-        // Get language from global context (set by the method call)
-        const contextLanguage = (global as any).currentEmailLanguage;
-        console.log(`Email template getting language from context: ${contextLanguage}`);
-        
-        if (contextLanguage && ['pt', 'en', 'es'].includes(contextLanguage)) {
-            return contextLanguage;
-        }
-        
-        console.log('No valid language in context, defaulting to Portuguese');
-        return 'pt'; // Default to Portuguese
-    } catch (error) {
-        console.warn('Error getting user language from context, defaulting to Portuguese:', error);
-        return 'pt';
-    }
+// Translation helper with {{param}} interpolation support
+const t = (key: string, lang: Language, params: Record<string, string> = {}) => {
+    const value = key.split('.').reduce((obj: any, k) => obj?.[k], translations[lang]);
+    
+    if (typeof value !== 'string') return key;
+    
+    return value.replace(/\{\{(\w+)\}\}/g, (_match: string, paramKey: string) => 
+        params[paramKey] || _match
+    );
 };
 
-/**
- * Get translated text with interpolation support
- */
-const t = (key: string, lang: 'pt' | 'en' | 'es', params: Record<string, string> = {}) => {
-    const keys = key.split('.');
-    let value: any = translations[lang];
-    
-    for (const k of keys) {
-        value = value?.[k];
-    }
-    
-    if (typeof value !== 'string') {
-        return key; // Return key if translation not found
-    }
-    
-    // Simple interpolation
-    return value.replace(/\{\{(\w+)\}\}/g, (match: string, paramKey: string) => {
-        return params[paramKey] || match;
-    });
-};
+const getUserEmail = (user: any) => user.emails?.[0]?.address || 'usuário';
 
-/**
- * Configure email templates and accounts settings
- * This should be called during server startup
- */
-export const configureAccountsEmails = () => {
-    if (!Meteor.isServer) return;
-
-    console.log('Configuring email settings for accounts');
+const createResetPasswordTemplate = (language: Language) => ({
+    subject: () => t('auth.emailResetPasswordSubject', language),
     
-    // Configure email templates
-    Accounts.emailTemplates.siteName = 'Posting Platform';
-    Accounts.emailTemplates.from = 'Posting Platform <noreply@posting-platform.com>';
-    
-    // Configure reset password email template
-    Accounts.emailTemplates.resetPassword = {
-        subject(user) {
-            const lang = getUserLanguage();
-            return t('auth.emailResetPasswordSubject', lang);
-        },
-        text(user, url) {
-            const lang = getUserLanguage();
-            const userEmail = user.emails?.[0]?.address || 'usuário';
-            
-            return `
-${t('auth.emailResetPasswordGreeting', lang, { email: userEmail })}
+    text(user: any, url: string) {
+        const userEmail = getUserEmail(user);
+        return `
+${t('auth.emailResetPasswordGreeting', language, { email: userEmail })}
 
-${t('auth.emailResetPasswordBody', lang)}
+${t('auth.emailResetPasswordBody', language)}
 
 ${url}
 
-${t('auth.emailResetPasswordWarning', lang)}
+${t('auth.emailResetPasswordWarning', language)}
 
-${t('auth.emailResetPasswordExpiration', lang)}
+${t('auth.emailResetPasswordExpiration', language)}
 
-${t('auth.emailResetPasswordSignature', lang)}
-            `.trim();
-        },
-        html(user, url) {
-            const lang = getUserLanguage();
-            const userEmail = user.emails?.[0]?.address || 'usuário';
-            
-            return `
+${t('auth.emailResetPasswordSignature', language)}
+        `.trim();
+    },
+    
+    html(user: any, url: string) {
+        const userEmail = getUserEmail(user);
+        
+        return `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <h2 style="color: #1890ff; text-align: center;">${t('auth.resetPasswordTitle', lang)}</h2>
+    <h2 style="color: #1890ff; text-align: center;">${t('auth.resetPasswordTitle', language)}</h2>
     
-    <p><strong>${t('auth.emailResetPasswordGreeting', lang, { email: userEmail })}</strong>,</p>
+    <p><strong>${t('auth.emailResetPasswordGreeting', language, { email: userEmail })}</strong>,</p>
     
-    <p>${t('auth.emailResetPasswordBody', lang)}</p>
+    <p>${t('auth.emailResetPasswordBody', language)}</p>
     
     <div style="text-align: center; margin: 30px 0;">
         <a href="${url}" 
            style="background-color: #1890ff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-            ${t('auth.emailResetPasswordButtonText', lang)}
+            ${t('auth.emailResetPasswordButtonText', language)}
         </a>
     </div>
     
-    <p>${t('auth.emailResetPasswordLinkText', lang)}</p>
+    <p>${t('auth.emailResetPasswordLinkText', language)}</p>
     <p style="word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 4px;">
         ${url}
     </p>
@@ -119,24 +72,54 @@ ${t('auth.emailResetPasswordSignature', lang)}
     <hr style="margin: 30px 0; border: none; border-top: 1px solid #e8e8e8;">
     
     <p style="color: #666; font-size: 14px;">
-        ${t('auth.emailResetPasswordWarning', lang)}<br>
-        ${t('auth.emailResetPasswordExpiration', lang)}
+        ${t('auth.emailResetPasswordWarning', language)}<br>
+        ${t('auth.emailResetPasswordExpiration', language)}
     </p>
     
     <p style="color: #666; font-size: 14px;">
-        ${t('auth.emailResetPasswordSignature', lang)}
+        ${t('auth.emailResetPasswordSignature', language)}
     </p>
 </div>
-            `.trim();
-        }
-    };
+        `.trim();
+    }
+});
 
-    // Configure accounts settings (use correct property name)
+// Cache templates to avoid recreation
+const templateCache = new Map<Language, ReturnType<typeof createResetPasswordTemplate>>();
+
+const getTemplate = (language: Language) => {
+    if (!templateCache.has(language)) {
+        templateCache.set(language, createResetPasswordTemplate(language));
+    }
+    return templateCache.get(language)!;
+};
+
+// Send reset password email with specific language
+export const sendResetPasswordEmailWithLanguage = async (userId: string, email: string, language: Language) => {
+    const originalTemplate = Accounts.emailTemplates.resetPassword;
+    
+    try {
+        Accounts.emailTemplates.resetPassword = getTemplate(language);
+        await Accounts.sendResetPasswordEmail(userId, email);
+    } finally {
+        Accounts.emailTemplates.resetPassword = originalTemplate;
+    }
+};
+
+// Configure email templates and accounts settings
+export const configureAccountsEmails = () => {
+    if (!Meteor.isServer) return;
+
+    console.log('Configuring email settings for accounts');
+    
+    Accounts.emailTemplates.siteName = 'Posting Platform';
+    Accounts.emailTemplates.from = 'Posting Platform <noreply@posting-platform.com>';
+    Accounts.emailTemplates.resetPassword = createResetPasswordTemplate('pt');
+
     Accounts.config({
         sendVerificationEmail: false,
         forbidClientAccountCreation: false,
-        // Use correct property name for token expiration
-        loginExpirationInDays: 90, // User session expires in 90 days
+        loginExpirationInDays: 90,
     });
     
     console.log('[DONE] Email configuration completed');
