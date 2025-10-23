@@ -10,6 +10,7 @@ import { Roles } from 'meteor/alanning:roles';
 import { Meteor } from 'meteor/meteor';
 import { createDefaultUserAccount } from './utils/dummyData';
 import { denyClientSideDatabaseActions } from './utils/securityLayer';
+import { configureAccountsEmails } from './utils/emailConfig';
 import { AvailableUserRoles, AppUser } from '/app/api/users/models';
 
 // methods
@@ -32,6 +33,8 @@ import '/app/api/billing/newsletterUsage';
 // publications
 
 Meteor.startup(async () => {
+    configureAccountsEmails();
+
     // Deny all client-side updates to user documents (security layer)
     console.log('Denying all client-side database updates');
     denyClientSideDatabaseActions();

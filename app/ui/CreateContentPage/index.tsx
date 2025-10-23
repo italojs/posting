@@ -1460,7 +1460,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                 </div>
                                             )}
 
-                                            {/* Thread Preview - Moved to appear after article selection */}
+                                            {/* Thread Preview */}
                                             {generatedThread && (
                                                 <div style={{ marginBottom: '24px' }}>
                                                     <div style={{ marginBottom: '16px' }}>

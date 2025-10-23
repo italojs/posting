@@ -347,6 +347,24 @@ const common = {
     logIn: "Log in",
     signUp: "Sign up",
     
+    // Forgot Password
+    forgotPassword: "Forgot password?",
+    forgotPasswordTitle: "Reset password",
+    forgotPasswordSubtitle: "Enter your email to receive a reset link",
+    sendResetLink: "Send reset link",
+    resetLinkSent: "Reset link sent! Check your email.",
+    backToLogin: "Back to login",
+    
+    // Reset Password
+    resetPasswordTitle: "Reset password",
+    resetPasswordSubtitle: "Enter your new password",
+    newPassword: "New password",
+    confirmPassword: "Confirm password",
+    resetPassword: "Reset password",
+    passwordResetSuccess: "Password reset successfully! You are now logged in.",
+    passwordsDoNotMatch: "Passwords do not match",
+    invalidResetToken: "Invalid or expired reset link",
+    
     // Validation messages
     emailInvalid: "Email is invalid",
     passwordTooShort: "Password is too short",
@@ -355,7 +373,19 @@ const common = {
     
     // Error messages
     loginError: "Could not log in",
-    createAccountError: "Could not create account"
+    createAccountError: "Could not create account",
+    forgotPasswordError: "Error requesting password reset",
+    resetPasswordError: "Error resetting password",
+    
+    // Email templates
+    emailResetPasswordSubject: "Reset your password - Posting Platform",
+    emailResetPasswordGreeting: "Hello {{email}}",
+    emailResetPasswordBody: "You requested a password reset for your Posting Platform account.",
+    emailResetPasswordButtonText: "Reset Password",
+    emailResetPasswordLinkText: "Or copy and paste this link in your browser:",
+    emailResetPasswordWarning: "If you didn't request this reset, you can safely ignore this email.",
+    emailResetPasswordExpiration: "This request will expire in 3 days.",
+    emailResetPasswordSignature: "Posting Platform Team"
   },
   
   // System error messages

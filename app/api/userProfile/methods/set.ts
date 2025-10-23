@@ -6,9 +6,12 @@ Meteor.methods({
     'set.userProfile.update': async ({ update, userId }: UpdateUserProfileInput) => {
         check(userId, String);
         check(update, Object);
-    check(update.firstName, Match.Optional(String));
-    check(update.lastName, Match.Optional(String));
-    check(update.username, Match.Optional(String));
+        check(update.firstName, Match.Optional(String));
+        check(update.lastName, Match.Optional(String));
+        check(update.username, Match.Optional(String));
+        check(update.preferredLanguage, Match.Optional(Match.Where((lang: any) => {
+            return ['pt', 'en', 'es'].includes(lang);
+        })));
         return userProfileService.update({ update, userId });
     },
     'set.userProfile.updateProfilePhoto': async ({ key, userId }: UpdateUserProfilePhotoInput) => {

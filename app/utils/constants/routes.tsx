@@ -5,9 +5,11 @@ import LoginPage from "/app/ui/LoginPage";
 import NotFoundPage from "/app/ui/NotFoundPage";
 import SignupPage from "/app/ui/SignupPage";
 import UserProfilePage from "/app/ui/UserProfilePage";
-import BrandManagementPage from "/app/ui/BrandManagementPage";
-import BillingPage from "/app/ui/BillingPage";
 import FeedPage from "/app/ui/FeedPage";
+import BrandManagementPage from "/app/ui/BrandManagementPage";
+import ForgotPasswordPage from "/app/ui/ForgotPasswordPage";
+import ResetPasswordPage from "/app/ui/ResetPasswordPage";
+import BillingPage from "/app/ui/BillingPage";
 
 /**
  * User does not have to be logged in to view these routes
@@ -21,6 +23,14 @@ export const publicRoutes = {
 	signup: {
 		path: "/signup",
 		element: (<SignupPage />) as React.ReactElement,
+	},
+	forgotPassword: {
+		path: "/forgot-password",
+		element: (<ForgotPasswordPage />) as React.ReactElement,
+	},
+	resetPassword: {
+		path: "/reset-password/:token",
+		element: (<ResetPasswordPage />) as React.ReactElement,
 	},
 	userProfile: {
 		path: "/profile/:username",

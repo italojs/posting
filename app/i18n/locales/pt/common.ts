@@ -339,6 +339,24 @@ const common = {
     logIn: "Entrar",
     signUp: "Cadastrar",
     
+    // Forgot Password
+    forgotPassword: "Esqueceu a senha?",
+    forgotPasswordTitle: "Recuperar senha",
+    forgotPasswordSubtitle: "Digite seu email para receber um link de recuperação",
+    sendResetLink: "Enviar link de recuperação",
+    resetLinkSent: "Link de recuperação enviado! Verifique seu email.",
+    backToLogin: "Voltar ao login",
+    
+    // Reset Password
+    resetPasswordTitle: "Redefinir senha",
+    resetPasswordSubtitle: "Digite sua nova senha",
+    newPassword: "Nova senha",
+    confirmPassword: "Confirmar senha",
+    resetPassword: "Redefinir senha",
+    passwordResetSuccess: "Senha redefinida com sucesso! Você está logado.",
+    passwordsDoNotMatch: "As senhas não coincidem",
+    invalidResetToken: "Link de recuperação inválido ou expirado",
+    
     // Validation messages
     emailInvalid: "Email é inválido",
     passwordTooShort: "Senha muito curta",
@@ -347,7 +365,19 @@ const common = {
     
     // Error messages
     loginError: "Não foi possível fazer login",
-    createAccountError: "Não foi possível criar conta"
+    createAccountError: "Não foi possível criar conta",
+    forgotPasswordError: "Erro ao solicitar recuperação de senha",
+    resetPasswordError: "Erro ao redefinir senha",
+    
+    // Email templates
+    emailResetPasswordSubject: "Redefinir sua senha - Posting Platform",
+    emailResetPasswordGreeting: "Olá {{email}}",
+    emailResetPasswordBody: "Você solicitou a redefinição de sua senha na Posting Platform.",
+    emailResetPasswordButtonText: "Redefinir Senha",
+    emailResetPasswordLinkText: "Ou copie e cole este link no seu navegador:",
+    emailResetPasswordWarning: "Se você não solicitou esta redefinição, pode ignorar este email com segurança.",
+    emailResetPasswordExpiration: "Esta solicitação expirará em 3 dias.",
+    emailResetPasswordSignature: "Equipe Posting Platform"
   },
   
   // System error messages
