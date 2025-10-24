@@ -214,6 +214,24 @@ export interface GenerateTwitterThreadResult {
     thread: TwitterThread;
 }
 
+// ---- LINKEDIN POST MODELS ----
+export interface LinkedInPost {
+    content: string;
+    articleTitle: string;
+    articleUrl?: string;
+    source?: string;
+}
+
+export interface GenerateLinkedInPostInput {
+    article: RssItem;
+    brand?: BrandContextForAI;
+    language: string;
+}
+
+export interface GenerateLinkedInPostResult {
+    post: LinkedInPost;
+}
+
 // ---- SET METHOD MODELS ----
 export interface CreateContentInput {
     name: string;

@@ -9,11 +9,11 @@ import {
     SearchNewsInput,
     SearchNewsResult,
     GenerateTwitterThreadInput,
+    GenerateLinkedInPostInput,
 } from '../models';
 import { clientContentError, noAuthError } from '/app/utils/serverErrors';
 import { currentUserAsync } from '/server/utils/meteor';
 import { contentsService, rssAggregationService, aiContentService, newsSearchService } from '/app/services';
-import { extractCleanText } from './set'; // Static import optimization
 
 Meteor.methods({
     'get.contents.byId': async ({ _id }: { _id: string }) => {
@@ -82,32 +82,21 @@ Meteor.methods({
         const user = await currentUserAsync();
         if (!user) return noAuthError();
         
-        // Streamlined validation
         check(article, Object);
         check(language, String);
-        
-        // Optional brand validation (only if provided)
-        if (brand) {
-            check(brand, Object);
-        }
+        if (brand) check(brand, Object);
         
         return await aiContentService.generateTwitterThread({ article, brand, language });
     },
 
-    'extract.articleText': async ({ url }: { url: string }) => {
+    'get.contents.generateLinkedInPost': async ({ article, brand, language }: GenerateLinkedInPostInput) => {
         const user = await currentUserAsync();
         if (!user) return noAuthError();
         
-        check(url, String);
+        check(article, Object);
+        check(language, String);
+        if (brand) check(brand, Object);
         
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Meteor.Error('fetch-error', `HTTP ${response.status}: Failed to fetch article`);
-        }
-        
-        const html = await response.text();
-        const text = extractCleanText(html);
-        
-        return { text };
+        return await aiContentService.generateLinkedInPost({ article, brand, language });
     },
 });
