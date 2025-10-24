@@ -6,7 +6,6 @@ import NotFoundPage from "/app/ui/NotFoundPage";
 import SignupPage from "/app/ui/SignupPage";
 import UserProfilePage from "/app/ui/UserProfilePage";
 import BrandManagementPage from "/app/ui/BrandManagementPage";
-import BillingPage from "/app/ui/BillingPage";
 import FeedPage from "/app/ui/FeedPage";
 
 /**
@@ -55,10 +54,6 @@ export const protectedRoutes = {
 	brands: {
 		path: "/marcas",
 		element: (<BrandManagementPage />) as React.ReactElement,
-	},
-	billing: {
-		path: "/assinatura",
-		element: (<BillingPage />) as React.ReactElement,
 	},
 };
 

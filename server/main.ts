@@ -19,15 +19,12 @@ import '/app/api/utils/methods';
 import '/app/api/contents/methods';
 import '/app/api/rssSources/methods';
 import '/app/api/brands/methods';
-import '/app/api/billing/methods';
 
 // databases
 import '/app/api/userProfile/userProfile';
 import '/app/api/contents/contents';
 import '/app/api/rssSources/rssSources';
 import '/app/api/brands/brands';
-import '/app/api/billing/userSubscriptions';
-import '/app/api/billing/newsletterUsage';
 
 // publications
 
