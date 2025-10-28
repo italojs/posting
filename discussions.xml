@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Node.js Discussions</title>
+    <link>https://nodejs.github.io/nodejs-news-feeder/discussions.xml</link>
+    <atom:link href="https://nodejs.github.io/nodejs-news-feeder/feed.xml" rel="self" type="application/rss+xml"/>
+    <description>Node.js Core most relevant news</description>
+    <pubDate>Tue, 13 Jun 2023 04:17:50 GMT</pubDate>
+    <language>en-us</language>
+    <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+    <lastBuildDate>Sun, 26 Oct 2025 00:12:00 GMT</lastBuildDate>
+    <image>
+      <title>Node.js News</title>
+      <url>https://nodejs.org/static/images/logo-hexagon-card.png</url>
+      <link>https://github.com/nodejs/nodejs-news-feeder</link>
+    </image>  </channel>
+</rss>

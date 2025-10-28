@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, statSync } from 'fs'
 import { join } from 'path'
 import { createHash } from 'crypto'
 import * as remark from 'remark'
@@ -9,6 +9,20 @@ const xmlFile = join(process.cwd(), 'feed.xml')
 const configFile = join(process.cwd(), 'config.json')
 const websiteFile = join(process.cwd(), 'index.html')
 const websiteTemplate = join(process.cwd(), 'templates', 'index.html.ejs')
+
+// Multiple feed files
+const feedFiles = {
+  issues: join(process.cwd(), 'issues.xml'),
+  discussions: join(process.cwd(), 'discussions.xml'),
+  releases: join(process.cwd(), 'releases.xml'),
+  retrospectives: join(process.cwd(), 'retrospectives.xml')
+}
+
+// Cache simples para melhorar performance
+const cache = {
+  config: null,
+  configTimestamp: 0
+}
 
 export function md2html (md) {
   return remark.remark().use(remarkHtml).processSync(md).toString()
@@ -21,11 +35,36 @@ export function buildTitleDate (timestamp) {
 }
 
 export function getConfig () {
-  return JSON.parse(readFileSync(configFile, 'utf8'))
+  try {
+    // Cache simples baseado em timestamp do arquivo
+    const stats = statSync(configFile)
+    const fileTimestamp = stats.mtimeMs
+    
+    if (cache.config && cache.configTimestamp === fileTimestamp) {
+      return cache.config
+    }
+    
+    const config = JSON.parse(readFileSync(configFile, 'utf8'))
+    cache.config = config
+    cache.configTimestamp = fileTimestamp
+    
+    return config
+  } catch (error) {
+    console.error('Erro lendo configuração:', error.message)
+    return cache.config || {}
+  }
 }
 
 export function overwriteConfig (config) {
-  writeFileSync(configFile, JSON.stringify(config, null, 2))
+  try {
+    writeFileSync(configFile, JSON.stringify(config, null, 2))
+    // Limpa cache após escrita
+    cache.config = null
+    cache.configTimestamp = 0
+  } catch (error) {
+    console.error('Erro salvando configuração:', error.message)
+    throw error
+  }
 }
 
 export function composeFeedItem ({ title, description, pubDate, link, guid }) {
@@ -40,7 +79,10 @@ export function composeFeedItem ({ title, description, pubDate, link, guid }) {
   `
 }
 
-export function getFeedContent () {
+export function getFeedContent (feedType = null) {
+  if (feedType && feedFiles[feedType]) {
+    return readFileSync(feedFiles[feedType], 'utf8')
+  }
   return readFileSync(xmlFile, 'utf8')
 }
 
@@ -48,16 +90,36 @@ export function getWebsiteTemplate () {
   return readFileSync(websiteTemplate, 'utf8')
 }
 
-export function overwriteFeedContent (content) {
-  writeFileSync(xmlFile, content)
+export function overwriteFeedContent (content, feedType = null) {
+  try {
+    // Validação básica de XML
+    if (!content.includes('<?xml')) {
+      console.warn('⚠️ Conteúdo não parece ser XML válido')
+    }
+    
+    // Remove conteúdo problemático comum
+    const cleanContent = content
+      .replace(/undefined/g, '')  // Remove strings 'undefined'
+      .replace(/<\/rss>.*$/s, '</rss>')  // Remove conteúdo após </rss>
+      .trim()
+    
+    if (feedType && feedFiles[feedType]) {
+      writeFileSync(feedFiles[feedType], cleanContent)
+    } else {
+      writeFileSync(xmlFile, cleanContent)
+    }
+  } catch (error) {
+    console.error(`Erro salvando feed ${feedType || 'main'}:`, error.message)
+    throw error
+  }
 }
 
 export function overwriteWebsiteContent (content) {
   writeFileSync(websiteFile, content)
 }
 
-export function getFeedHash () {
-  const xml = getFeedContent()
+export function getFeedHash (feedType = null) {
+  const xml = getFeedContent(feedType)
   return createHash('sha256').update(xml).digest('hex')
 }
 
@@ -99,4 +161,43 @@ export function parseRetrospectiveContent (data) {
   const title = rawTitle.replace('# ', '').replaceAll('`', '').trim()
   const dates = title.split(dateRegex)
   return { title, description, lastDay: dates[1], nextDay: dates[3] }
+}
+
+export function splitMainFeed () {
+  const mainFeed = getFeedContent()
+  const { breakDelimiter } = getConfig()
+  
+  // Extract header and items
+  const [header, content] = mainFeed.split(breakDelimiter)
+  const [itemsSection] = content.split('</channel>')
+  const items = itemsSection.split('<item>').filter(item => item.trim())
+  
+  // Categorize items
+  const feeds = { releases: [], issues: [], discussions: [], retrospectives: [] }
+  
+  items.forEach(item => {
+    const fullItem = '<item>' + item
+    if (fullItem.includes('Released ')) {
+      feeds.releases.push(fullItem)
+    } else if (fullItem.includes('update on') && fullItem.includes('#issuecomment-')) {
+      feeds.issues.push(fullItem)
+    } else if (fullItem.includes('update on') && fullItem.includes('#discussioncomment-')) {
+      feeds.discussions.push(fullItem)
+    } else if (fullItem.includes('retrospective')) {
+      feeds.retrospectives.push(fullItem)
+    }
+  })
+  
+  // Generate separate feed files
+  Object.entries(feeds).forEach(([type, items]) => {
+    const feedTitle = type.charAt(0).toUpperCase() + type.slice(1)
+    const feedHeader = header
+      .replace('<title>Node.js News</title>', `<title>Node.js ${feedTitle}</title>`)
+      .replace('feed.xml', `${type}.xml`)
+    
+    const feedContent = `${feedHeader}${breakDelimiter}${items.join('')}  </channel>\n</rss>`
+    writeFileSync(join(process.cwd(), `${type}.xml`), feedContent)
+  })
+  
+  return feeds
 }

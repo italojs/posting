@@ -39,4 +39,4 @@ const relevantReleases = releases.flat().map(rel => composeFeedItem({
 const feedContent = getFeedContent()
 const [before, after] = feedContent.split(breakDelimiter)
 const updatedFeedContent = `${before}${breakDelimiter}${relevantReleases}${after}`
-overwriteFeedContent(updatedFeedContent)
+overwriteFeedContent(updatedFeedContent, 'releases')

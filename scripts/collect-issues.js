@@ -30,4 +30,4 @@ const relevantComments = comments.flat().map(comment => composeFeedItem({
 const feedContent = getFeedContent()
 const [before, after] = feedContent.split(breakDelimiter)
 const updatedFeedContent = `${before}${breakDelimiter}${relevantComments}${after}`
-overwriteFeedContent(updatedFeedContent)
+overwriteFeedContent(updatedFeedContent, 'issues')

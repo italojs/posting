@@ -19,7 +19,7 @@ try {
   const feedContent = getFeedContent()
   const [before, after] = feedContent.split(breakDelimiter)
   const updatedFeedContent = `${before}${breakDelimiter}${retrospective}${after}`
-  overwriteFeedContent(updatedFeedContent)
+  overwriteFeedContent(updatedFeedContent, 'retrospectives')
 
   // Overwrite config with new dates
   const config = getConfig()
