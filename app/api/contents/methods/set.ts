@@ -2,6 +2,7 @@ import { check, Match } from 'meteor/check';
 import { Meteor } from 'meteor/meteor';
 import * as cheerio from 'cheerio';
 import ContentsCollection from '../contents';
+import { buildNewsletterContext, normalizeContentInput } from './helpers';
 import { BrandContextForAI } from '/app/api/brands/models';
 import {
     Content,
@@ -41,7 +42,7 @@ async function resolveBrandForUser(
         if (options?.allowMissing) {
             return { brandId: undefined, brandSnapshot: undefined };
         }
-        return clientContentError('Marca não encontrada');
+        clientContentError('Marca não encontrada');
     }
 
     const brandSnapshot: BrandContextForAI = {
@@ -56,51 +57,44 @@ async function resolveBrandForUser(
     return { brandId: brand._id, brandSnapshot };
 }
 
+async function resolveBrandContextForContent({
+    userId,
+    rawBrandId,
+    existingContent,
+    allowMissing,
+}: {
+    userId: string;
+    rawBrandId?: string | null;
+    existingContent?: Content;
+    allowMissing?: boolean;
+}): Promise<ResolvedBrandContext> {
+    const resolved = await resolveBrandForUser(userId, rawBrandId, { allowMissing });
+    if (!resolved.brandSnapshot && rawBrandId == null && existingContent?.brandSnapshot) {
+        return {
+            brandId: existingContent.brandId,
+            brandSnapshot: existingContent.brandSnapshot,
+        };
+    }
+    return resolved;
+}
+
 Meteor.methods({
-    'set.contents.create': async ({ name, audience, goal, rssUrls, rssItems, networks, newsletterSections, brandId }: CreateContentInput) => {
-        check(name, String);
-        check(audience, Match.Maybe(String));
-        check(goal, Match.Maybe(String));
-        check(rssUrls, [String]);
-        check(rssItems, [Object]);
-        check(networks, Object);
-    check((networks as any).newsletter, Match.Maybe(Boolean));
-    check((networks as any).instagram, Match.Maybe(Boolean));
-    check((networks as any).twitter, Match.Maybe(Boolean));
-    check((networks as any).tiktok, Match.Maybe(Boolean));
-    check((networks as any).linkedin, Match.Maybe(Boolean));
-
-        // Newsletter sections are optional; if present, do a light validation
-        check(newsletterSections, Match.Maybe([Object]));
-        check(brandId, Match.Maybe(String));
-
+    'set.contents.create': async (payload: CreateContentInput) => {
         const user = await currentUserAsync();
         if (!user) return noAuthError();
 
-    const cleanedName = name.trim();
-    const cleanedAudience = (audience ?? '').trim();
-    const cleanedGoal = (goal ?? '').trim();
-        if (!cleanedName) return clientContentError('Nome do conteúdo é obrigatório');
-        const cleanedUrls = rssUrls.map((u) => u.trim()).filter(Boolean);
-        if (cleanedUrls.length === 0) return clientContentError('Informe pelo menos um RSS');
+        const normalized = normalizeContentInput(payload);
+        const { brandId: resolvedBrandId, brandSnapshot } = await resolveBrandForUser(user._id, payload.brandId);
 
-        const { brandId: resolvedBrandId, brandSnapshot } = await resolveBrandForUser(user._id, brandId);
-
-    const doc: Omit<Content, '_id'> = {
+        const doc: Omit<Content, '_id'> = {
             userId: user._id,
-            name: cleanedName,
-            audience: cleanedAudience || undefined,
-            goal: cleanedGoal || undefined,
-            rssUrls: cleanedUrls,
-            rssItems: rssItems ?? [],
-            networks: {
-                newsletter: !!networks.newsletter,
-                instagram: !!(networks as any).instagram,
-                twitter: !!(networks as any).twitter,
-                tiktok: !!(networks as any).tiktok,
-                linkedin: !!(networks as any).linkedin,
-            },
-            newsletterSections: newsletterSections && newsletterSections.length > 0 ? newsletterSections : undefined,
+            name: normalized.name,
+            audience: normalized.audience,
+            goal: normalized.goal,
+            rssUrls: normalized.rssUrls,
+            rssItems: normalized.rssItems,
+            networks: normalized.networks,
+            newsletterSections: normalized.newsletterSections,
             brandId: resolvedBrandId,
             brandSnapshot,
             createdAt: new Date(),
@@ -147,54 +141,28 @@ Meteor.methods({
         await ContentsCollection.removeAsync({ _id, userId: user._id });
         return { _id };
     },
-    'set.contents.update': async ({ _id, name, audience, goal, rssUrls, rssItems, networks, newsletterSections, brandId }: CreateContentInput & { _id: string }) => {
-        check(_id, String);
-        check(name, String);
-        check(audience, Match.Maybe(String));
-        check(goal, Match.Maybe(String));
-        check(rssUrls, [String]);
-        check(rssItems, [Object]);
-        check(networks, Object);
-        check((networks as any).newsletter, Match.Maybe(Boolean));
-        check((networks as any).instagram, Match.Maybe(Boolean));
-        check((networks as any).twitter, Match.Maybe(Boolean));
-        check((networks as any).tiktok, Match.Maybe(Boolean));
-        check((networks as any).linkedin, Match.Maybe(Boolean));
-        check(newsletterSections, Match.Maybe([Object]));
-        check(brandId, Match.Maybe(String));
-
+    'set.contents.update': async (payload: CreateContentInput & { _id: string }) => {
+        check(payload._id, String);
         const user = await currentUserAsync();
         if (!user) return noAuthError();
 
-        const existing = await ContentsCollection.findOneAsync({ _id, userId: user._id });
+        const existing = await ContentsCollection.findOneAsync({ _id: payload._id, userId: user._id });
         if (!existing) return clientContentError('Conteúdo não encontrado');
 
-        const cleanedName = name.trim();
-        const cleanedAudience = (audience ?? '').trim();
-        const cleanedGoal = (goal ?? '').trim();
-        if (!cleanedName) return clientContentError('Nome do conteúdo é obrigatório');
-        const cleanedUrls = rssUrls.map((u) => u.trim()).filter(Boolean);
-        if (cleanedUrls.length === 0) return clientContentError('Informe pelo menos um RSS');
-
-        const { brandId: resolvedBrandId, brandSnapshot } = await resolveBrandForUser(user._id, brandId);
+        const normalized = normalizeContentInput(payload);
+        const { brandId: resolvedBrandId, brandSnapshot } = await resolveBrandForUser(user._id, payload.brandId);
 
         await ContentsCollection.updateAsync(
-            { _id, userId: user._id },
+            { _id: payload._id, userId: user._id },
             {
                 $set: {
-                    name: cleanedName,
-                    audience: cleanedAudience || undefined,
-                    goal: cleanedGoal || undefined,
-                    rssUrls: cleanedUrls,
-                    rssItems: rssItems ?? [],
-                    networks: {
-                        newsletter: !!networks.newsletter,
-                        instagram: !!(networks as any).instagram,
-                        twitter: !!(networks as any).twitter,
-                        tiktok: !!(networks as any).tiktok,
-                        linkedin: !!(networks as any).linkedin,
-                    },
-                    newsletterSections: newsletterSections && newsletterSections.length > 0 ? newsletterSections : undefined,
+                    name: normalized.name,
+                    audience: normalized.audience,
+                    goal: normalized.goal,
+                    rssUrls: normalized.rssUrls,
+                    rssItems: normalized.rssItems,
+                    networks: normalized.networks,
+                    newsletterSections: normalized.newsletterSections,
                     brandId: resolvedBrandId,
                     brandSnapshot,
                 },
@@ -236,27 +204,20 @@ Meteor.methods({
             }
         }
 
-        const normalizedLanguage = typeof language === 'string' ? language.trim() : undefined;
-        const resolvedLanguage = resolveLanguageInfo(normalizedLanguage);
+        const resolvedBrand = await resolveBrandContextForContent({
+            userId: user._id,
+            rawBrandId: brandId,
+            existingContent,
+            allowMissing: true,
+        });
 
-        const resolvedBrand = await resolveBrandForUser(user._id, brandId, { allowMissing: true });
-        let brandSnapshot: BrandContextForAI | undefined;
-        if (resolvedBrand.brandId) {
-            brandSnapshot = resolvedBrand.brandSnapshot;
-        } else if (existingContent?.brandSnapshot) {
-            brandSnapshot = existingContent.brandSnapshot;
-        }
-
-        const newsletterContext: NewsletterGenerationContext = {
+        const newsletterContext = buildNewsletterContext({
             title: name,
             goal,
             audience,
-            brand: brandSnapshot,
-            languageName: resolvedLanguage.name,
-            languageTag: resolvedLanguage.tag,
-            currentDate: new Date().toISOString().split('T')[0],
-            labels: resolvedLanguage.labels,
-        };
+            brand: resolvedBrand.brandSnapshot,
+            language,
+        });
 
         const normalizedSection: NewsletterSection = {
             id: section.id,
@@ -326,30 +287,24 @@ Meteor.methods({
             contentIdForSave = _id;
         }
 
-        let brandSnapshot: BrandContextForAI | undefined;
-        const resolvedBrand = await resolveBrandForUser(user._id, brandId, { allowMissing: true });
-        if (resolvedBrand.brandId) {
-            brandSnapshot = resolvedBrand.brandSnapshot;
-        } else if (existingContent?.brandSnapshot) {
-            brandSnapshot = existingContent.brandSnapshot;
-        }
+        const resolvedBrand = await resolveBrandContextForContent({
+            userId: user._id,
+            rawBrandId: brandId,
+            existingContent,
+            allowMissing: true,
+        });
 
         if ((!newsletterSections || newsletterSections.length === 0) && (!preGeneratedSections || preGeneratedSections.length === 0)) {
             return { success: false, error: 'No sections available for processing', processedLinks: 0 };
         }
 
-        const normalizedLanguage = typeof language === 'string' ? language.trim() : undefined;
-        const resolvedLanguage = resolveLanguageInfo(normalizedLanguage);
-        const newsletterContext: NewsletterGenerationContext = {
+        const newsletterContext = buildNewsletterContext({
             title: name,
             goal,
             audience,
-            brand: brandSnapshot,
-            languageName: resolvedLanguage.name,
-            languageTag: resolvedLanguage.tag,
-            currentDate: new Date().toISOString().split('T')[0],
-            labels: resolvedLanguage.labels,
-        };
+            brand: resolvedBrand.brandSnapshot,
+            language,
+        });
 
         let generatedSections: GeneratedNewsletterSectionPreview[] = normalizeGeneratedSections(preGeneratedSections);
 
@@ -408,55 +363,6 @@ Meteor.methods({
 
 // Constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-type LanguageInfo = {
-    name: string;
-    tag: string;
-    labels: {
-        goal: string;
-        audience: string;
-        callToAction: string;
-    };
-};
-
-const LANGUAGE_INFO_MAP: Record<string, LanguageInfo> = {
-    'pt': { name: 'Portuguese', tag: 'pt-BR', labels: { goal: 'Objetivo', audience: 'Audiência', callToAction: 'Chamada para ação' } },
-    'pt-br': { name: 'Portuguese', tag: 'pt-BR', labels: { goal: 'Objetivo', audience: 'Audiência', callToAction: 'Chamada para ação' } },
-    'pt_br': { name: 'Portuguese', tag: 'pt-BR', labels: { goal: 'Objetivo', audience: 'Audiência', callToAction: 'Chamada para ação' } },
-    'es': { name: 'Spanish', tag: 'es', labels: { goal: 'Objetivo', audience: 'Audiencia', callToAction: 'Llamado a la acción' } },
-    'es-es': { name: 'Spanish', tag: 'es-ES', labels: { goal: 'Objetivo', audience: 'Audiencia', callToAction: 'Llamado a la acción' } },
-    'es_es': { name: 'Spanish', tag: 'es-ES', labels: { goal: 'Objetivo', audience: 'Audiencia', callToAction: 'Llamado a la acción' } },
-    'en': { name: 'English', tag: 'en', labels: { goal: 'Goal', audience: 'Audience', callToAction: 'Call to action' } },
-    'en-us': { name: 'English', tag: 'en-US', labels: { goal: 'Goal', audience: 'Audience', callToAction: 'Call to action' } },
-    'en-gb': { name: 'English', tag: 'en-GB', labels: { goal: 'Goal', audience: 'Audience', callToAction: 'Call to action' } },
-};
-
-function resolveLanguageInfo(language?: string): LanguageInfo {
-    if (!language) {
-        return LANGUAGE_INFO_MAP['pt-br'];
-    }
-
-    const lowered = language.toLowerCase();
-    if (LANGUAGE_INFO_MAP[lowered]) {
-        return LANGUAGE_INFO_MAP[lowered];
-    }
-
-    const base = lowered.split(/[-_]/)[0];
-    if (base && LANGUAGE_INFO_MAP[base]) {
-        return LANGUAGE_INFO_MAP[base];
-    }
-
-    const capitalized = language.charAt(0).toUpperCase() + language.slice(1);
-    return {
-        name: capitalized,
-        tag: language,
-        labels: {
-            goal: 'Goal',
-            audience: 'Audience',
-            callToAction: 'Call to action',
-        },
-    };
-}
-
 async function processSectionItems(rssItems: RssItem[], selectedNews?: SelectedNewsArticle[]): Promise<ProcessedArticle[]> {
     const normalizedNewsItems = (selectedNews || [])
         .filter((news) => !!news.link)
@@ -690,17 +596,12 @@ function buildNewsletterMarkdown(
 
 // Helper function to extract full article text from URL
 async function extractArticleText(article: any): Promise<string | null> {
-    if (!article.link) return null;
-    
-    try {
-        const response = await fetch(article.link);
-        if (!response.ok) return null;
-        
-        const html = await response.text();
-        return extractCleanText(html) || null;
-    } catch (error) {
+    if (!article || typeof article !== 'object' || !article.link) {
         return null;
     }
+
+    const processed = await processArticleItem(article as RssItem);
+    return processed?.text ?? null;
 }
 
 export { extractCleanText, extractArticleText };
