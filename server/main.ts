@@ -29,6 +29,8 @@ import '/app/api/brands/brands';
 // publications
 
 Meteor.startup(async () => {
+    //console log mongo_url for debugging
+    console.log('[SERVER STARTUP] MONGO_URL:', process.env.MONGO_URL);
     // Deny all client-side updates to user documents (security layer)
     console.log('Denying all client-side database updates');
     denyClientSideDatabaseActions();

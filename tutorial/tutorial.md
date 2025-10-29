@@ -6,7 +6,9 @@ Have you ever found yourself in a situation where you needed to call your Meteor
 
 ### Purpose of the Article
 
-The meteor-sdk solves exactly this problem. It delivers a modern, standalone DDP client that communicates seamlessly with Meteor servers from any JavaScript runtime—no browser required. Whether you're building background workers, integrating external services, or gradually modernizing your stack, meteor-sdk gives you programmatic access to publications, methods, and reactive collections using the same protocol your UI relies on.
+This guide shows how to call your Meteor server from Node.js using a headless DDP client (SimpleDDP). You'll connect over WebSocket, call methods, derive deltas, and compute stats—without a browser. All runnable examples used here are available as separate scripts in the repository below:
+
+- App repository (with the tutorial scripts under `tutorial/`): https://github.com/italojs/posting
 
 #### Target Audience
 This article is aimed at developers who already know Meteor, teams maintaining legacy applications, and engineers looking to consume DDP capabilities from external applications. If you need to interact with your Meteor server beyond the traditional browser client, meteor-sdk provides the bridge you've been looking for.
@@ -95,11 +97,11 @@ The fastest route combines a modern Node.js runtime (18 or 20 LTS for native `fe
 ### Set up the toolchain
 
 ```bash
-mkdir meteor-sdk-demo && cd meteor-sdk-demo
+mkdir ddp-demo && cd ddp-demo
 npm init -y
-npm install meteor-sdk
+npm install simpleddp isomorphic-ws dotenv
 npm install -D typescript ts-node @types/node
-npx tsc --init --module esnext --target es2022 --moduleResolution node16
+npx tsc --init --module Node16 --target es2022 --moduleResolution node16
 ```
 
 Update your `package.json` with handy scripts so you can run examples quickly:
@@ -114,80 +116,118 @@ Update your `package.json` with handy scripts so you can run examples quickly:
 }
 ```
 
-If you prefer bundlers like Vite or esbuild for browser or hybrid targets, meteor-sdk works out of the box—just ensure the WebSocket polyfill is available in environments without a native implementation (for example, using `ws` on Node.js <18).
+If you prefer bundlers like Vite or esbuild for browser or hybrid targets, SimpleDDP works out of the box—just ensure a WebSocket polyfill is available in environments without a native implementation.
 
 ### Bootstrap the client
 
-Create `src/index.ts` and wire up a basic connection. The snippet below shows how to configure automatic reconnection, authenticate with either a password or resume token, and call a method.
+Create two files—`src/ddpClient.ts` and `src/index.ts`—to configure a SimpleDDP client, optionally authenticate, and call a method exposed by your Meteor app.
+
+`src/ddpClient.ts`
 
 ```ts
-import { DDPClient } from 'meteor-sdk';
+import SimpleDDP from 'simpleddp';
+import type { SimpleDDPOptions } from 'simpleddp';
+import ws from 'isomorphic-ws';
+
+export function createDDPClient(endpoint: string, extra?: Partial<SimpleDDPOptions>) {
+	const opts: SimpleDDPOptions = {
+		endpoint,
+		SocketConstructor: ws as any,
+		autoReconnect: true,
+		reconnectInterval: 2000,
+		...extra,
+	} as any;
+	return new SimpleDDP(opts);
+}
+```
+
+`src/index.ts`
+
+```ts
+import 'dotenv/config';
+import { createDDPClient } from './ddpClient';
+import crypto from 'node:crypto';
 
 async function main() {
-	const client = new DDPClient({
-		endpoint: process.env.METEOR_WS ?? 'wss://app.example.com/websocket',
-		autoReconnect: true,
-		reconnectInterval: 2_000,
-	});
+	const endpoint = process.env.METEOR_WS || 'ws://localhost:8080/websocket';
+	const client = createDDPClient(endpoint);
 
 	await client.connect();
-	console.log('DDP handshake complete');
+	console.log('DDP connected');
 
 	if (process.env.METEOR_TOKEN) {
-		await client.loginWithToken(process.env.METEOR_TOKEN);
-	} else {
-		await client.login({
-			user: { email: 'dev@example.com' },
-			password: 'hunter2',
+		await client.call('login', { resume: process.env.METEOR_TOKEN });
+	} else if (process.env.METEOR_EMAIL && process.env.METEOR_PASSWORD) {
+		const digest = crypto.createHash('sha256').update(process.env.METEOR_PASSWORD).digest('hex');
+		await client.call('login', {
+			user: { email: process.env.METEOR_EMAIL },
+			password: { digest, algorithm: 'sha-256' },
 		});
 	}
 
-	const { result } = await client.call('todos.insert', [{ title: 'Ship meteor-sdk post' }]);
-	console.log('Inserted todo id:', result);
+	const res = await client.call('get.contents.fetchRss', { urls: ['https://hnrss.org/frontpage'] });
+	console.log('RSS items:', (res as any)?.items?.length ?? 0);
+
+	await client.disconnect();
 }
 
 main().catch((err) => {
-	console.error('meteor-sdk demo failed', err);
-	process.exitCode = 1;
+	console.error('bootstrap failed', err);
+	process.exit(1);
 });
 ```
  
 
-### Subscribe and react immediately
+### React immediately (polling-based)
 
-Once connected, subscriptions expose a `subsReady` promise while reactive collections keep an in-memory view synchronized with the server. You can add the following to `main` to observe live updates:
+If your app doesn't expose publications, you can still react to data by polling a method and diffing results between cycles. The snippet below fetches RSS items periodically and prints added/changed/removed entries.
 
 ```ts
-import { ddpReactiveCollection } from 'meteor-sdk/classes/ddpReactiveCollection';
+import 'dotenv/config';
+import { createDDPClient } from './ddpClient';
+
+function keyOf(it: any) {
+	return it?.id || it?.guid || it?.link || it?.url || `${it?.title ?? ''}|${it?.pubDate ?? it?.date ?? ''}`;
+}
+
+function indexByKey(items: any[]) {
+	const m = new Map<string, any>();
+	for (const it of items || []) m.set(keyOf(it), it);
+	return m;
+}
+
+function shallowEqual(a: any, b: any) {
+	if (!a || !b) return a === b;
+	const ak = Object.keys(a), bk = Object.keys(b);
+	if (ak.length !== bk.length) return false;
+	return ak.every((k) => a[k] === b[k]);
+}
 
 async function main() {
-	// ... connection and login from previous snippet
+	const client = createDDPClient(process.env.METEOR_WS || 'ws://localhost:8080/websocket');
+	await client.connect();
 
-	const todos = ddpReactiveCollection(client, 'todos', {
-		publication: 'todos.all',
-	});
+	let prev: any[] = [];
+	const urls = ['https://hnrss.org/frontpage'];
 
-	const stop = todos.onChange(({ added, changed, removed }) => {
-		added.forEach((doc) => console.log('[added]', doc._id, doc.title));
-		changed.forEach((doc) => console.log('[changed]', doc._id, doc.title));
-		removed.forEach((id) => console.log('[removed]', id));
-	});
+	const tick = async () => {
+		const res = await client.call('get.contents.fetchRss', { urls });
+		const fresh: any[] = (res as any)?.items ?? [];
+		const prevIndex = indexByKey(prev), freshIndex = indexByKey(fresh);
+		const added: any[] = [], changed: any[] = [], removed: string[] = [];
+		for (const [k, v] of freshIndex) prevIndex.has(k) ? (!shallowEqual(prevIndex.get(k), v) && changed.push(v)) : added.push(v);
+		for (const [k] of prevIndex) if (!freshIndex.has(k)) removed.push(k);
+		console.log('added:', added.length, 'changed:', changed.length, 'removed:', removed.length);
+		prev = fresh;
+	};
 
-	await todos.subscribe();
-
-	console.log('Initial documents:', todos.toArray());
-
-	await client.call('todos.insert', [{ title: 'Triggered by subscription demo' }]);
-
-	setTimeout(async () => {
-		stop();
-		await todos.unsubscribe();
-		await client.close();
-	}, 5_000);
+	await tick();
+	const id = setInterval(tick, 5_000);
+	setTimeout(async () => { clearInterval(id); await client.disconnect(); }, 15_000);
 }
-```
 
-`ddpReactiveCollection` tracks additions, modifications, and removals using the same diffing strategy as Meteor's original MiniMongo, so downstream consumers receive only the changes they need. For leaner use cases you can skip the helper and inspect raw collections stored in `client.collections`, which are standard `Map` instances keyed by document `_id`.
+main();
+```
 
 ### Integrate with your stack
 
@@ -201,109 +241,90 @@ Whichever path you choose, the immediate payoff is access to subscriptions, meth
 
 meteor-sdk ships with primitives you can compose into richer data flows, background processors, and UI integrations. The sections below highlight patterns that stretch beyond the basic connect-and-call setup.
 
-### Reactive collections with lightweight caching
+### Lightweight caching with file snapshot
 
-`ddpReactiveCollection` keeps an in-memory mirror of a publication, which you can hydrate from a persistent cache to support offline-first or low-latency scenarios. The example below demonstrates seeding from disk and writing back deltas as they arrive.
+Persist a snapshot to disk, compute deltas, and write back the new snapshot—useful for quick caches and offline starts.
 
 ```ts
+import 'dotenv/config';
 import { promises as fs } from 'node:fs';
-import { ddpReactiveCollection } from 'meteor-sdk/classes/ddpReactiveCollection';
+import path from 'node:path';
+import { createDDPClient } from './ddpClient';
 
-async function bootTodos(client: DDPClient) {
-	const todos = ddpReactiveCollection(client, 'todos', {
-		publication: 'todos.all',
-	});
+const CACHE_DIR = path.resolve('.cache');
+const CACHE_FILE = path.join(CACHE_DIR, 'rss.json');
 
-	try {
-		const cached = JSON.parse(await fs.readFile('.cache/todos.json', 'utf8'));
-		cached.forEach((doc: any) => todos.inject(doc));
-	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-	}
+function keyOf(it: any) { return it?.id || it?.guid || it?.link || it?.url || `${it?.title ?? ''}|${it?.pubDate ?? it?.date ?? ''}`; }
+function indexByKey(items: any[]) { const m = new Map<string, any>(); for (const it of items||[]) m.set(keyOf(it), it); return m; }
+function shallowEqual(a: any, b: any) { if (!a||!b) return a===b; const ak=Object.keys(a),bk=Object.keys(b); if(ak.length!==bk.length) return false; return ak.every(k=>a[k]===b[k]); }
 
-	const stop = todos.onChange(async ({ added, changed, removed }) => {
-		if (added.length || changed.length || removed.length) {
-			await fs.mkdir('.cache', { recursive: true });
-			await fs.writeFile('.cache/todos.json', JSON.stringify(todos.toArray()));
-		}
-	});
+async function loadCache() { try { return JSON.parse(await fs.readFile(CACHE_FILE, 'utf8')); } catch (e: any) { if (e.code==='ENOENT') return []; throw e; } }
+async function saveCache(items: any[]) { await fs.mkdir(CACHE_DIR, { recursive: true }); await fs.writeFile(CACHE_FILE, JSON.stringify(items, null, 2)); }
 
-	await todos.subscribe();
-	return { todos, stop };
+async function main() {
+  const client = createDDPClient(process.env.METEOR_WS || 'ws://localhost:8080/websocket');
+  await client.connect();
+  const previous = await loadCache();
+  const res = await client.call('get.contents.fetchRss', { urls: ['https://hnrss.org/frontpage'] });
+  const fresh: any[] = (res as any)?.items ?? [];
+  const prevIndex = indexByKey(previous), freshIndex = indexByKey(fresh);
+  const added: any[] = [], changed: any[] = [], removed: string[] = [];
+  for (const [k, v] of freshIndex) prevIndex.has(k) ? (!shallowEqual(prevIndex.get(k), v) && changed.push(v)) : added.push(v);
+  for (const [k] of prevIndex) if (!freshIndex.has(k)) removed.push(k);
+  console.log('delta -> added:', added.length, 'changed:', changed.length, 'removed:', removed.length);
+  await saveCache(fresh);
+}
+
+main();
+```
+
+### Shaping data with a simple reducer
+
+Derive aggregated stats (contagens e último item) a partir do snapshot atual e do delta calculado.
+
+```ts
+type Item = { title?: string; link?: string; url?: string; pubDate?: string|number; date?: string|number; guid?: string; id?: string } & Record<string, any>;
+type Delta = { added: Item[]; changed: Item[]; removed: string[] };
+
+function domainOf(item: Item): string | null {
+  const url = item.link || item.url; if (!url) return null; try { return new URL(url).hostname.replace(/^www\./,''); } catch { return null; }
+}
+
+function deriveStats(fromItems: Item[], delta: Delta) {
+  const byDomain: Record<string, number> = {};
+  let latest: number | null = null;
+  for (const it of fromItems) {
+    const d = domainOf(it); if (d) byDomain[d] = (byDomain[d] || 0) + 1;
+    const ts = Date.parse((it.pubDate as any) ?? (it.date as any) ?? '') || null;
+    if (typeof ts === 'number') { if (latest == null || ts > latest) latest = ts; }
+  }
+  return {
+    total: fromItems.length,
+    latest: latest ? new Date(latest).toISOString() : null,
+    byDomain,
+    counts: { added: delta.added.length, changed: delta.changed.length, removed: delta.removed.length },
+  };
 }
 ```
 
-The helper's `inject` method lets you hydrate the local collection before the network subscription becomes ready, giving consumers immediate access to cached data while they wait for fresh updates.
+### Event-like listeners (polling + diff)
 
-### Shaping data with custom reducers
-
-Reducers turn raw DDP documents into domain-specific projections. `ddpReducer` receives mutation events and can emit derived state (aggregates, denormalized records, metrics) that your application consumes.
+Sem publicações, você pode obter um efeito semelhante a listeners fazendo polling e emitindo eventos derivados do delta:
 
 ```ts
-import { ddpReducer } from 'meteor-sdk/classes/ddpReducer';
+const urls = ['https://hnrss.org/frontpage'];
+let previous: any[] = [];
+const periodMs = 5000;
 
-const statsReducer = ddpReducer(client, 'todos.stats', {
-	watch: 'todos',
-	initial: { open: 0, completed: 0 },
-	reduce(state, event) {
-		switch (event.type) {
-			case 'added':
-				return {
-					...state,
-					open: state.open + (event.doc.completed ? 0 : 1),
-					completed: state.completed + (event.doc.completed ? 1 : 0),
-				};
-			case 'changed':
-				if (event.doc.completed === event.prevDoc?.completed) return state;
-				return {
-					...state,
-					open: state.open + (event.doc.completed ? -1 : 1),
-					completed: state.completed + (event.doc.completed ? 1 : -1),
-				};
-			case 'removed':
-				return {
-					...state,
-					open: state.open - (event.prevDoc.completed ? 0 : 1),
-					completed: state.completed - (event.prevDoc.completed ? 1 : 0),
-				};
-			default:
-				return state;
-		}
-	},
-});
+async function cycle(client: any) {
+  const result = await client.call('get.contents.fetchRss', { urls });
+  const fresh: any[] = (result as any)?.items ?? [];
+  // compute delta (added/changed/removed) e acione efeitos colaterais
+  previous = fresh;
+}
 
-statsReducer.onChange((state) => {
-	console.log('Todo metrics updated', state);
-});
+setInterval(() => cycle(client), periodMs);
 ```
-
-Reducers shine when you need to maintain aggregate dashboards, drive analytics events, or expose smaller DTOs to front-end clients without recalculating on each render.
-
-### Events and listeners for real-time reactions
-
-When you only need to react to specific DDP messages—without holding an entire collection in memory—`ddpEventListener` gives you a low-level tap into the event stream. You can register listeners that respond to adds, changes, or removes and trigger side effects such as notifications or webhook calls.
-
-```ts
-import { ddpEventListener } from 'meteor-sdk/classes/ddpEventListener';
-
-const listener = ddpEventListener(client, 'todos');
-
-listener.on('added', ({ doc }) => {
-	if (doc.priority === 'high') {
-		queueNotification(doc.ownerId, `High priority task added: ${doc.title}`);
-	}
-});
-
-listener.on('changed', ({ doc, prevDoc }) => {
-	if (!prevDoc?.completed && doc.completed) {
-		emitAnalytics('todo_completed', { id: doc._id });
-	}
-});
-
-listener.attach();
-```
-
-Because listeners operate on raw DDP payloads, they are ideal for background services that translate Meteor events into external systems like message queues, email providers, or monitoring pipelines.
 
 ### Framework integrations (React, Vue, Svelte)
 
@@ -399,8 +420,8 @@ Understanding these boundaries lets you make conscious trade-offs, whether you d
 
 # Conclusion
 
-meteor-sdk keeps the best parts of Meteor—reactive data, battle-tested DDP semantics—available to modern stacks without forcing a monolithic runtime. It delivers seamless connectivity, strong TypeScript support, and a suite of helpers that simplify everything from background jobs to UI integrations.
+Usando SimpleDDP você acessa métodos e dados do seu Meteor sem precisar do cliente do navegador, com Node.js + TypeScript e scripts enxutos. Os exemplos completos e executáveis deste tutorial estão no repositório do app posting:
 
-To go deeper, explore the official documentation, browse the example projects in the repository, or join community channels where teams share deployment patterns and migration stories. The quickest win is to clone the demo setup above, point it at your Meteor instance, and experiment with live data.
+- https://github.com/italojs/posting (veja a pasta `tutorial/`)
 
-Try the SDK in a small service, contribute fixes or enhancements if you spot gaps, and share the results with the community. The more feedback and real-world stories surface, the stronger the ecosystem becomes for everyone still betting on Meteor's unique capabilities.
+Clone, ajuste a variável `METEOR_WS` para o seu endpoint (ex.: `ws://localhost:8080/websocket`), e execute cada demo de forma independente para validar no seu ambiente.
