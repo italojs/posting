@@ -10,6 +10,7 @@ import { Roles } from 'meteor/alanning:roles';
 import { Meteor } from 'meteor/meteor';
 import { createDefaultUserAccount } from './utils/dummyData';
 import { denyClientSideDatabaseActions } from './utils/securityLayer';
+import { newsFeederService } from './utils/newsFeeder';
 import { AvailableUserRoles, AppUser } from '/app/api/users/models';
 
 // methods
@@ -20,6 +21,7 @@ import '/app/api/contents/methods';
 import '/app/api/rssSources/methods';
 import '/app/api/brands/methods';
 import '/app/api/billing/methods';
+import '/app/api/newsFeeder/methods';
 
 // databases
 import '/app/api/userProfile/userProfile';
@@ -37,7 +39,6 @@ Meteor.startup(async () => {
     denyClientSideDatabaseActions();
 
     let defaultUser = await Meteor.users.findOneAsync({ 'emails.address': 'admin@gmail.com' });
-
     if (!defaultUser) {
         // for development only remove before production
         console.log('Creating default user account');
@@ -61,8 +62,14 @@ Meteor.startup(async () => {
         );
 
         await Roles.addUsersToRolesAsync(defaultUser._id, [AvailableUserRoles.ADMIN, AvailableUserRoles.MODERATOR]);
-
         console.log('All default data has been created');
+    }
+
+    // Initialize News Feeder Service
+    try {
+        await newsFeederService.initialize();
+    } catch (error) {
+        console.error('❌ Failed to initialize News Feeder Service:', error);
     }
 
     console.log('Startup complete');

@@ -1,0 +1,69 @@
+{
+  "lastCheckTimestamp": 1729785600000,
+  "breakDelimiter": "</image>",
+  "feeds": ["releases", "issues", "discussions", "retrospectives", "pullrequests"],
+  "issuesInScope": [
+    {
+      "team": "Website team",
+      "issue": "nodejs/nodejs.org/issues/5602"
+    },
+    {
+      "team": "Security WG",
+      "issue": "nodejs/security-wg/issues/1006"
+    },
+    {
+      "team": "Build WG",
+      "issue": "nodejs/build/issues/3652"
+    }
+  ],
+  "discussionsInScope": [
+    {
+      "team": "Node.js Core",
+      "discussionId": "5062"
+    }
+  ],
+  "pullRequestsInScope": [
+    {
+      "team": "Node.js Core",
+      "repo": "nodejs/node"
+    },
+    {
+      "team": "Website Team",
+      "repo": "nodejs/nodejs.org"
+    },
+    {
+      "team": "Security WG",
+      "repo": "nodejs/security-wg"
+    },
+    {
+      "team": "Build Tools",
+      "repo": "nodejs/build"
+    },
+    {
+      "team": "Docker",
+      "repo": "nodejs/docker-node"
+    },
+    {
+      "team": "Package Maintenance",
+      "repo": "nodejs/package-maintenance"
+    }
+  ],
+  "retrospectivesInScope": [
+    {
+      "team": "TSC",
+      "repo": "nodejs/TSC"
+    },
+    {
+      "team": "Node.js Core",
+      "repo": "nodejs/node"
+    },
+    {
+      "team": "Community Committee",
+      "repo": "nodejs/community-committee"
+    },
+    {
+      "team": "Release WG",
+      "repo": "nodejs/Release"
+    }
+  ]
+}

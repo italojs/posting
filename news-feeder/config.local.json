@@ -1,0 +1,25 @@
+{
+  "lastCheckTimestamp": 1729785600000,
+  "issuesInScope": [
+    {
+      "team": "Website team",
+      "issue": "nodejs/nodejs.org/issues/5602"
+    },
+    {
+      "team": "Core team",
+      "issue": "nodejs/node/issues/48174"
+    }
+  ],
+  "discussionsInScope": [
+    {
+      "team": "Node.js Core",
+      "discussionId": "5062"
+    }
+  ],
+  "meteorIntegration": {
+    "autoUpdateOnStartup": true,
+    "updateIntervalHours": 6,
+    "enableScheduledUpdates": true,
+    "logLevel": "info"
+  }
+}
