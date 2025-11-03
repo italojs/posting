@@ -7,7 +7,6 @@ import {
     ProfileOutlined,
     ReadOutlined,
     TrademarkCircleOutlined,
-    CreditCardOutlined,
 } from '@ant-design/icons';
 import { limitText, removeUndefinedFromArray } from '@netsu/js-utils';
 import { Avatar, Button, Dropdown, Image, Layout, Menu, Select, theme } from 'antd';
@@ -16,7 +15,7 @@ import { MenuItemType } from 'antd/es/menu/interface';
 import { Meteor } from 'meteor/meteor';
 import React from 'react';
 import { useLocation } from 'wouter';
-import { BasicSiteProps } from '../../App';
+import type { BasicSiteProps } from '/app/ui/pages/App';
 import { AvailableUserRoles } from '/app/api/users/models';
 import { SITE_NAME } from '/app/utils/constants';
 import { adminRoutes, publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
@@ -68,12 +67,6 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
             onClick: () => navigate(protectedRoutes.brands.path),
         });
         navigationItems.push({
-            key: 'billing',
-            icon: <CreditCardOutlined />,
-            label: t('app.billing'),
-            onClick: () => navigate(protectedRoutes.billing.path),
-        });
-        navigationItems.push({
             key: 'create-content',
             icon: <PlusOutlined />,
             label: t('app.createContent'),
@@ -89,7 +82,6 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
         if (normalizedLocation === '/') return 'home';
         if (normalizedLocation.startsWith(protectedRoutes.feed.path)) return 'feed';
         if (normalizedLocation.startsWith(protectedRoutes.brands.path)) return 'brands';
-        if (normalizedLocation.startsWith(protectedRoutes.billing.path)) return 'billing';
         if (normalizedLocation.startsWith(protectedRoutes.createContent.path)) return 'create-content';
         if (normalizedLocation.startsWith(protectedRoutes.editContent.path.split('/:')[0])) return 'create-content';
         return undefined;

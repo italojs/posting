@@ -1,0 +1,31 @@
+{
+  "name": "tutorial",
+  "version": "1.0.0",
+  "description": "meteor-sdk tutorial examples",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "demo-01-basic": "ts-node --esm src/01-basic-connection.ts",
+    "demo-02-bootstrap": "ts-node --esm src/02-bootstrap-client.ts",
+    "demo-02-subscribe": "ts-node --esm src/02-subscribe-react.ts",
+    "demo-03-cache": "ts-node --esm src/03-reactive-cache.ts",
+    "demo-04-reducer": "ts-node --esm src/04-custom-reducer.ts",
+    "demo-05-listener": "ts-node --esm src/05-event-listener.ts",
+    "build": "tsc -p .",
+    "dev": "ts-node --esm src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "isomorphic-ws": "^5.0.0",
+    "meteor-sdk": "^0.0.21",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

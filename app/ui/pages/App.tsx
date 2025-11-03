@@ -10,14 +10,14 @@ import React, { useEffect, useState } from 'react';
 import { Route, Switch } from 'wouter';
 import '/app/i18n';
 import { useTranslation } from 'react-i18next';
-import { GetAwsFileInput } from '../api/aws/models';
-import { AvailableUserRoles, GetUserRolesInput, GetUserRolesResult } from '../api/users/models';
-import UserProfile from '../api/userProfile/models';
-import { AvailableCollectionNames, FindCollectionParams } from '../api/utils/models';
-import { BaseProps } from '../types/interfaces';
-import { adminRoutes, protectedRoutes, publicRoutes } from '../utils/constants/routes';
-import { errorResponse } from '../utils/errors';
-import RouteRenderer from './components/RouteRenderer';
+import { GetAwsFileInput } from '/app/api/aws/models';
+import { AvailableUserRoles, GetUserRolesInput, GetUserRolesResult } from '/app/api/users/models';
+import UserProfile from '/app/api/userProfile/models';
+import { AvailableCollectionNames, FindCollectionParams } from '/app/api/utils/models';
+import { BaseProps } from '/app/types/interfaces';
+import { adminRoutes, protectedRoutes, publicRoutes } from '/app/utils/constants/routes';
+import { errorResponse } from '/app/utils/errors';
+import RouteRenderer from '/app/ui/components/RouteRenderer';
 
 export interface MiniAppUserProfile extends Pick<UserProfile, '_id' | 'username' | 'photo'> {}
 

@@ -1,15 +1,14 @@
 import React from "react";
-import MainPage from "../../ui/MainPage";
-import CreateContentPage from "/app/ui/CreateContentPage/index";
-import LoginPage from "/app/ui/LoginPage";
-import NotFoundPage from "/app/ui/NotFoundPage";
-import SignupPage from "/app/ui/SignupPage";
-import UserProfilePage from "/app/ui/UserProfilePage";
-import FeedPage from "/app/ui/FeedPage";
-import BrandManagementPage from "/app/ui/BrandManagementPage";
+import MainPage from "/app/ui/pages/MainPage";
+import CreateContentPage from "/app/ui/pages/CreateContentPage";
+import LoginPage from "/app/ui/pages/LoginPage";
+import NotFoundPage from "/app/ui/pages/NotFoundPage";
+import SignupPage from "/app/ui/pages/SignupPage";
+import UserProfilePage from "/app/ui/pages/UserProfilePage";
+import BrandManagementPage from "/app/ui/pages/BrandManagementPage";
+import FeedPage from "/app/ui/pages/FeedPage";
 import ForgotPasswordPage from "/app/ui/ForgotPasswordPage";
 import ResetPasswordPage from "/app/ui/ResetPasswordPage";
-import BillingPage from "/app/ui/BillingPage";
 
 /**
  * User does not have to be logged in to view these routes
@@ -65,10 +64,6 @@ export const protectedRoutes = {
 	brands: {
 		path: "/marcas",
 		element: (<BrandManagementPage />) as React.ReactElement,
-	},
-	billing: {
-		path: "/assinatura",
-		element: (<BillingPage />) as React.ReactElement,
 	},
 };
 
