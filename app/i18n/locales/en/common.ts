@@ -19,16 +19,10 @@ const common = {
     login: "Login",
   yourProfile: "Your Profile",
   feed: "Feed",
-  billing: "Billing",
   },
   createContent: {
     title: "Create content",
     subtitle: "Set up your content creation preferences",
-    subscriptionOverviewError: "We couldn't load your subscription data.",
-    freePlanLimitTitle: "Free plan newsletter limit",
-    freePlanLimitSingle: "1 newsletter",
-    freePlanLimitMultiple: "{{count}} newsletters",
-    freePlanLimitDescription: "On the free plan you can generate up to {{limitLabel}} per month. You've already generated {{used}} this cycle and still have {{remaining}} remaining.",
     brandsLoadError: "Couldn't load your brands",
     brandLabel: "Brand",
     manageBrands: "Manage brands",
@@ -141,6 +135,18 @@ const common = {
   tweetCopied: "Tweet {{number}} copied!",
   clipboardNotSupported: "Clipboard not supported in this browser",
   characterCount: "{{count}}/280 characters",
+
+  // LinkedIn Post
+  linkedinPostTitle: "Generate LinkedIn Post",
+  linkedinPostHelp: "Select an RSS article to generate a professional LinkedIn post",
+  generateLinkedinPost: "Generate LinkedIn Post",
+  linkedinPostGenerated: "LinkedIn post generated successfully!",
+  linkedinPostGenerationError: "Failed to generate LinkedIn post",
+  selectArticleForLinkedin: "Select an article to generate a LinkedIn post",
+  linkedinPostPreview: "LinkedIn Post Preview",
+  copyLinkedinPost: "Copy Post",
+  linkedinPostCopied: "LinkedIn post copied to clipboard",
+  linkedinWordCount: "{{count}} words",
   },
   brands: {
     title: "My brands",
@@ -283,46 +289,6 @@ const common = {
     addSourceInvalidUrl: "Invalid RSS feed URL.",
     addSourceError: "Could not add the feed.",
   },
-
-  billing: {
-    title: "Billing & plans",
-    subtitle: "Pick the plan that matches how many newsletters you want to send.",
-    loadError: "Could not load billing information.",
-    limitUnlimited: "Unlimited newsletters per month",
-    limitSingle: "Up to 1 newsletter per month",
-    limitMultiple: "Up to {{count}} newsletters per month",
-    priceFree: "Free",
-    priceContact: "Configure the price in Stripe",
-    intervalMonthly: "month",
-    intervalYearly: "year",
-    checkoutSuccess: "Subscription updated successfully!",
-    checkoutError: "We couldn't complete the checkout.",
-    checkoutCanceled: "Checkout canceled.",
-    checkoutUnavailable: "Checkout is unavailable right now.",
-    missingPublishableKey: "Stripe publishable key is not configured.",
-    portalUnavailable: "Billing portal unavailable.",
-    portalError: "We couldn't open the billing portal.",
-    cancelAtPeriodEndConfirmation: "The subscription will end at the end of the current period.",
-    resumeSuccess: "Auto-renewal reactivated successfully.",
-    stripeWarningTitle: "Stripe not configured",
-    stripeWarningDescription: "Add your Stripe keys to enable paid plans.",
-    currentPlan: "Current plan",
-    usageTitle: "Newsletter usage this month",
-    usageSummary: "{{used}} of {{limit}} newsletters used",
-    usageRemaining: "{{remaining}} newsletters remaining this month",
-    usageUnlimited: "{{used}} newsletters created this month.",
-    cancelScheduled: "The subscription will be canceled at the end of the current period.",
-    currentTag: "Current",
-    currentPlanButton: "Current plan",
-    choosePlanButton: "Choose plan",
-    activateFreeButton: "Switch to free plan",
-    manageBilling: "Manage billing",
-    resumeSubscription: "Resume auto-renewal",
-    cancelAtPeriodEnd: "Cancel at period end",
-    switchToFree: "Switch to free",
-    freeActivated: "Free plan activated.",
-  },
-  
   // Authentication translations
   auth: {
     // Login page
@@ -355,7 +321,7 @@ const common = {
     
     // Error messages
     loginError: "Could not log in",
-    createAccountError: "Could not create account"
+    createAccountError: "Could not create account",
   },
   
   // System error messages

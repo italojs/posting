@@ -11,8 +11,12 @@ import {
   GenerateTwitterThreadInput,
   GenerateTwitterThreadResult,
   TwitterThread,
+  GenerateLinkedInPostInput,
+  GenerateLinkedInPostResult,
+  LinkedInPost,
 } from '../../api/contents/models';
 import { BrandContextForAI } from '../../api/brands/models';
+import { extractArticleText } from '../../api/contents/methods/set';
 
 const ARTICLE_TEXT_SUMMARY_LIMIT = 8000;
 
@@ -359,7 +363,7 @@ Reply **only** in JSON with this structure (content in ${newsletter.languageName
    * Otimized Twitter thread generation - Single AI call approach
    */
   async generateTwitterThread(input: GenerateTwitterThreadInput): Promise<GenerateTwitterThreadResult> {
-    const prompt = this.buildOptimizedTwitterPrompt(input);
+    const prompt = await this.buildOptimizedTwitterPrompt(input);
     
     const aiResponse = await this.sendChatRequest([{ role: 'user', content: prompt }], {
       maxTokens: 800,
@@ -395,13 +399,13 @@ Reply **only** in JSON with this structure (content in ${newsletter.languageName
   /**
    * Optimized single-prompt approach for Twitter threads
    */
-  private buildOptimizedTwitterPrompt({ article, language, brand }: GenerateTwitterThreadInput): string {
+  private async buildOptimizedTwitterPrompt({ article, language, brand }: GenerateTwitterThreadInput): Promise<string> {
     const brandDetails = this.formatBrandDetails(brand);
     const brandSection = brandDetails
       ? `\nBrand guidelines to follow:\n${brandDetails}\n`
       : '\n';
 
-    const articleContent = article.contentSnippet || article.title || 'No content available';
+    const articleContent = await extractArticleText(article);
 
     return `You are a social media expert creating an engaging Twitter thread directly from an article.
 
@@ -434,6 +438,86 @@ Requirements:
 Respond only in JSON format:
 {
   "tweets": ["Tweet content...", "Tweet content...", "Tweet content..."]
+}`;
+
+  }
+  
+   /* Generate LinkedIn post from article - Single AI call approach*/
+    async generateLinkedInPost(input: GenerateLinkedInPostInput): Promise<GenerateLinkedInPostResult> {
+    const prompt = await this.buildLinkedInPrompt(input);
+    
+    const aiResponse = await this.sendChatRequest([{ role: 'user', content: prompt }], {
+      maxTokens: 600,
+      temperature: 0.7,
+    });
+
+    const cleanedResponse = this.cleanAiJsonResponse(aiResponse);
+    const parsedResponse = JSON.parse(cleanedResponse);
+
+    if (!parsedResponse.content || typeof parsedResponse.content !== 'string') {
+      throw new Meteor.Error('ai-response-invalid', 'AI response missing content');
+    }
+
+    const post: LinkedInPost = {
+      content: parsedResponse.content.trim(),
+      articleTitle: input.article.title || 'No title',
+      articleUrl: input.article.link,
+      source: input.article.source,
+    };
+
+    return { post };
+  }
+
+  /*   Build LinkedIn post prompt optimized for professional content */
+  private async buildLinkedInPrompt({ article, language, brand }: GenerateLinkedInPostInput): Promise<string> {
+    const brandDetails = this.formatBrandDetails(brand);
+    const brandSection = brandDetails
+      ? `\nBrand guidelines to follow:\n${brandDetails}\n`
+      : '\n';
+
+    const articleContent = await extractArticleText(article);
+
+    return `You are a professional content creator specializing in LinkedIn posts that drive engagement and add value.
+
+Article details:
+- Title: ${article.title || 'No title'}
+- Source: ${article.source || 'Unknown source'}
+- URL: ${article.link || 'No URL'}
+
+Article content:
+"""
+${articleContent}
+"""
+${brandSection}
+
+Create a LinkedIn post in ${language} that:
+
+**Structure:**
+1. **Hook (1-2 lines)**: Start with a compelling insight or question that makes professionals want to read more
+2. **Value (2-3 paragraphs)**: Share key insights from the article in a way that adds professional value
+3. **Call to Action**: End with a thought-provoking question or invitation for discussion
+
+**Requirements:**
+- Write entirely in ${language}
+- Keep total length between 300-500 words (LinkedIn sweet spot)
+- Use professional but conversational tone (${brand?.tone || 'professional and engaging'})
+- Include 2-3 relevant emojis strategically placed
+- Add line breaks for readability
+- Focus on business insights, industry trends, or professional growth
+- Make it valuable for business professionals and decision-makers
+- Include the article source naturally in the content
+- End with an engaging question to drive comments
+
+**Style notes:**
+- Avoid overly promotional language
+- Share genuine insights rather than just summarizing
+- Use first-person perspective when appropriate
+- Make it feel authentic and conversational
+- Include actionable takeaways when possible
+
+Respond only in JSON format:
+{
+  "content": "Full LinkedIn post content..."
 }`;
   }
 

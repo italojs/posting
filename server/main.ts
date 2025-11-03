@@ -20,20 +20,23 @@ import '/app/api/utils/methods';
 import '/app/api/contents/methods';
 import '/app/api/rssSources/methods';
 import '/app/api/brands/methods';
+<<<<<<< HEAD
 import '/app/api/billing/methods';
 import '/app/api/newsFeeder/methods';
+=======
+>>>>>>> bd899fe42fa1fe1333a33752b82c4864606c4b6b
 
 // databases
 import '/app/api/userProfile/userProfile';
 import '/app/api/contents/contents';
 import '/app/api/rssSources/rssSources';
 import '/app/api/brands/brands';
-import '/app/api/billing/userSubscriptions';
-import '/app/api/billing/newsletterUsage';
 
 // publications
 
 Meteor.startup(async () => {
+    //console log mongo_url for debugging
+    console.log('[SERVER STARTUP] MONGO_URL:', process.env.MONGO_URL);
     // Deny all client-side updates to user documents (security layer)
     console.log('Denying all client-side database updates');
     denyClientSideDatabaseActions();
