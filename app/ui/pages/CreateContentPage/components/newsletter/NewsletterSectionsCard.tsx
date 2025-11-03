@@ -6,7 +6,6 @@ import {
     SearchOutlined,
 } from '@ant-design/icons';
 import {
-    Badge,
     Button,
     Card,
     Checkbox,
@@ -27,6 +26,8 @@ import type {
     SearchNewsResult,
 } from '/app/api/contents/models';
 import type { SectionGenerationEntry } from '../../types';
+import { groupRssItemsBySource, rssItemKey } from '/app/ui/pages/CreateContentPage/utils/rss';
+import RssSourceCollapse from '../common/RssSourceCollapse';
 
 interface NewsletterSectionsCardProps {
     form: FormInstance;
@@ -488,182 +489,136 @@ const NewsletterSectionsCard: React.FC<NewsletterSectionsCardProps> = ({
                                                 ))}
                                             </div>
                                         )}
-                                        {(() => {
-                                            const getKey = (it: RssItem) => it.link || it.title || '';
-                                            const selectedInOthers = new Set<string>(
-                                                sections
-                                                    .filter((_, idx) => idx !== activeSectionIndex)
-                                                    .flatMap((s) => (s.rssItems || []).map(getKey)),
-                                            );
-                                            const groups: Record<string, RssItem[]> = {};
-                                            rssItems.forEach((item) => {
-                                                const key = getKey(item);
-                                                if (!key || selectedInOthers.has(key)) return;
-                                                const sourceName = item.source || 'Unknown';
-                                                if (!groups[sourceName]) groups[sourceName] = [];
-                                                groups[sourceName].push(item);
+                                                {(() => {
+            const selectedInOthers = new Set<string>(
+                sections
+                    .filter((_, idx) => idx !== activeSectionIndex)
+                    .flatMap((s) => (s.rssItems || []).map(rssItemKey)),
+            );
+
+            const availableItems = rssItems.filter((item) => {
+                const key = rssItemKey(item);
+                return key && !selectedInOthers.has(key);
+            });
+
+            const groupedAvailable = groupRssItemsBySource(availableItems);
+
+            return (
+                <>
+                    <div style={{ margin: '8px 0 12px' }}>
+                        <Typography.Text strong style={{ fontSize: 13 }}>
+                            Fontes favoritas ({favoriteUrls.length})
+                        </Typography.Text>
+                        <div
+                            style={{
+                                display: 'flex',
+                                gap: 8,
+                                flexWrap: 'wrap',
+                                marginTop: 8,
+                            }}
+                        >
+                            {favoriteUrls.map((url) => (
+                                <Tag key={url} color="blue">
+                                    {url}
+                                </Tag>
+                            ))}
+                        </div>
+                    </div>
+                    <RssSourceCollapse
+                        groups={groupedAvailable}
+                        badgeColor="#5B5BD6"
+                        renderItem={(item) => {
+                            const linkKey = rssItemKey(item);
+                            const checked =
+                                !!sections[activeSectionIndex]?.rssItems?.some((r) => rssItemKey(r) === linkKey);
+
+                            return (
+                                <div
+                                    style={{
+                                        alignItems: 'flex-start',
+                                        padding: '8px 0',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        gap: 12,
+                                    }}
+                                    onClick={() =>
+                                        setSections((prev) => {
+                                            const next = [...prev];
+                                            const section = next[activeSectionIndex];
+                                            if (!section.rssItems) section.rssItems = [];
+                                            const existsIdx = section.rssItems.findIndex((r) => rssItemKey(r) === linkKey);
+                                            const present = existsIdx >= 0;
+                                            if (!present) {
+                                                section.rssItems.push(item);
+                                                next.forEach((sec, idx) => {
+                                                    if (idx !== activeSectionIndex && sec.rssItems) {
+                                                        const ri = sec.rssItems.findIndex((r) => rssItemKey(r) === linkKey);
+                                                        if (ri >= 0) sec.rssItems.splice(ri, 1);
+                                                    }
+                                                });
+                                            } else {
+                                                section.rssItems.splice(existsIdx, 1);
+                                            }
+                                            next[activeSectionIndex] = { ...section };
+                                            return next;
+                                        })
+                                    }
+                                >
+                                    <Checkbox
+                                        checked={checked}
+                                        onChange={(e) => {
+                                            e.stopPropagation();
+                                            const isChecked = e.target.checked;
+                                            setSections((prev) => {
+                                                const next = [...prev];
+                                                const section = next[activeSectionIndex];
+                                                if (!section.rssItems) section.rssItems = [];
+                                                const existsIdx = section.rssItems.findIndex((r) => rssItemKey(r) === linkKey);
+                                                const present = existsIdx >= 0;
+                                                if (isChecked && !present) {
+                                                    section.rssItems.push(item);
+                                                    next.forEach((sec, idx) => {
+                                                        if (idx !== activeSectionIndex && sec.rssItems) {
+                                                            const ri = sec.rssItems.findIndex((r) => rssItemKey(r) === linkKey);
+                                                            if (ri >= 0) sec.rssItems.splice(ri, 1);
+                                                        }
+                                                    });
+                                                }
+                                                if (!isChecked && present) section.rssItems.splice(existsIdx, 1);
+                                                next[activeSectionIndex] = { ...section };
+                                                return next;
                                             });
-                                            const groupedAvailable = Object.entries(groups).map(([name, items]) => ({
-                                                name,
-                                                items,
-                                            }));
-                                            return (
-                                                <>
-                                                    <div style={{ margin: '8px 0 12px' }}>
-                                                        <Typography.Text strong style={{ fontSize: 13 }}>
-                                                            Fontes favoritas ({favoriteUrls.length})
-                                                        </Typography.Text>
-                                                        <div
-                                                            style={{
-                                                                display: 'flex',
-                                                                gap: 8,
-                                                                flexWrap: 'wrap',
-                                                                marginTop: 8,
-                                                            }}
-                                                        >
-                                                            {favoriteUrls.map((url) => (
-                                                                <Tag key={url} color="blue">
-                                                                    {url}
-                                                                </Tag>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    <Collapse
-                                                        className="custom-collapse"
-                                                        items={groupedAvailable.map((group) => ({
-                                                            key: group.name,
-                                                            label: (
-                                                                <div
-                                                                    style={{
-                                                                        display: 'flex',
-                                                                        justifyContent: 'space-between',
-                                                                        alignItems: 'center',
-                                                                        width: '100%',
-                                                                    }}
-                                                                >
-                                                                    <span
-                                                                        style={{
-                                                                            fontWeight: '600',
-                                                                            fontSize: '15px',
-                                                                            color: '#1f2937',
-                                                                        }}
-                                                                    >
-                                                                        {group.name}
-                                                                    </span>
-                                                                    <Badge
-                                                                        count={group.items.length}
-                                                                        overflowCount={99}
-                                                                        style={{ backgroundColor: '#5B5BD6' }}
-                                                                    />
-                                                                </div>
-                                                            ),
-                                                            children: (
-                                                                <List
-                                                                    dataSource={group.items}
-                                                                    split={false}
-                                                                    renderItem={(it) => {
-                                                                        const linkKey = it.link || it.title || '';
-                                                                        const checked =
-                                                                            !!sections[activeSectionIndex]?.rssItems?.some(
-                                                                                (r) => (r.link || r.title) === linkKey,
-                                                                            );
-                                                                        return (
-                                                                            <List.Item
-                                                                                style={{
-                                                                                    alignItems: 'flex-start',
-                                                                                    padding: '8px 0',
-                                                                                    cursor: 'pointer',
-                                                                                }}
-                                                                                onClick={() =>
-                                                                                    setSections((prev) => {
-                                                                                        const next = [...prev];
-                                                                                        const s = next[activeSectionIndex];
-                                                                                        if (!s.rssItems) s.rssItems = [];
-                                                                                        const existsIdx = s.rssItems.findIndex(
-                                                                                            (r) => (r.link || r.title) === linkKey,
-                                                                                        );
-                                                                                        const present = existsIdx >= 0;
-                                                                                        if (!present) {
-                                                                                            s.rssItems.push(it);
-                                                                                            next.forEach((sec, i) => {
-                                                                                                if (i !== activeSectionIndex) {
-                                                                                                    const ri = sec.rssItems.findIndex(
-                                                                                                        (r) => (r.link || r.title) === linkKey,
-                                                                                                    );
-                                                                                                    if (ri >= 0) sec.rssItems.splice(ri, 1);
-                                                                                                }
-                                                                                            });
-                                                                                        } else {
-                                                                                            s.rssItems.splice(existsIdx, 1);
-                                                                                        }
-                                                                                        next[activeSectionIndex] = { ...s };
-                                                                                        return next;
-                                                                                    })
-                                                                                }
-                                                                            >
-                                                                                <List.Item.Meta
-                                                                                    avatar={
-                                                                                        <Checkbox
-                                                                                            checked={checked}
-                                                                                            onChange={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                const isChecked = e.target.checked;
-                                                                                                setSections((prev) => {
-                                                                                                    const next = [...prev];
-                                                                                                    const s = next[activeSectionIndex];
-                                                                                                    if (!s.rssItems) s.rssItems = [];
-                                                                                                    const existsIdx = s.rssItems.findIndex(
-                                                                                                        (r) => (r.link || r.title) === linkKey,
-                                                                                                    );
-                                                                                                    const present = existsIdx >= 0;
-                                                                                                    if (isChecked && !present) {
-                                                                                                        s.rssItems.push(it);
-                                                                                                        next.forEach((sec, i) => {
-                                                                                                            if (i !== activeSectionIndex) {
-                                                                                                                const ri = sec.rssItems.findIndex(
-                                                                                                                    (r) => (r.link || r.title) === linkKey,
-                                                                                                                );
-                                                                                                                if (ri >= 0) sec.rssItems.splice(ri, 1);
-                                                                                                            }
-                                                                                                        });
-                                                                                                    }
-                                                                                                    if (!isChecked && present) s.rssItems.splice(existsIdx, 1);
-                                                                                                    next[activeSectionIndex] = { ...s };
-                                                                                                    return next;
-                                                                                                });
-                                                                                            }}
-                                                                                        />
-                                                                                    }
-                                                                                    title={
-                                                                                        it.link ? (
-                                                                                            <a href={it.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                                                                                {it.title || it.link}
-                                                                                            </a>
-                                                                                        ) : (
-                                                                                            it.title || 'No title'
-                                                                                        )
-                                                                                    }
-                                                                                    description={
-                                                                                        <div style={{ fontSize: 12, color: '#6b7280' }}>
-                                                                                            {it.pubDate && (
-                                                                                                <div>{new Date(it.pubDate).toLocaleDateString()}</div>
-                                                                                            )}
-                                                                                            {it.contentSnippet && (
-                                                                                                <div>{it.contentSnippet.substring(0, 120)}</div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    }
-                                                                                />
-                                                                            </List.Item>
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            ),
-                                                        }))}
-                                                    />
-                                                </>
-                                            );
-                                        })()}
+                                        }}
+                                    />
+                                    <div style={{ flex: 1 }}>
+                                        {item.link ? (
+                                            <a
+                                                href={item.link}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {item.title || item.link}
+                                            </a>
+                                        ) : (
+                                            item.title || 'No title'
+                                        )}
+                                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                                            {item.pubDate && (
+                                                <div>{new Date(item.pubDate).toLocaleDateString()}</div>
+                                            )}
+                                            {item.contentSnippet && (
+                                                <div>{item.contentSnippet.substring(0, 120)}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        }}
+                    />
+                </>
+            );
+        })()}
 
                                         {currentSectionGeneration && (
                                             <Card

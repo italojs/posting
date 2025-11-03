@@ -1,9 +1,11 @@
 import { CopyOutlined, RobotOutlined, TwitterOutlined } from '@ant-design/icons';
-import { Badge, Button, Card, Collapse, Form, List, Radio, Space, Typography } from 'antd';
+import { Button, Card, Form, Space, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form/Form';
 import type { TFunction } from 'i18next';
 import React, { type Dispatch, type SetStateAction } from 'react';
 import type { RssItem, TwitterThread } from '/app/api/contents/models';
+import { groupRssItemsBySource } from '/app/ui/pages/CreateContentPage/utils/rss';
+import RssSourceCollapse from '../common/RssSourceCollapse';
 
 interface TwitterThreadCardProps {
     form: FormInstance;
@@ -85,151 +87,89 @@ const TwitterThreadCard: React.FC<TwitterThreadCardProps> = ({
 
                                     <div style={{ marginTop: 12 }}>
                                         {(() => {
-                                            const getKey = (it: RssItem) => it.link || it.title || '';
-                                            const groups: Record<string, RssItem[]> = {};
-                                            rssItems.forEach((item) => {
-                                                const sourceName = item.source || 'Unknown';
-                                                if (!groups[sourceName]) groups[sourceName] = [];
-                                                groups[sourceName].push(item);
-                                            });
-                                            const groupedArticles = Object.entries(groups).map(([name, items]) => ({
-                                                name,
-                                                items,
-                                            }));
+                                            const groupedArticles = groupRssItemsBySource(rssItems);
 
                                             return (
-                                                <Collapse
-                                                    className="custom-collapse"
-                                                    items={groupedArticles.map((group) => ({
-                                                        key: group.name,
-                                                        label: (
+                                                <RssSourceCollapse
+                                                    groups={groupedArticles}
+                                                    badgeColor="#1DA1F2"
+                                                    renderItem={(item) => {
+                                                        const linkKey = item.link || item.title || '';
+                                                        const isSelected =
+                                                            !!selectedTwitterArticle &&
+                                                            (selectedTwitterArticle.link === item.link ||
+                                                                (!selectedTwitterArticle.link &&
+                                                                    selectedTwitterArticle.title === item.title));
+                                                        return (
                                                             <div
                                                                 style={{
+                                                                    padding: '8px 0',
+                                                                    cursor: 'pointer',
                                                                     display: 'flex',
-                                                                    justifyContent: 'space-between',
-                                                                    alignItems: 'center',
-                                                                    width: '100%',
+                                                                    alignItems: 'flex-start',
+                                                                    gap: 12,
+                                                                }}
+                                                                onClick={() => {
+                                                                    if (!linkKey) return;
+                                                                    if (
+                                                                        selectedTwitterArticle &&
+                                                                        (selectedTwitterArticle.link ||
+                                                                            selectedTwitterArticle.title) === linkKey
+                                                                    ) {
+                                                                        setSelectedTwitterArticle(null);
+                                                                        setGeneratedThread(null);
+                                                                    } else {
+                                                                        setSelectedTwitterArticle(item);
+                                                                        setGeneratedThread(null);
+                                                                    }
                                                                 }}
                                                             >
-                                                                <span
-                                                                    style={{
-                                                                        fontWeight: '600',
-                                                                        fontSize: '15px',
-                                                                        color: '#1f2937',
+                                                                <Radio
+                                                                    checked={isSelected}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (e.target.checked) {
+                                                                            setSelectedTwitterArticle(item);
+                                                                            setGeneratedThread(null);
+                                                                        } else {
+                                                                            setSelectedTwitterArticle(null);
+                                                                            setGeneratedThread(null);
+                                                                        }
                                                                     }}
-                                                                >
-                                                                    {group.name}
-                                                                </span>
-                                                                <Badge
-                                                                    count={group.items.length}
-                                                                    overflowCount={99}
-                                                                    style={{ backgroundColor: '#1DA1F2' }}
                                                                 />
+                                                                <div style={{ flex: 1 }}>
+                                                                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#1f2937' }}>
+                                                                        {item.link ? (
+                                                                            <a
+                                                                                href={item.link}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                style={{ color: '#1d4ed8', textDecoration: 'none' }}
+                                                                            >
+                                                                                {item.title || item.link}
+                                                                            </a>
+                                                                        ) : (
+                                                                            item.title || 'No title'
+                                                                        )}
+                                                                    </div>
+                                                                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                                                                        {item.contentSnippet && (
+                                                                            <div>
+                                                                                {item.contentSnippet.substring(0, 150)}
+                                                                                {item.contentSnippet.length > 150 && '...'}
+                                                                            </div>
+                                                                        )}
+                                                                        {item.pubDate && (
+                                                                            <div style={{ marginTop: '4px' }}>
+                                                                                {new Date(item.pubDate).toLocaleDateString()}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                        ),
-                                                        children: (
-                                                            <List
-                                                                dataSource={group.items}
-                                                                split={false}
-                                                                className="rss-articles-scroll"
-                                                                style={{ maxHeight: 240, overflowY: 'auto', paddingRight: 8 }}
-                                                                renderItem={(it) => {
-                                                                    const linkKey = it.link || it.title || '';
-                                                                    const isSelected =
-                                                                        !!selectedTwitterArticle &&
-                                                                        (selectedTwitterArticle.link === it.link ||
-                                                                            (!selectedTwitterArticle.link &&
-                                                                                selectedTwitterArticle.title === it.title));
-                                                                    return (
-                                                                        <List.Item
-                                                                            style={{
-                                                                                padding: '8px 0',
-                                                                                cursor: 'pointer',
-                                                                                alignItems: 'flex-start',
-                                                                                gap: 12,
-                                                                            }}
-                                                                            onClick={() => {
-                                                                                if (!linkKey) return;
-                                                                                if (
-                                                                                    selectedTwitterArticle &&
-                                                                                    (selectedTwitterArticle.link ||
-                                                                                        selectedTwitterArticle.title) === linkKey
-                                                                                ) {
-                                                                                    setSelectedTwitterArticle(null);
-                                                                                    setGeneratedThread(null);
-                                                                                } else {
-                                                                                    setSelectedTwitterArticle(it);
-                                                                                    setGeneratedThread(null);
-                                                                                }
-                                                                            }}
-                                                                        >
-                                                                            <List.Item.Meta
-                                                                                avatar={
-                                                                                    <Radio
-                                                                                        checked={isSelected}
-                                                                                        onChange={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            if (e.target.checked) {
-                                                                                                setSelectedTwitterArticle(it);
-                                                                                                setGeneratedThread(null);
-                                                                                            } else {
-                                                                                                setSelectedTwitterArticle(null);
-                                                                                                setGeneratedThread(null);
-                                                                                            }
-                                                                                        }}
-                                                                                    />
-                                                                                }
-                                                                                title={
-                                                                                    <div
-                                                                                        style={{
-                                                                                            fontSize: '14px',
-                                                                                            fontWeight: '500',
-                                                                                            color: '#1f2937',
-                                                                                        }}
-                                                                                    >
-                                                                                        {it.link ? (
-                                                                                            <a
-                                                                                                href={it.link}
-                                                                                                target="_blank"
-                                                                                                rel="noreferrer"
-                                                                                                onClick={(e) => e.stopPropagation()}
-                                                                                                style={{ color: '#1d4ed8', textDecoration: 'none' }}
-                                                                                            >
-                                                                                                {it.title || it.link}
-                                                                                            </a>
-                                                                                        ) : (
-                                                                                            it.title || 'No title'
-                                                                                        )}
-                                                                                    </div>
-                                                                                }
-                                                                                description={
-                                                                                    <div
-                                                                                        style={{
-                                                                                            fontSize: '12px',
-                                                                                            color: '#6b7280',
-                                                                                            marginTop: '4px',
-                                                                                        }}
-                                                                                    >
-                                                                                        {it.contentSnippet && (
-                                                                                            <div>
-                                                                                                {it.contentSnippet.substring(0, 150)}
-                                                                                                {it.contentSnippet.length > 150 && '...'}
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {it.pubDate && (
-                                                                                            <div style={{ marginTop: '4px' }}>
-                                                                                                {new Date(it.pubDate).toLocaleDateString()}
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                }
-                                                                            />
-                                                                        </List.Item>
-                                                                    );
-                                                                }}
-                                                            />
-                                                        ),
-                                                    }))}
+                                                        );
+                                                    }}
                                                 />
                                             );
                                         })()}
