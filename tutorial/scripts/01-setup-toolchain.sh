@@ -16,8 +16,11 @@ npm pkg set description="meteor-sdk tutorial examples" >/dev/null 2>&1 || true
 npm pkg set type=module >/dev/null 2>&1 || true
 
 # 3) Dependencies
-echo "Installing dependencies (meteor-sdk)..."
-npm install meteor-sdk
+echo "Installing dependencies (meteor-sdk, isomorphic-ws, ws, dotenv)..."
+npm install meteor-sdk isomorphic-ws ws dotenv
+
+echo "Removing deprecated simpleddp dependency if present..."
+npm pkg delete dependencies.simpleddp >/dev/null 2>&1 || true
 
 echo "Installing dev dependencies (TypeScript, ts-node, @types/node)..."
 npm install -D typescript ts-node @types/node

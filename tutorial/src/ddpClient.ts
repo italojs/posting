@@ -1,25 +1,40 @@
-import SimpleDDP from 'simpleddp';
-import type { SimpleDDPOptions } from 'simpleddp';
+import MeteorSDK from 'meteor-sdk/src/DDPClient.js';
+import type { SimpleDDPConnectOptions } from 'meteor-sdk/src/DDPClient.ts';
 import ws from 'isomorphic-ws';
 
-export function createDDPClient(endpoint: string, extra?: Partial<SimpleDDPOptions>) {
-  const opts: SimpleDDPOptions = {
+type MeteorClient = {
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  stopChangeListeners?: () => void;
+  call: <TArgs extends any[], TResult>(method: string, ...args: TArgs) => Promise<TResult>;
+};
+
+type MeteorSDKConstructor = new (options: SimpleDDPConnectOptions, plugins?: any[]) => MeteorClient;
+
+const MeteorSDKModule = MeteorSDK as unknown as { default?: MeteorSDKConstructor } | MeteorSDKConstructor;
+const MeteorSDKClient: MeteorSDKConstructor = (typeof (MeteorSDKModule as any).default === 'function'
+  ? (MeteorSDKModule as { default: MeteorSDKConstructor }).default
+  : (MeteorSDKModule as MeteorSDKConstructor));
+
+export function createDDPClient(endpoint: string, extra?: Partial<SimpleDDPConnectOptions>): MeteorClient {
+  const opts: SimpleDDPConnectOptions = {
     endpoint,
     SocketConstructor: ws as any,
-    reconnectInterval: 2000,
-    maxQueueLength: 1000,
+    autoConnect: false,
     autoReconnect: true,
+    reconnectInterval: 2000,
     ...extra,
-  } as any;
-  const client = new SimpleDDP(opts);
-  return client;
+  };
+  return new MeteorSDKClient(opts);
 }
 
-export async function closeDDP(client: SimpleDDP) {
+export async function closeDDP(client: MeteorClient) {
   try {
-    await client.stopChangeTracker();
+    client.stopChangeListeners?.();
   } catch {}
   try {
     await client.disconnect();
   } catch {}
 }
+
+export type { MeteorClient };

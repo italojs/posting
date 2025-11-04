@@ -66,8 +66,10 @@ async function main() {
   ];
   let fresh: any[] = [];
   try {
-    const result = await client.call('get.contents.fetchRss', { urls });
-    fresh = (result as any)?.items ?? [];
+    const result = await client.call<[
+      { urls: string[] }
+    ], { items?: any[] }>('get.contents.fetchRss', { urls });
+    fresh = Array.isArray(result?.items) ? result.items : [];
   } catch (err) {
     console.error('[demo-03] fetchRss failed:', err);
   }
@@ -102,7 +104,7 @@ async function main() {
   await saveCache(fresh);
   console.log('[demo-03] Cache updated at', CACHE_FILE);
 
-  await closeDDP(client as any);
+  await closeDDP(client);
   console.log('[demo-03] Closed');
 }
 

@@ -11,14 +11,16 @@ async function main() {
 
   // Call a public method to validate round-trip without auth
   try {
-    const result = await client.call('get.contents.fetchRss', { urls: ['https://hnrss.org/frontpage'] });
-    const items = (result as any)?.items ?? [];
-    console.log(`[bootstrap] fetchRss returned ${Array.isArray(items) ? items.length : 0} items`);
+    const result = await client.call<[
+      { urls: string[] }
+    ], { items?: unknown[] }>('get.contents.fetchRss', { urls: ['https://hnrss.org/frontpage'] });
+    const items = Array.isArray(result?.items) ? result.items : [];
+    console.log(`[bootstrap] fetchRss returned ${items.length} items`);
   } catch (err) {
     console.error('[bootstrap] Method call failed:', err);
   }
 
-  await closeDDP(client as any);
+  await closeDDP(client);
   console.log('[bootstrap] Closed');
 }
 

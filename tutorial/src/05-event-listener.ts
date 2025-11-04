@@ -70,7 +70,7 @@ async function main() {
     if (stop) return;
     stop = true;
     console.log('\n[demo-05] Shutting down...');
-    await closeDDP(client as any);
+    await closeDDP(client);
     console.log('[demo-05] Closed');
     process.exit(0);
   };
@@ -80,8 +80,10 @@ async function main() {
   while (!stop && cycles < maxCycles) {
     cycles += 1;
     try {
-      const result = await client.call('get.contents.fetchRss', { urls });
-      const fresh: Item[] = (result as any)?.items ?? [];
+      const result = await client.call<[
+        { urls: string[] }
+      ], { items?: Item[] }>('get.contents.fetchRss', { urls });
+      const fresh: Item[] = Array.isArray(result?.items) ? result.items : [];
       const delta = computeDelta(previous, fresh);
 
       // Emit events

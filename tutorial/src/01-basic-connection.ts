@@ -1,5 +1,5 @@
 /**
- * Demo 01: Basic Connection and Method Call (simpleddp)
+ * Demo 01: Basic Connection and Method Call (meteor-sdk)
  * - Connects to Meteor via DDP
  * - Optionally logs in using email/password if provided via env
  * - Calls a public method to validate round-trip
@@ -7,9 +7,12 @@
 
 import 'dotenv/config';
 import { createDDPClient, closeDDP } from './ddpClient.ts';
+import type { MeteorClient } from './ddpClient.ts';
 import crypto from 'node:crypto';
 
-async function loginIfProvided(client: any) {
+type LoginResult = { id?: string; token?: string } | null | undefined;
+
+async function loginIfProvided(client: MeteorClient) {
   const token = process.env.METEOR_TOKEN;
   const email = process.env.METEOR_EMAIL;
   const password = process.env.METEOR_PASSWORD;
@@ -17,7 +20,7 @@ async function loginIfProvided(client: any) {
   if (token) {
     console.log('[demo-01] Attempting token resume login...');
     try {
-      const res = await client.call('login', { resume: token });
+      const res = await client.call<[ { resume: string } ], LoginResult>('login', { resume: token });
       console.log('[demo-01] Logged in with token:', Boolean(res && res.id));
       return true;
     } catch (e) {
@@ -29,7 +32,12 @@ async function loginIfProvided(client: any) {
     console.log('[demo-01] Attempting email/password login...');
     const digest = crypto.createHash('sha256').update(password).digest('hex');
     try {
-      const res = await client.call('login', {
+      const res = await client.call<[
+        {
+          user: { email: string };
+          password: { digest: string; algorithm: 'sha-256' };
+        }
+      ], LoginResult>('login', {
         user: { email },
         password: { digest, algorithm: 'sha-256' },
       });
@@ -58,14 +66,16 @@ async function main() {
   // Call a public method to validate E2E
   try {
     console.log('[demo-01] Calling get.contents.fetchRss...');
-    const result = await client.call('get.contents.fetchRss', { urls: ['https://hnrss.org/frontpage'] });
-    const items = (result as any)?.items ?? [];
-    console.log(`[demo-01] fetchRss returned ${Array.isArray(items) ? items.length : 0} items`);
+    const result = await client.call<[
+      { urls: string[] }
+    ], { items?: unknown[] }>('get.contents.fetchRss', { urls: ['https://hnrss.org/frontpage'] });
+    const items = Array.isArray(result?.items) ? result.items : [];
+    console.log(`[demo-01] fetchRss returned ${items.length} items`);
   } catch (error) {
     console.error('[demo-01] Method call failed:', error);
   }
 
-  await closeDDP(client as any);
+  await closeDDP(client);
   console.log('[demo-01] Closed');
 }
 
