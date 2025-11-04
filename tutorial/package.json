@@ -21,6 +21,7 @@
     "dotenv": "^17.2.3",
     "isomorphic-ws": "^5.0.0",
     "meteor-sdk": "^0.0.21",
+    "simpleddp": "^2.2.4",
     "ws": "^8.18.3"
   },
   "devDependencies": {

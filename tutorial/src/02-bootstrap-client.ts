@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { createDDPClient, closeDDP } from './ddpClient.js';
+import { createDDPClient, closeDDP } from './ddpClient.ts';
 
 async function main() {
   const endpoint = process.env.METEOR_WS || 'ws://localhost:8080/websocket';

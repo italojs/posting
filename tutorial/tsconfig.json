@@ -1,15 +1,13 @@
 {
   "compilerOptions": {
-    "types": [
-      "node"
-    ],
-    "lib": [
-      "es2022"
-    ],
-  "module": "Node16",
+    "types": ["node"],
+    "lib": ["es2022"],
+    "module": "Node16",
     "target": "es2022",
     "moduleResolution": "node16",
     "skipLibCheck": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   }
 }

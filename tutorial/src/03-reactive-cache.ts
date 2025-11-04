@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { createDDPClient, closeDDP } from './ddpClient.js';
+import { createDDPClient, closeDDP } from './ddpClient.ts';
 
 const CACHE_DIR = path.resolve('.cache');
 const CACHE_FILE = path.join(CACHE_DIR, 'rss.json');

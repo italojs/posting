@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { createDDPClient, closeDDP } from './ddpClient.js';
+import { createDDPClient, closeDDP } from './ddpClient.ts';
 
 // Lightweight event listener demo using periodic fetch + diffing
 // Emits 'added', 'changed', 'removed' for RSS items from get.contents.fetchRss

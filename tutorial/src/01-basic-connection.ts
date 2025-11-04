@@ -6,7 +6,7 @@
  */
 
 import 'dotenv/config';
-import { createDDPClient, closeDDP } from './ddpClient.js';
+import { createDDPClient, closeDDP } from './ddpClient.ts';
 import crypto from 'node:crypto';
 
 async function loginIfProvided(client: any) {
