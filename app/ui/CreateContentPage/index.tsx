@@ -1010,18 +1010,28 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             style={{ padding: '8px 0' }}
                             onValuesChange={(_, all) => {
                                 const any = !!(all?.newsletter || all?.instagram || all?.twitter || all?.tiktok || all?.linkedin);
-                                // Enforce newsletter-exclusive mode
+                                
+                                // Enforce exclusive selection - only one network can be selected at a time
                                 if (all?.newsletter) {
                                     if (all?.instagram || all?.twitter || all?.tiktok || all?.linkedin) {
                                         form.setFieldsValue({ instagram: false, twitter: false, tiktok: false, linkedin: false });
                                     }
                                     // Ensure at least one section exists and is active
                                     if (!sections.length) {
-                                        const first = { id: Math.random().toString(36).slice(2, 9), title: '', description: '', rssItems: [] };
+                                        const first = { id: Math.random().toString(36).slice(2, 9), title: '', description: '', rssItems: [], newsArticles: [] };
                                         setSections([first]);
                                         setActiveSectionIndex(0);
                                     }
+                                } else if (all?.instagram) {
+                                    form.setFieldsValue({ newsletter: false, twitter: false, tiktok: false, linkedin: false });
+                                } else if (all?.twitter) {
+                                    form.setFieldsValue({ newsletter: false, instagram: false, tiktok: false, linkedin: false });
+                                } else if (all?.tiktok) {
+                                    form.setFieldsValue({ newsletter: false, instagram: false, twitter: false, linkedin: false });
+                                } else if (all?.linkedin) {
+                                    form.setFieldsValue({ newsletter: false, instagram: false, twitter: false, tiktok: false });
                                 }
+                                
                                 // If newsletter turned off and no other networks, clear section focus; keep sections data
                                 if (!all?.newsletter && !(all?.instagram || all?.twitter || all?.tiktok || all?.linkedin)) {
                                     setActiveSectionIndex(-1);
@@ -1180,69 +1190,108 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                 >
                                     {t('createContent.networksTitle')}
                                 </Typography.Text>
-                                <Form.Item shouldUpdate noStyle>
-                                    {({ getFieldValue }) => {
-                                        const isNewsletter = !!getFieldValue('newsletter');
-                                        return (
-                                            <Space size={[4, 4]}>
-                                                <Form.Item name="newsletter" valuePropName="checked" noStyle>
-                                                    <Checkbox 
-                                                        style={{ 
-                                                            fontSize: '13px',
-                                                            padding: '4px 8px'
-                                                        }}
-                                                    >
-                                                        {t('createContent.newsletter')}
-                                                    </Checkbox>
-                                                </Form.Item>
-                                                <Form.Item name="instagram" valuePropName="checked" noStyle>
-                                                    <Checkbox 
-                                                        disabled={isNewsletter}
-                                                        style={{ 
-                                                            fontSize: '13px',
-                                                            padding: '4px 2px'
-                                                        }}
-                                                    >
-                                                        {t('createContent.instagram')}
-                                                    </Checkbox>
-                                                </Form.Item>
-                                                <Form.Item name="twitter" valuePropName="checked" noStyle>
-                                                    <Checkbox 
-                                                        disabled={isNewsletter}
-                                                        style={{ 
-                                                            fontSize: '13px',
-                                                            padding: '4px 2px'
-                                                        }}
-                                                    >
-                                                        {t('createContent.twitter')}
-                                                    </Checkbox>
-                                                </Form.Item>
-                                                <Form.Item name="tiktok" valuePropName="checked" noStyle>
-                                                    <Checkbox 
-                                                        disabled={isNewsletter}
-                                                        style={{ 
-                                                            fontSize: '13px',
-                                                            padding: '4px 2px'
-                                                        }}
-                                                    >
-                                                        {t('createContent.tiktok')}
-                                                    </Checkbox>
-                                                </Form.Item>
-                                                <Form.Item name="linkedin" valuePropName="checked" noStyle>
-                                                    <Checkbox 
-                                                        disabled={isNewsletter}
-                                                        style={{ 
-                                                            fontSize: '13px',
-                                                            padding: '4px 2px'
-                                                        }}
-                                                    >
-                                                        {t('createContent.linkedin')}
-                                                    </Checkbox>
-                                                </Form.Item>
-                                            </Space>
-                                        );
-                                    }}
-                                </Form.Item>
+                                <Space size={[4, 4]}>
+                                    <Form.Item name="newsletter" valuePropName="checked" noStyle>
+                                        <Checkbox 
+                                            style={{ 
+                                                fontSize: '13px',
+                                                padding: '4px 8px'
+                                            }}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    form.setFieldsValue({
+                                                        instagram: false,
+                                                        twitter: false,
+                                                        tiktok: false,
+                                                        linkedin: false
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            {t('createContent.newsletter')}
+                                        </Checkbox>
+                                    </Form.Item>
+                                    <Form.Item name="instagram" valuePropName="checked" noStyle>
+                                        <Checkbox 
+                                            style={{ 
+                                                fontSize: '13px',
+                                                padding: '4px 2px'
+                                            }}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    form.setFieldsValue({
+                                                        newsletter: false,
+                                                        twitter: false,
+                                                        tiktok: false,
+                                                        linkedin: false
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            {t('createContent.instagram')}
+                                        </Checkbox>
+                                    </Form.Item>
+                                    <Form.Item name="twitter" valuePropName="checked" noStyle>
+                                        <Checkbox 
+                                            style={{ 
+                                                fontSize: '13px',
+                                                padding: '4px 2px'
+                                            }}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    form.setFieldsValue({
+                                                        newsletter: false,
+                                                        instagram: false,
+                                                        tiktok: false,
+                                                        linkedin: false
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            {t('createContent.twitter')}
+                                        </Checkbox>
+                                    </Form.Item>
+                                    <Form.Item name="tiktok" valuePropName="checked" noStyle>
+                                        <Checkbox 
+                                            style={{ 
+                                                fontSize: '13px',
+                                                padding: '4px 2px'
+                                            }}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    form.setFieldsValue({
+                                                        newsletter: false,
+                                                        instagram: false,
+                                                        twitter: false,
+                                                        linkedin: false
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            {t('createContent.tiktok')}
+                                        </Checkbox>
+                                    </Form.Item>
+                                    <Form.Item name="linkedin" valuePropName="checked" noStyle>
+                                        <Checkbox 
+                                            style={{ 
+                                                fontSize: '13px',
+                                                padding: '4px 2px'
+                                            }}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    form.setFieldsValue({
+                                                        newsletter: false,
+                                                        instagram: false,
+                                                        twitter: false,
+                                                        tiktok: false
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            {t('createContent.linkedin')}
+                                        </Checkbox>
+                                    </Form.Item>
+                                </Space>
                             </div>
                         </Form>
                     </Card>

@@ -193,15 +193,17 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ children, userId, userPro
                 </div>
             </Layout.Sider>
 
-            <Content className="app-shell__content">
-                <div className="app-shell__inner fade-in-up">
-                    {children}
-                </div>
-            </Content>
+            <Layout style={{ marginLeft: 0 }}>
+                <Content className="app-shell__content">
+                    <div className="app-shell__inner fade-in-up">
+                        {children}
+                    </div>
+                </Content>
 
-            <Footer className="app-shell__footer">
-                {SITE_NAME} © {new Date().getFullYear()}
-            </Footer>
+                <Footer className="app-shell__footer">
+                    {SITE_NAME} © {new Date().getFullYear()}
+                </Footer>
+            </Layout>
         </Layout>
     );
 };
