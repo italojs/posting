@@ -13,10 +13,10 @@ import {
     Empty,
     Form,
     Input,
-    List,
     Popconfirm,
     Select,
     Space,
+    Tag,
     Typography,
     message,
 } from 'antd';
@@ -46,6 +46,7 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
     const [saving, setSaving] = useState(false);
     const [editingBrand, setEditingBrand] = useState<BrandSummary | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [showForm, setShowForm] = useState(false);
 
     const formInitialValues = useMemo<BrandFormValues>(() => ({
         name: '',
@@ -59,6 +60,7 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
     const resetForm = useCallback(() => {
         form.resetFields();
         setEditingBrand(null);
+        setShowForm(false);
     }, [form]);
 
     const fetchBrands = useCallback(async () => {
@@ -122,6 +124,7 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
 
     const handleEdit = (brand: BrandSummary) => {
         setEditingBrand(brand);
+        setShowForm(true);
         form.setFieldsValue({
             name: brand.name,
             description: brand.description,
@@ -154,7 +157,7 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
                 <Title level={3}>{t('brands.title')}</Title>
                 <Paragraph type="secondary">{t('brands.subtitle')}</Paragraph>
                 <Space>
-                    <Button icon={<PlusOutlined />} onClick={resetForm} disabled={saving}>
+                    <Button icon={<PlusOutlined />} onClick={() => setShowForm(true)} disabled={saving}>
                         {t('brands.actions.new')}
                     </Button>
                     <Button icon={<ReloadOutlined />} onClick={fetchBrands} loading={loading}>
@@ -163,12 +166,10 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
                 </Space>
             </div>
 
-            <Space direction="horizontal" size="large" style={{ width: '100%', flexWrap: 'wrap' }}>
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 <Card
                     title={t('brands.list.title')}
-                    style={{ flex: '1 1 360px', maxWidth: 480 }}
                     loading={loading}
-                    bodyStyle={{ padding: 0 }}
                 >
                     {brands.length === 0 ? (
                         <div style={{ padding: 24 }}>
@@ -182,81 +183,114 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
                             />
                         </div>
                     ) : (
-                        <List
-                            itemLayout="vertical"
-                            dataSource={brands}
-                            renderItem={(brand) => (
-                                <List.Item
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                            gap: '16px',
+                            padding: '16px 0'
+                        }}>
+                            {brands.map((brand) => (
+                                <Card
                                     key={brand._id}
-                                    actions={[
-                                        <Button
-                                            key="edit"
-                                            type="link"
-                                            icon={<EditOutlined />}
-                                            onClick={() => handleEdit(brand)}
-                                        >
-                                            {t('brands.actions.edit')}
-                                        </Button>,
-                                        <Popconfirm
-                                            key="delete"
-                                            title={t('brands.confirmDelete.title')}
-                                            description={t('brands.confirmDelete.description')}
-                                            okText={t('brands.confirmDelete.ok')}
-                                            cancelText={t('brands.confirmDelete.cancel')}
-                                            onConfirm={() => handleDelete(brand._id)}
-                                        >
+                                    size="small"
+                                    title={brand.name}
+                                    extra={
+                                        <Space size="small">
                                             <Button
-                                                type="link"
-                                                danger
-                                                icon={<DeleteOutlined />}
-                                                loading={deletingId === brand._id}
+                                                type="text"
+                                                icon={<EditOutlined />}
+                                                onClick={() => handleEdit(brand)}
+                                                size="small"
+                                            />
+                                            <Popconfirm
+                                                title={t('brands.confirmDelete.title')}
+                                                description={t('brands.confirmDelete.description')}
+                                                okText={t('brands.confirmDelete.ok')}
+                                                cancelText={t('brands.confirmDelete.cancel')}
+                                                onConfirm={() => handleDelete(brand._id)}
                                             >
-                                                {t('brands.actions.delete')}
-                                            </Button>
-                                        </Popconfirm>,
-                                    ]}
-                                    style={{ padding: '16px 24px' }}
+                                                <Button
+                                                    type="text"
+                                                    danger
+                                                    icon={<DeleteOutlined />}
+                                                    loading={deletingId === brand._id}
+                                                    size="small"
+                                                />
+                                            </Popconfirm>
+                                        </Space>
+                                    }
+                                    style={{ height: 'fit-content' }}
+                                    hoverable
                                 >
-                                    <List.Item.Meta
-                                        title={brand.name}
-                                        description={brand.description || t('brands.list.noDescription')}
-                                    />
-                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                        {brand.tone && (
-                                            <Text type="secondary">
-                                                <strong>{t('brands.list.tone')}:</strong> {brand.tone}
+                                    <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                                        <div style={{ marginBottom: '8px' }}>
+                                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                {brand.description || t('brands.list.noDescription')}
                                             </Text>
+                                        </div>
+                                        {brand.tone && (
+                                            <div style={{ marginBottom: '6px' }}>
+                                                <Text strong style={{ fontSize: '11px', color: '#666' }}>
+                                                    {t('brands.list.tone')}:
+                                                </Text>
+                                                <div style={{ fontSize: '12px' }}>{brand.tone}</div>
+                                            </div>
                                         )}
                                         {brand.audience && (
-                                            <Text type="secondary">
-                                                <strong>{t('brands.list.audience')}:</strong> {brand.audience}
-                                            </Text>
+                                            <div style={{ marginBottom: '6px' }}>
+                                                <Text strong style={{ fontSize: '11px', color: '#666' }}>
+                                                    {t('brands.list.audience')}:
+                                                </Text>
+                                                <div style={{ fontSize: '12px' }}>{brand.audience}</div>
+                                            </div>
                                         )}
                                         {brand.differentiators && (
-                                            <Text type="secondary">
-                                                <strong>{t('brands.list.differentiators')}:</strong> {brand.differentiators}
-                                            </Text>
+                                            <div style={{ marginBottom: '6px' }}>
+                                                <Text strong style={{ fontSize: '11px', color: '#666' }}>
+                                                    {t('brands.list.differentiators')}:
+                                                </Text>
+                                                <div style={{ fontSize: '12px' }}>{brand.differentiators}</div>
+                                            </div>
                                         )}
                                         {brand.keywords && brand.keywords.length > 0 && (
-                                            <Space size={[4, 4]} wrap>
-                                                {brand.keywords.map((keyword) => (
-                                                    <Text key={keyword} code>
-                                                        {keyword}
-                                                    </Text>
-                                                ))}
-                                            </Space>
+                                            <div>
+                                                <Text strong style={{ fontSize: '11px', color: '#666' }}>
+                                                    Keywords:
+                                                </Text>
+                                                <div style={{ marginTop: '4px' }}>
+                                                    {brand.keywords.slice(0, 3).map((keyword) => (
+                                                        <Tag key={keyword} style={{ fontSize: '10px', marginBottom: '2px' }}>
+                                                            {keyword}
+                                                        </Tag>
+                                                    ))}
+                                                    {brand.keywords.length > 3 && (
+                                                        <Tag style={{ fontSize: '10px' }}>
+                                                            +{brand.keywords.length - 3}
+                                                        </Tag>
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
-                                    </Space>
-                                </List.Item>
-                            )}
-                        />
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
                     )}
                 </Card>
 
-                <Card
-                    title={editingBrand ? t('brands.form.editTitle', { name: editingBrand.name }) : t('brands.form.newTitle')}
-                    style={{ flex: '1 1 420px', maxWidth: 560 }}
-                >
+                {showForm && (
+                    <Card
+                        title={editingBrand ? t('brands.form.editTitle', { name: editingBrand.name }) : t('brands.form.newTitle')}
+                        extra={
+                            <Button 
+                                type="text" 
+                                onClick={resetForm}
+                                style={{ color: '#666' }}
+                            >
+                                ✕
+                            </Button>
+                        }
+                    >
                     <Form
                         form={form}
                         layout="vertical"
@@ -269,23 +303,43 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
                             name="name"
                             rules={[{ required: true, message: t('brands.validation.nameRequired') }]}
                         >
-                            <Input placeholder={t('brands.form.namePlaceholder') ?? ''} />
+                            <Input 
+                                placeholder={t('brands.form.namePlaceholder') ?? ''} 
+                                style={{ height: '40px' }}
+                            />
                         </Form.Item>
 
                         <Form.Item label={t('brands.form.description')} name="description">
-                            <TextArea rows={3} placeholder={t('brands.form.descriptionPlaceholder') ?? ''} allowClear />
+                            <TextArea 
+                                rows={2} 
+                                placeholder={t('brands.form.descriptionPlaceholder') ?? ''} 
+                                allowClear 
+                                style={{ resize: 'none' }}
+                            />
                         </Form.Item>
 
                         <Form.Item label={t('brands.form.tone')} name="tone">
-                            <TextArea rows={2} placeholder={t('brands.form.tonePlaceholder') ?? ''} allowClear />
+                            <Input 
+                                placeholder={t('brands.form.tonePlaceholder') ?? ''} 
+                                allowClear 
+                                style={{ height: '40px' }}
+                            />
                         </Form.Item>
 
                         <Form.Item label={t('brands.form.audience')} name="audience">
-                            <TextArea rows={2} placeholder={t('brands.form.audiencePlaceholder') ?? ''} allowClear />
+                            <Input 
+                                placeholder={t('brands.form.audiencePlaceholder') ?? ''} 
+                                allowClear 
+                                style={{ height: '40px' }}
+                            />
                         </Form.Item>
 
                         <Form.Item label={t('brands.form.differentiators')} name="differentiators">
-                            <TextArea rows={2} placeholder={t('brands.form.differentiatorsPlaceholder') ?? ''} allowClear />
+                            <Input 
+                                placeholder={t('brands.form.differentiatorsPlaceholder') ?? ''} 
+                                allowClear 
+                                style={{ height: '40px' }}
+                            />
                         </Form.Item>
 
                         <Form.Item label={t('brands.form.keywords')} name="keywords">
@@ -293,6 +347,7 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
                                 mode="tags"
                                 placeholder={t('brands.form.keywordsPlaceholder') ?? ''}
                                 open={false}
+                                style={{ minHeight: '40px' }}
                             />
                         </Form.Item>
 
@@ -306,6 +361,7 @@ const BrandManagementPage: React.FC<BrandManagementPageProps> = ({ userId }) => 
                         </Space>
                     </Form>
                 </Card>
+                )}
             </Space>
         </Space>
     );

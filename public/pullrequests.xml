@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Node.js Pull Requests</title>
+    <link>https://nodejs.github.io/nodejs-news-feeder/pullrequests.xml</link>
+    <atom:link href="https://nodejs.github.io/nodejs-news-feeder/pullrequests.xml" rel="self" type="application/rss+xml"/>
+    <description>Latest Node.js pull requests</description>
+    <language>en-us</language>
+    <lastBuildDate>Fri, 31 Oct 2025 18:11:53 GMT</lastBuildDate>
+    <image>
+      <title>Node.js Pull Requests</title>
+      <url>https://nodejs.org/static/images/logo-hexagon-card.png</url>
+      <link>https://github.com/nodejs/nodejs-news-feeder</link>
+    </image>
+    <item>
+      <title>Node.js Core: buffer: revert GetBackingStore optimization in API</title>
+      <description><![CDATA[<p>PR #44579 by kvakil. In an earlier PR, I replaced a lot of instances of `GetBackingStore()->Data()` with `Data()`. Apparently these two are not equivalent in the case of zero-length buffers: the former returns a "valid" address, while the latter returns `NULL`. At least one library in the ecosystem (see the referenced i... <a href="https://github.com/nodejs/node/pull/44579">View PR</a></p>]]></description>
+      <pubDate>Fri, 02 May 2025 00:01:48 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/44579</link>
+      <guid>https://github.com/nodejs/node/pull/44579</guid>
+    </item>
+    <item>
+      <title>Node.js Core: doc: add CC to glossary</title>
+      <description><![CDATA[<p>PR #59313 by btea. <!--
+Before submitting a pull request, please read:
+
+- the CONTRIBUTING guide at https://github.com/nodejs/node/blob/HEAD/CONTRIBUTING.md
+- the commit message formatting guidelines at
+  https://github.com/nodejs/node/blob/HEAD/doc/contributing/pull-requests.md#commit-message-guidelines
+
+For c... <a href="https://github.com/nodejs/node/pull/59313">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:14 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/59313</link>
+      <guid>https://github.com/nodejs/node/pull/59313</guid>
+    </item>
+    <item>
+      <title>Node.js Core: Update glossary.md</title>
+      <description><![CDATA[<p>PR #59277 by Mohataseem89. Documentation refactoring and Content enrichment
+
+<!--
+Before submitting a pull request, please read:
+
+- the CONTRIBUTING guide at https://github.com/nodejs/node/blob/HEAD/CONTRIBUTING.md
+- the commit message formatting guidelines at
+  https://github.com/nodejs/node/blob/HEAD/doc/contributing... <a href="https://github.com/nodejs/node/pull/59277">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:14 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/59277</link>
+      <guid>https://github.com/nodejs/node/pull/59277</guid>
+    </item>
+    <item>
+      <title>Node.js Core: perf: optimize process.nextTick with object pooling and batch processing</title>
+      <description><![CDATA[<p>PR #59306 by abdidvp. ## Summary
+
+Optimize the `process.nextTick()` hot path through object pooling, argument array pooling, buffer reuse, and batch processing. These changes reduce allocations, improve cache locality, and lower GC pressure, yielding **15–53% throughput gains** across realistic patterns while preservin... <a href="https://github.com/nodejs/node/pull/59306">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:14 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/59306</link>
+      <guid>https://github.com/nodejs/node/pull/59306</guid>
+    </item>
+    <item>
+      <title>Node.js Core: doc: fix added version for tls.DEFAULT_CIPHERS</title>
+      <description><![CDATA[<p>PR #59327 by mjkang4416. <!--
+Before submitting a pull request, please read:
+
+- the CONTRIBUTING guide at https://github.com/nodejs/node/blob/HEAD/CONTRIBUTING.md
+- the commit message formatting guidelines at
+  https://github.com/nodejs/node/blob/HEAD/doc/contributing/pull-requests.md#commit-message-guidelines
+
+For c... <a href="https://github.com/nodejs/node/pull/59327">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:14 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/59327</link>
+      <guid>https://github.com/nodejs/node/pull/59327</guid>
+    </item>
+    <item>
+      <title>Node.js Core: fix: eliminate for ... of syntax</title>
+      <description><![CDATA[<p>PR #59279 by himself65. ```
+  | Type                  | Node v24.4.1      | Release Build     | Change |
+  |-----------------------|-------------------|-------------------|--------|
+  | Raw (5 listeners)     | 166,550,996 ops/s | 168,262,835 ops/s | +1.0%  |
+  | Wrapped (5 listeners) | 83,660,424 ops/s  | 88,460,347 op... <a href="https://github.com/nodejs/node/pull/59279">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:14 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/59279</link>
+      <guid>https://github.com/nodejs/node/pull/59279</guid>
+    </item>
+    <item>
+      <title>Node.js Core:  doc: add more missing environment variables to manpage</title>
+      <description><![CDATA[<p>PR #58969 by HumaneLogic. fixes #58895
+
+expose-gc is not removed yet , it depends on outcome of #58909
+... <a href="https://github.com/nodejs/node/pull/58969">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:15 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/58969</link>
+      <guid>https://github.com/nodejs/node/pull/58969</guid>
+    </item>
+    <item>
+      <title>Node.js Core: docs: fix tty.ReadStream constructor placement</title>
+      <description><![CDATA[<p>PR #59016 by Jianru-Lin. The `new tty.ReadStream(fd[, options])` constructor documentation was incorrectly placed under the `tty.WriteStream` class heading.
+
+This commit moves the documentation for the `tty.ReadStream` constructor to its correct location under the `tty.ReadStream` class heading, improving the accuracy and... <a href="https://github.com/nodejs/node/pull/59016">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:15 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/59016</link>
+      <guid>https://github.com/nodejs/node/pull/59016</guid>
+    </item>
+    <item>
+      <title>Node.js Core: doc: inject sidebar active link scroll into view script</title>
+      <description><![CDATA[<p>PR #59007 by btea. When searching for the API in the Quick Flower Cutting module, each time you switch to a different module, the content in the sidebar scrolls to the top, and the currently active link is not immediately visible.
+
+<!--
+Before submitting a pull request, please read:
+
+- the CONTRIBUTING guide at h... <a href="https://github.com/nodejs/node/pull/59007">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:15 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/59007</link>
+      <guid>https://github.com/nodejs/node/pull/59007</guid>
+    </item>
+    <item>
+      <title>Node.js Core: feat: add support for 'electron' condition in conditional exports</title>
+      <description><![CDATA[<p>PR #59002 by Momena-akhtar. ### Description
+
+This PR adds support for resolving "electron" condition in both ESM and CommonJS module resolution, based on process.versions.electron. Useful for runtime-specific exports for Electron apps. 
+
+Resolves electron/electron#47670... <a href="https://github.com/nodejs/node/pull/59002">View PR</a></p>]]></description>
+      <pubDate>Mon, 04 Aug 2025 08:12:15 GMT</pubDate>
+      <link>https://github.com/nodejs/node/pull/59002</link>
+      <guid>https://github.com/nodejs/node/pull/59002</guid>
+    </item>
+    <item>
+      <title>Website Team: Add blog post publishing guidelines</title>
+      <description><![CDATA[<p>PR #7860 by mcollina. After discussing with @rginn, I'm adding the updated guidelines for publishing blog posts on the Node.js website. ... <a href="https://github.com/nodejs/nodejs.org/pull/7860">View PR</a></p>]]></description>
+      <pubDate>Sat, 30 Aug 2025 22:08:46 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/7860</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/7860</guid>
+    </item>
+    <item>
+      <title>Website Team: fix(translation): don't translate OpenJS Foundation</title>
+      <description><![CDATA[<p>PR #8129 by avivkeller. Fixes #8072... <a href="https://github.com/nodejs/nodejs.org/pull/8129">View PR</a></p>]]></description>
+      <pubDate>Sun, 19 Oct 2025 19:19:07 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8129</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8129</guid>
+    </item>
+    <item>
+      <title>Website Team: feat(ci): request reviews from API experts</title>
+      <description><![CDATA[<p>PR #8040 by avivkeller. <!--
+Please read the [Code of Conduct](https://github.com/nodejs/nodejs.org/blob/main/CODE_OF_CONDUCT.md) and the [Contributing Guidelines](https://github.com/nodejs/nodejs.org/blob/main/CONTRIBUTING.md) before opening a pull request.
+-->
+
+## Description
+
+This is a potential solution for the l... <a href="https://github.com/nodejs/nodejs.org/pull/8040">View PR</a></p>]]></description>
+      <pubDate>Mon, 20 Oct 2025 14:25:48 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8040</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8040</guid>
+    </item>
+    <item>
+      <title>Website Team: feat: sort release blog by semver order</title>
+      <description><![CDATA[<p>PR #8050 by himself65. <!--
+Please read the [Code of Conduct](https://github.com/nodejs/nodejs.org/blob/main/CODE_OF_CONDUCT.md) and the [Contributing Guidelines](https://github.com/nodejs/nodejs.org/blob/main/CONTRIBUTING.md) before opening a pull request.
+-->
+
+## Description
+
+See https://github.com/nodejs/nodejs.o... <a href="https://github.com/nodejs/nodejs.org/pull/8050">View PR</a></p>]]></description>
+      <pubDate>Wed, 22 Oct 2025 21:55:40 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8050</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8050</guid>
+    </item>
+    <item>
+      <title>Website Team: [WIP] chore(test): improve test coverage</title>
+      <description><![CDATA[<p>PR #8022 by ShubhamOulkar. closes #7657 
+
+
+### Check List
+
+<!--
+ATTENTION
+Please follow this check list to ensure that you've followed all items before opening this PR
+You can check the items by adding an `x` between the brackets, like this: `[x]`
+-->
+
+- [X] I have read the [Contributing Guidelines](https://github.... <a href="https://github.com/nodejs/nodejs.org/pull/8022">View PR</a></p>]]></description>
+      <pubDate>Wed, 22 Oct 2025 21:55:50 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8022</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8022</guid>
+    </item>
+    <item>
+      <title>Website Team: Clarify race condition in blocking vs non-blocking docs (fixes #8253)</title>
+      <description><![CDATA[<p>PR #8254 by Himanshu25Sahu. # Clarify Race Condition in Blocking vs Non-Blocking Docs
+
+This PR updates the **“Dangers of Mixing Blocking and Non-Blocking Code”** section with a revised example to reliably demonstrate the danger of mixing blocking and non-blocking calls.
+
+Tested on **Windows 10 Home 22H2** with **Node.js v2... <a href="https://github.com/nodejs/nodejs.org/pull/8254">View PR</a></p>]]></description>
+      <pubDate>Thu, 23 Oct 2025 13:41:38 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8254</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8254</guid>
+    </item>
+    <item>
+      <title>Website Team: chore: remove blog data from providers, cache snippets</title>
+      <description><![CDATA[<p>PR #8243 by avivkeller. This PR does two things (since they are both related to providers):
+
+1. It switches the `downloadSnippets` provider to `"use cache"`, this was a very simple change.
+2. It removes the `websiteFeeds` and `blogData` providers in favor of two additional `utils` (`feeds` and `blog`, respectively).
+	T... <a href="https://github.com/nodejs/nodejs.org/pull/8243">View PR</a></p>]]></description>
+      <pubDate>Thu, 23 Oct 2025 19:58:16 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8243</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8243</guid>
+    </item>
+    <item>
+      <title>Website Team: chore(gov): remove governance, rely on web-team instead</title>
+      <description><![CDATA[<p>PR #8261 by avivkeller. Fixes https://github.com/nodejs/web-team/issues/9.
+
+An alternative to this approach is a governance file that contains the link within it, rather than removing it entirely.... <a href="https://github.com/nodejs/nodejs.org/pull/8261">View PR</a></p>]]></description>
+      <pubDate>Tue, 28 Oct 2025 13:22:27 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8261</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8261</guid>
+    </item>
+    <item>
+      <title>Website Team: build(partners): treeshake partners</title>
+      <description><![CDATA[<p>PR #8265 by bjohansebas. <!--
+Please read the [Code of Conduct](https://github.com/nodejs/nodejs.org/blob/main/CODE_OF_CONDUCT.md) and the [Contributing Guidelines](https://github.com/nodejs/nodejs.org/blob/main/CONTRIBUTING.md) before opening a pull request.
+-->
+
+## Description
+This doesn’t reduce the build, at least ... <a href="https://github.com/nodejs/nodejs.org/pull/8265">View PR</a></p>]]></description>
+      <pubDate>Wed, 29 Oct 2025 12:51:52 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8265</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8265</guid>
+    </item>
+    <item>
+      <title>Website Team: meta: upgrade to next.js 16</title>
+      <description><![CDATA[<p>PR #8218 by ovflowd. This PR is a draft PR for upgrading to Next.js 16.
+
+- Development Server Works
+- Production Build fails
+```
+❯ pnpm build
+
+> @node-core/website@ prebuild /home/cwunder/GitHub/nodejs.org/apps/site
+> node --run build:blog-data
+
+
+> @node-core/website@ build /home/cwunder/GitHub/nodejs.org/app... <a href="https://github.com/nodejs/nodejs.org/pull/8218">View PR</a></p>]]></description>
+      <pubDate>Thu, 30 Oct 2025 12:43:51 GMT</pubDate>
+      <link>https://github.com/nodejs/nodejs.org/pull/8218</link>
+      <guid>https://github.com/nodejs/nodejs.org/pull/8218</guid>
+    </item>
+    <item>
+      <title>Security WG: CII-Best-Practices for Nodejs: Gold level</title>
+      <description><![CDATA[<p>PR #956 by UlisesGascon. **Initiative:** #953
+**Related:**  #955 and #1087 
+
+
+This pull request contains a dump of the current [questions and answers](https://bestpractices.coreinfrastructure.org/en/projects/29?criteria_level=2) for the Node.js project in OpenSSF Best Practices for **Gold Level**. The purpose is to revi... <a href="https://github.com/nodejs/security-wg/pull/956">View PR</a></p>]]></description>
+      <pubDate>Fri, 08 Aug 2025 11:25:19 GMT</pubDate>
+      <link>https://github.com/nodejs/security-wg/pull/956</link>
+      <guid>https://github.com/nodejs/security-wg/pull/956</guid>
+    </item>
+    <item>
+      <title>Security WG: feat: add csv with missing</title>
+      <description><![CDATA[<p>PR #1445 by marco-ippolito. Created a CSV with every CVE in our list, and the missing EOL lines
+@nodejs/security-wg ... <a href="https://github.com/nodejs/security-wg/pull/1445">View PR</a></p>]]></description>
+      <pubDate>Sat, 18 Oct 2025 00:18:55 GMT</pubDate>
+      <link>https://github.com/nodejs/security-wg/pull/1445</link>
+      <guid>https://github.com/nodejs/security-wg/pull/1445</guid>
+    </item>
+    <item>
+      <title>Security WG: Update CII-Best-Practices for Nodejs: Silver level</title>
+      <description><![CDATA[<p>PR #1306 by UlisesGascon. Ref: https://www.bestpractices.dev/en/projects/29?criteria_level=1
+... <a href="https://github.com/nodejs/security-wg/pull/1306">View PR</a></p>]]></description>
+      <pubDate>Tue, 21 Oct 2025 12:51:55 GMT</pubDate>
+      <link>https://github.com/nodejs/security-wg/pull/1306</link>
+      <guid>https://github.com/nodejs/security-wg/pull/1306</guid>
+    </item>
+    <item>
+      <title>Build Tools: doc: mark automate github-bot allow list done</title>
+      <description><![CDATA[<p>PR #4002 by richardlau. Refs: https://github.com/nodejs/build/pull/3803
+
+... <a href="https://github.com/nodejs/build/pull/4002">View PR</a></p>]]></description>
+      <pubDate>Thu, 16 Jan 2025 18:23:54 GMT</pubDate>
+      <link>https://github.com/nodejs/build/pull/4002</link>
+      <guid>https://github.com/nodejs/build/pull/4002</guid>
+    </item>
+    <item>
+      <title>Build Tools: jenkins: fix Windows Debug test</title>
+      <description><![CDATA[<p>PR #2879 by aduh95. To unblock https://github.com/nodejs/node/pull/42056.... <a href="https://github.com/nodejs/build/pull/2879">View PR</a></p>]]></description>
+      <pubDate>Fri, 28 Mar 2025 13:39:38 GMT</pubDate>
+      <link>https://github.com/nodejs/build/pull/2879</link>
+      <guid>https://github.com/nodejs/build/pull/2879</guid>
+    </item>
+    <item>
+      <title>Build Tools: Add `node-config-schema.json` to expected files in `v22.x`</title>
+      <description><![CDATA[<p>PR #4084 by aduh95. Similar to https://github.com/nodejs/build/pull/4040... <a href="https://github.com/nodejs/build/pull/4084">View PR</a></p>]]></description>
+      <pubDate>Tue, 15 Jul 2025 22:53:09 GMT</pubDate>
+      <link>https://github.com/nodejs/build/pull/4084</link>
+      <guid>https://github.com/nodejs/build/pull/4084</guid>
+    </item>
+    <item>
+      <title>Build Tools: build(deps): bump actions/setup-node from 5 to 6</title>
+      <description><![CDATA[<p>PR #4176 by dependabot[bot]. Bumps [actions/setup-node](https://github.com/actions/setup-node) from 5 to 6.
+<details>
+<summary>Release notes</summary>
+<p><em>Sourced from <a href="https://github.com/actions/setup-node/releases">actions/setup-node's releases</a>.</em></p>
+<blockquote>
+<h2>v6.0.0</h2>
+<h2>What's Changed</h2>
+<p><... <a href="https://github.com/nodejs/build/pull/4176">View PR</a></p>]]></description>
+      <pubDate>Tue, 14 Oct 2025 04:07:31 GMT</pubDate>
+      <link>https://github.com/nodejs/build/pull/4176</link>
+      <guid>https://github.com/nodejs/build/pull/4176</guid>
+    </item>
+    <item>
+      <title>Build Tools: ansible: stop promotion if missing assets</title>
+      <description><![CDATA[<p>PR #4174 by RafaelGSS. As discussed in the release channel, this should prevent people unfamiliar with this state from wrongly promoting a Node.js version.
+
+Refs: https://github.com/nodejs/node/issues/60176... <a href="https://github.com/nodejs/build/pull/4174">View PR</a></p>]]></description>
+      <pubDate>Thu, 16 Oct 2025 13:53:59 GMT</pubDate>
+      <link>https://github.com/nodejs/build/pull/4174</link>
+      <guid>https://github.com/nodejs/build/pull/4174</guid>
+    </item>
+    <item>
+      <title>Build Tools: Orka packer image updates</title>
+      <description><![CDATA[<p>PR #4163 by ryanaslett. This adds new packer procedure for creating and managing the osx images that removes most of the manual effort in maintaining and redeploying images, and reduces any repetition in provisioning between the various release/test/x64/arm64 matrix. 
+
+... <a href="https://github.com/nodejs/build/pull/4163">View PR</a></p>]]></description>
+      <pubDate>Thu, 23 Oct 2025 18:48:56 GMT</pubDate>
+      <link>https://github.com/nodejs/build/pull/4163</link>
+      <guid>https://github.com/nodejs/build/pull/4163</guid>
+    </item>
+    <item>
+      <title>Docker: feat: Add back BATS for testing images</title>
+      <description><![CDATA[<p>PR #1588 by MasonM. ## Description
+
+BATS was initially added to this repository in https://github.com/nodejs/docker-node/pull/802, but was then removed in https://github.com/nodejs/docker-node/pull/1339. This adds it back, and hooks it up to Github Actions.
+
+This also fixes #1583, which happened due to a bug in the... <a href="https://github.com/nodejs/docker-node/pull/1588">View PR</a></p>]]></description>
+      <pubDate>Mon, 09 Dec 2024 18:30:29 GMT</pubDate>
+      <link>https://github.com/nodejs/docker-node/pull/1588</link>
+      <guid>https://github.com/nodejs/docker-node/pull/1588</guid>
+    </item>
+    <item>
+      <title>Docker: Add Official Support for Windows Docker Images</title>
+      <description><![CDATA[<p>PR #2136 by zZHorizonZz. ## Description
+
+This PR introduces official support for building windows based docker images for node. At the moment, these images don't include Yarn, I noticed that other PR(s) are pushing to remove it from the Linux images as well, so I followed suit. Although maybe we could enable corepack by d... <a href="https://github.com/nodejs/docker-node/pull/2136">View PR</a></p>]]></description>
+      <pubDate>Sun, 05 Jan 2025 22:11:11 GMT</pubDate>
+      <link>https://github.com/nodejs/docker-node/pull/2136</link>
+      <guid>https://github.com/nodejs/docker-node/pull/2136</guid>
+    </item>
+    <item>
+      <title>Package Maintenance: feat: add proposal for binary management</title>
+      <description><![CDATA[<p>PR #594 by wesleytodd. Moved from #593. It should have been a PR but I just was doing that in the collab summit before the session and I didn't have the PMWG repo closed down at the time. Sorry about that.... <a href="https://github.com/nodejs/package-maintenance/pull/594">View PR</a></p>]]></description>
+      <pubDate>Tue, 20 May 2025 23:14:55 GMT</pubDate>
+      <link>https://github.com/nodejs/package-maintenance/pull/594</link>
+      <guid>https://github.com/nodejs/package-maintenance/pull/594</guid>
+    </item>
+    <item>
+      <title>Package Maintenance: Add Charter</title>
+      <description><![CDATA[<p>PR #592 by aduh95. Not sure if we actually need that, or if this is the right approach. The idea would be to delegate the discussions from TSC meetings to a different group. ... <a href="https://github.com/nodejs/package-maintenance/pull/592">View PR</a></p>]]></description>
+      <pubDate>Tue, 20 May 2025 23:15:24 GMT</pubDate>
+      <link>https://github.com/nodejs/package-maintenance/pull/592</link>
+      <guid>https://github.com/nodejs/package-maintenance/pull/592</guid>
+    </item>
+    <item>
+      <title>Package Maintenance: doc: update `node` namespace values</title>
+      <description><![CDATA[<p>PR #581 by bnb. This PR updates the `node` namespace values. It closes https://github.com/nodejs/package-maintenance/issues/517.... <a href="https://github.com/nodejs/package-maintenance/pull/581">View PR</a></p>]]></description>
+      <pubDate>Tue, 20 May 2025 23:15:37 GMT</pubDate>
+      <link>https://github.com/nodejs/package-maintenance/pull/581</link>
+      <guid>https://github.com/nodejs/package-maintenance/pull/581</guid>
+    </item>
+    <item>
+      <title>Package Maintenance: 2FA in CI</title>
+      <description><![CDATA[<p>PR #282 by dominykas. The primary intent of this PR is to kick off a discussion on the various options around _how_ 2FA could be used for publishing from CI, incl. by teams.
+
+I listed multiple options, I'd like to hear feedback about them (I might have missed some pros/cons) and it would be nice to hear some other idea... <a href="https://github.com/nodejs/package-maintenance/pull/282">View PR</a></p>]]></description>
+      <pubDate>Tue, 20 May 2025 23:15:50 GMT</pubDate>
+      <link>https://github.com/nodejs/package-maintenance/pull/282</link>
+      <guid>https://github.com/nodejs/package-maintenance/pull/282</guid>
+    </item>
+    <item>
+      <title>Package Maintenance: docs(governance.md): remove references of meetings</title>
+      <description><![CDATA[<p>PR #634 by bjohansebas. Following changes since there are no longer meetings, it now reflects the current state a bit more. Any suggestions are welcome.... <a href="https://github.com/nodejs/package-maintenance/pull/634">View PR</a></p>]]></description>
+      <pubDate>Sat, 25 Oct 2025 22:54:57 GMT</pubDate>
+      <link>https://github.com/nodejs/package-maintenance/pull/634</link>
+      <guid>https://github.com/nodejs/package-maintenance/pull/634</guid>
+    </item>
+
+    
+  </channel>
+</rss>

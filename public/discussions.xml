@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Node.js Discussions</title>
+    <link>https://nodejs.github.io/nodejs-news-feeder/discussions.xml</link>
+    <atom:link href="https://nodejs.github.io/nodejs-news-feeder/discussions.xml" rel="self" type="application/rss+xml"/>
+    <description>Node.js discussions</description>
+    <language>en-us</language>
+    <lastBuildDate>Fri, 31 Oct 2025 18:11:51 GMT</lastBuildDate>
+    <image>
+      <title>Node.js Discussions</title>
+      <url>https://nodejs.org/static/images/logo-hexagon-card.png</url>
+      <link>https://github.com/nodejs/nodejs-news-feeder</link>
+    </image>
+
+    
+  </channel>
+</rss>
