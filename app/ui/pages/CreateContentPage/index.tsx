@@ -12,7 +12,7 @@ import {
     GenerateSectionSearchResult,
     SearchNewsResult,
     GeneratedNewsletterPreview,
-    GenerateNewsletterSectionPreview,
+    GeneratedNewsletterSectionPreview,
     GenerateTwitterThreadResult,
     TwitterThread,
     GenerateLinkedInPostResult,
@@ -22,8 +22,9 @@ import { BrandSummary, BrandContextForAI } from '/app/api/brands/models';
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
-import ConfigurationPanel from '/app/ui/pages/CreateContentPage/components/ConfigurationPanel';
-import NewsletterWorkspace from '/app/ui/pages/CreateContentPage/components/NewsletterWorkspace';
+import ContentTypeSelector from './components/ContentTypeSelector';
+import ConfigurationPanel from './components/ConfigurationPanel';
+import NewsletterWorkspace from './components/NewsletterWorkspace';
 import type { SectionGenerationEntry } from './types';
 
 type CreateContentPageProps = BasicSiteProps;
@@ -73,6 +74,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [loading, setLoading] = useState(false);
     const [AILoading, setAILoading] = useState(false);
     const [processingNewsletter, setProcessingNewsletter] = useState(false);
+    const [contentType, setContentType] = useState<'newsletter' | 'social' | null>(null);
     const [isEdit, params] = useRoute(protectedRoutes.editContent.path);
     const editingId = isEdit ? (params as any)?.id as string : undefined;
     const [rssItems, setRssItems] = useState<RssItem[]>([]);
@@ -179,6 +181,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 setLoadedContentBrand(null);
                 const res = (await Meteor.callAsync('get.userProfiles.rssFavorites')) as { urls: string[] };
                 const urls = (res.urls || []).filter(Boolean);
+                console.log('Favorite URLs loaded:', urls);
                 setFavoriteUrls(urls);
                 requestedQueriesRef.current = new Set();
                 setSectionNewsResults({});
@@ -201,6 +204,13 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             tiktok: !!doc.networks?.tiktok,
                             linkedin: !!doc.networks?.linkedin,
                         });
+
+                        // Determine content type based on networks
+                        if (doc.networks?.newsletter) {
+                            setContentType('newsletter');
+                        } else if (doc.networks?.twitter || doc.networks?.linkedin || doc.networks?.instagram || doc.networks?.tiktok) {
+                            setContentType('social');
+                        }
                         setLoadedContentBrand(
                             doc.brandId
                                 ? {
@@ -464,6 +474,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         // Only fetch when at least one network is selected
         const v = form.getFieldsValue(['newsletter', 'instagram', 'twitter', 'tiktok', 'linkedin']);
         const anyNetwork = !!(v?.newsletter || v?.instagram || v?.twitter || v?.tiktok || v?.linkedin);
+        
+        console.log('handleFetchRss called:', { auto, networks: v, anyNetwork, favoriteUrls: favoriteUrls.length });
+        
         if (!anyNetwork) {
             if (!auto) message.info(t('createContent.selectNetworkPrompt'));
             setRssItems([]);
@@ -480,11 +493,14 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         }
         setLoading(true);
         try {
+            console.log('Fetching RSS from URLs:', merged);
             const res = (await Meteor.callAsync('get.contents.fetchRss', { urls: merged })) as { items: RssItem[] };
+            console.log('RSS fetched:', res.items?.length || 0, 'items');
             setRssItems(res.items || []);
             setSelectedItemLinks(new Set());
             if ((res.items || []).length === 0) message.info(t('createContent.listEmpty'));
         } catch (error) {
+            console.error('RSS fetch error:', error);
             errorResponse(error as Meteor.Error, t('createContent.loadError'));
         }
         setLoading(false);
@@ -493,6 +509,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     // Auto-carrega itens quando favoritos OU redes mudarem (inclusive quando setadas via setFieldsValue)
     useEffect(() => {
         const any = !!(watchNewsletter || watchInstagram || watchTwitter || watchTiktok || watchLinkedin);
+        console.log('useEffect triggered:', { any, favoriteUrls: favoriteUrls.length, watchNewsletter, watchTwitter, watchLinkedin });
         if (!any) return;
         if (favoriteUrls.length === 0) return;
         handleFetchRss(true);
@@ -535,7 +552,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         };
     };
 
-    const handleSave = async () => {
+    const handleSave = async (processNewsletter: boolean = false) => {
         let payload: CreateContentInput;
         try {
             payload = await buildContentPayload();
@@ -549,8 +566,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         const isNewsletterFlow = !!payload.networks.newsletter;
         let navigateDestination: string | null = null;
 
+        // For newsletter processing, we need sections with content and all sections generated
         let generatedSectionPayload: GeneratedNewsletterSectionPreview[] | undefined;
-        if (isNewsletterFlow) {
+        if (isNewsletterFlow && processNewsletter) {
             if (sectionsWithContent.length === 0) {
                 message.info(t('createContent.sectionGenerationStatusEmpty'));
                 return;
@@ -564,7 +582,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 .filter((section): section is GeneratedNewsletterSectionPreview => !!section);
         }
 
-        if (isNewsletterFlow) {
+        if (isNewsletterFlow && processNewsletter) {
             setProcessingNewsletter(true);
             setNewsletterPreview(null);
         } else {
@@ -581,7 +599,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 savedId = saveResult?._id;
             }
 
-            if (isNewsletterFlow) {
+            if (isNewsletterFlow && processNewsletter) {
+                // Only process newsletter when explicitly requested
                 if (!savedId) {
                     message.error(t('createContent.saveError'));
                 } else {
@@ -602,13 +621,16 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     }
                 }
             } else {
+                // Simple save without newsletter processing
                 message.success(t('createContent.saved'));
-                navigateDestination = publicRoutes.home.path;
+                if (!editingId) {
+                    navigateDestination = publicRoutes.home.path;
+                }
             }
         } catch (error) {
             errorResponse(error as Meteor.Error, t('createContent.saveError'));
         } finally {
-            if (isNewsletterFlow) {
+            if (isNewsletterFlow && processNewsletter) {
                 setProcessingNewsletter(false);
             } else {
                 setLoading(false);
@@ -910,6 +932,53 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         setGeneratedLinkedInPost(null);
     };
 
+    const handleSelectContentType = (type: 'newsletter' | 'social') => {
+        setContentType(type);
+        
+        // Set appropriate form values based on type
+        if (type === 'newsletter') {
+            form.setFieldsValue({
+                newsletter: true,
+                twitter: false,
+                linkedin: false,
+                instagram: false,
+                tiktok: false,
+            });
+            
+            // Initialize newsletter sections if not exists
+            if (!sections.length) {
+                const firstSection = {
+                    id: Math.random().toString(36).slice(2, 9),
+                    title: '',
+                    description: '',
+                    rssItems: [],
+                    newsArticles: [],
+                };
+                setSections([firstSection]);
+                setActiveSectionIndex(0);
+            }
+            
+            // Automatically fetch RSS for newsletter (wait for favoriteUrls to be loaded)
+            if (favoriteUrls.length > 0) {
+                setTimeout(() => handleFetchRss(true), 100);
+            }
+        } else if (type === 'social') {
+            form.setFieldsValue({
+                newsletter: false,
+                // Don't set social networks yet, let user choose
+            });
+        }
+    };
+
+    const handleBackToSelection = () => {
+        setContentType(null);
+        form.resetFields(['newsletter', 'twitter', 'linkedin', 'instagram', 'tiktok']);
+        setRssItems([]);
+        setSelectedItemLinks(new Set());
+        setActiveSectionIndex(-1);
+        setNewsletterPreview(null);
+    };
+
     
 
     if (!userId) {
@@ -921,7 +990,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     return (
         <>
             <style>{collapseStyles}</style>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             <div style={{ textAlign: 'center' }}>
                 <Typography.Title level={3}>
                     {t('createContent.title')}
@@ -930,17 +999,41 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     {t('createContent.subtitle')}
                 </Typography.Text>
             </div>
-            {/* Layout em uma única coluna */}
+
+            {/* Content Type Selection */}
+            {!contentType && (
+                <ContentTypeSelector
+                    onSelectType={handleSelectContentType}
+                />
+            )}
+
+            {/* Content Creation Form */}
+            {contentType && (
+                <>
+                    <div style={{ marginBottom: '16px' }}>
+                        <Button 
+                            onClick={handleBackToSelection} 
+                            style={{ marginBottom: '16px' }}
+                        >
+                            ← Voltar para seleção
+                        </Button>
+                        <Typography.Text strong style={{ marginLeft: '16px' }}>
+                            Modo: {contentType === 'newsletter' ? 'Newsletter' : 'Redes Sociais'}
+                        </Typography.Text>
+                    </div>
+
+                    {/* Layout em uma única coluna */}
             <div 
                 style={{ 
-                    display: 'grid',
-                    gridTemplateColumns: '1fr',
-                    gap: '20px',
-                    alignItems: 'start',
-                    minHeight: '600px'
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px',
+                    alignItems: 'stretch',
+                    width: '100%'
                 }}
             >
                 <ConfigurationPanel
+                    contentType={contentType}
                     form={form}
                     t={t}
                     brandOptions={brandOptions}
@@ -948,14 +1041,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     brandsLoading={brandsLoading}
                     selectedBrandSummary={selectedBrandSummary}
                     isBrandMissing={isBrandMissing}
-                    sections={sections}
-                    setSections={setSections}
-                    setActiveSectionIndex={setActiveSectionIndex}
                     handleFetchRss={handleFetchRss}
-                    setRssItems={setRssItems}
                     rssItems={rssItems}
-                    setSelectedItemLinks={setSelectedItemLinks}
-                    setNewsletterPreview={setNewsletterPreview}
                     navigate={navigate}
                     selectedTwitterArticle={selectedTwitterArticle}
                     setSelectedTwitterArticle={setSelectedTwitterArticle}
@@ -974,35 +1061,34 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     handleCopyLinkedInPost={handleCopyLinkedInPost}
                     handleResetLinkedInPost={handleResetLinkedInPost}
                 />
-                <NewsletterWorkspace
-                    form={form}
-                    t={t}
-                    sections={sections}
-                    setSections={setSections}
-                    activeSectionIndex={activeSectionIndex}
-                    setActiveSectionIndex={setActiveSectionIndex}
-                    sectionGenerations={sectionGenerations}
-                    sectionGenerationLoading={sectionGenerationLoading}
-                    sectionNewsResults={sectionNewsResults}
-                    sectionNewsLoading={sectionNewsLoading}
-                    sectionQueryLoading={sectionQueryLoading}
-                    handleRefreshSectionQueries={handleRefreshSectionQueries}
-                    handleFetchNewsForSection={handleFetchNewsForSection}
-                    handleGenerateSectionContent={handleGenerateSectionContent}
-                    currentSection={currentSection}
-                    currentSectionId={currentSectionId}
-                    currentSectionQueries={currentSectionQueries}
-                    currentSectionNewsResults={currentSectionNewsResults}
-                    currentSectionQueriesLoading={currentSectionQueriesLoading}
-                    currentSectionNewsLoading={currentSectionNewsLoading}
-                    currentSectionGeneration={currentSectionGeneration}
-                    currentSectionGenerationLoading={currentSectionGenerationLoading}
-                    favoriteUrls={favoriteUrls}
-                    rssItems={rssItems}
-                    newsletterPreview={newsletterPreview}
-                    handleCopyPreviewMarkdown={handleCopyPreviewMarkdown}
-                    setNewsletterPreview={setNewsletterPreview}
-                />
+                
+                {contentType === 'newsletter' && (
+                    <NewsletterWorkspace
+                        form={form}
+                        t={t}
+                        sections={sections}
+                        setSections={setSections}
+                        activeSectionIndex={activeSectionIndex}
+                        setActiveSectionIndex={setActiveSectionIndex}
+                        sectionGenerations={sectionGenerations}
+                        handleRefreshSectionQueries={handleRefreshSectionQueries}
+                        handleFetchNewsForSection={handleFetchNewsForSection}
+                        handleGenerateSectionContent={handleGenerateSectionContent}
+                        currentSection={currentSection}
+                        currentSectionId={currentSectionId}
+                        currentSectionQueries={currentSectionQueries}
+                        currentSectionNewsResults={currentSectionNewsResults}
+                        currentSectionQueriesLoading={currentSectionQueriesLoading}
+                        currentSectionNewsLoading={currentSectionNewsLoading}
+                        currentSectionGeneration={currentSectionGeneration}
+                        currentSectionGenerationLoading={currentSectionGenerationLoading}
+                        favoriteUrls={favoriteUrls}
+                        rssItems={rssItems}
+                        newsletterPreview={newsletterPreview}
+                        handleCopyPreviewMarkdown={handleCopyPreviewMarkdown}
+                        setNewsletterPreview={setNewsletterPreview}
+                    />
+                )}
             </div>
 
             {/* Action Buttons */}
@@ -1018,24 +1104,29 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         >
                             {t('createContent.generateAISuggestion')}
                         </Button>
-                        {watchNewsletter && (
+                        {contentType && (
+                            <Button 
+                                type="primary" 
+                                icon={<SendOutlined />} 
+                                onClick={() => handleSave(false)} 
+                                loading={loading}
+                            >
+                                {t('createContent.save')}
+                            </Button>
+                        )}
+                        {contentType === 'newsletter' && watchNewsletter && (
                             <Button
-                                type="primary"
+                                type="default"
                                 icon={<FileTextOutlined />}
-                                onClick={handleSave}
+                                onClick={() => handleSave(true)}
                                 loading={processingNewsletter || loading}
                                 disabled={sectionsWithContent.length === 0 || !allSectionsGenerated}
                             >
                                 {t('createContent.generateAndSaveNewsletter')}
                             </Button>
                         )}
-                        {!watchNewsletter && (
-                            <Button type="primary" icon={<SendOutlined />} onClick={handleSave} loading={loading}>
-                                {t('createContent.save')}
-                            </Button>
-                        )}
                     </Space>
-                    {watchNewsletter && (
+                    {contentType === 'newsletter' && watchNewsletter && (
                         <Typography.Text type={allSectionsGenerated ? 'success' : 'secondary'}>
                             {sectionsWithContent.length > 0
                                 ? t('createContent.sectionGenerationStatus', {
@@ -1047,6 +1138,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     )}
                 </Space>
             </div>
+                </>
+            )}
         </Space>
         </>
     );

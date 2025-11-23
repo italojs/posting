@@ -9,7 +9,6 @@ import {
     Button,
     Card,
     Checkbox,
-    Collapse,
     Form,
     Input,
     List,
@@ -37,10 +36,6 @@ interface NewsletterSectionsCardProps {
     activeSectionIndex: number;
     setActiveSectionIndex: Dispatch<SetStateAction<number>>;
     sectionGenerations: Record<string, SectionGenerationEntry>;
-    sectionGenerationLoading: Record<string, boolean>;
-    sectionNewsResults: Record<string, SearchNewsResult[]>;
-    sectionNewsLoading: Record<string, boolean>;
-    sectionQueryLoading: Record<string, boolean>;
     handleRefreshSectionQueries: (section: NewsletterSection) => Promise<void>;
     handleFetchNewsForSection: (section: NewsletterSection) => Promise<void>;
     handleGenerateSectionContent: (section: NewsletterSection) => Promise<void>;
@@ -64,10 +59,6 @@ const NewsletterSectionsCard: React.FC<NewsletterSectionsCardProps> = ({
     activeSectionIndex,
     setActiveSectionIndex,
     sectionGenerations,
-    sectionGenerationLoading,
-    sectionNewsResults,
-    sectionNewsLoading,
-    sectionQueryLoading,
     handleRefreshSectionQueries,
     handleFetchNewsForSection,
     handleGenerateSectionContent,
@@ -116,6 +107,12 @@ const NewsletterSectionsCard: React.FC<NewsletterSectionsCardProps> = ({
                         styles={{
                             header: { borderBottom: 'none' },
                             body: { paddingTop: 0 },
+                        }}
+                        style={{
+                            width: '100%',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            marginBottom: 0
                         }}
                     >
                         <div style={{ padding: '8px 0' }}>
@@ -415,7 +412,6 @@ const NewsletterSectionsCard: React.FC<NewsletterSectionsCardProps> = ({
                                                                 split={false}
                                                                 style={{ marginTop: 8 }}
                                                                 renderItem={(article) => {
-                                                                    const linkKey = article.link || article.title || '';
                                                                     const isSelected = !!currentSection?.newsArticles?.some(
                                                                         (item) =>
                                                                             item.link === article.link ||

@@ -1,13 +1,8 @@
 import { AppstoreAddOutlined } from '@ant-design/icons';
-import { Card, Checkbox, Form, Input, Select, Space, Typography, Button } from 'antd';
+import { Card, Form, Input, Select, Space, Typography, Button } from 'antd';
 import type { FormInstance } from 'antd/es/form/Form';
 import type { TFunction } from 'i18next';
-import React, { type Dispatch, type SetStateAction } from 'react';
-import type {
-    GeneratedNewsletterPreview,
-    NewsletterSection,
-    RssItem,
-} from '/app/api/contents/models';
+import React from 'react';
 import type { BrandSummary } from '/app/api/brands/models';
 import { protectedRoutes } from '/app/utils/constants/routes';
 
@@ -19,14 +14,9 @@ interface BasicConfigurationCardProps {
     brandsLoading: boolean;
     selectedBrandSummary?: BrandSummary;
     isBrandMissing: boolean;
-    sections: NewsletterSection[];
-    setSections: Dispatch<SetStateAction<NewsletterSection[]>>;
-    setActiveSectionIndex: Dispatch<SetStateAction<number>>;
-    handleFetchRss: (auto?: boolean) => Promise<void>;
-    setRssItems: Dispatch<SetStateAction<RssItem[]>>;
-    setSelectedItemLinks: Dispatch<SetStateAction<Set<string>>>;
-    setNewsletterPreview: Dispatch<SetStateAction<GeneratedNewsletterPreview | null>>;
     navigate: (path: string) => void;
+    onValuesChange?: (changedValues: any, allValues: any) => void;
+    initialValues?: any;
 }
 
 const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
@@ -37,16 +27,36 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
     brandsLoading,
     selectedBrandSummary,
     isBrandMissing,
-    sections,
-    setSections,
-    setActiveSectionIndex,
-    handleFetchRss,
-    setRssItems,
-    setSelectedItemLinks,
-    setNewsletterPreview,
     navigate,
-}) => (
-    <Card
+    onValuesChange,
+    initialValues,
+}) => {
+    return (
+    <>
+        <style>
+            {`
+                .basic-config-card .ant-form-item {
+                    margin-bottom: 40px;
+                }
+                .basic-config-card .ant-form-item-label {
+                    padding-bottom: 0 !important;
+                    margin-bottom: 10px !important;
+                    line-height: 1.4 !important;
+                }
+                .basic-config-card .ant-form-item-label > label {
+                    margin-bottom: 0 !important;
+                    height: auto !important;
+                    line-height: 1.4 !important;
+                }
+                .basic-config-card .ant-form-item-control {
+                    margin-top: 0 !important;
+                }
+                .basic-config-card .ant-form-item-control-input {
+                    min-height: auto !important;
+                }
+            `}
+        </style>
+        <Card
         title={
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div
@@ -74,62 +84,26 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
             header: { borderBottom: 'none' },
             body: { paddingTop: 0 },
         }}
+        style={{
+            width: '100%',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            marginBottom: 0
+        }}
+        className="basic-config-card"
     >
         <Form
             form={form}
             layout="vertical"
-            initialValues={{
+            initialValues={initialValues || {
                 brandId: undefined,
-                newsletter: false,
-                instagram: false,
-                twitter: false,
-                tiktok: false,
-                linkedin: false,
             }}
-            style={{ padding: '8px 0' }}
-            onValuesChange={(_, all) => {
-                const any = !!(
-                    all?.newsletter ||
-                    all?.instagram ||
-                    all?.twitter ||
-                    all?.tiktok ||
-                    all?.linkedin
-                );
-                if (all?.newsletter) {
-                    if (all?.instagram || all?.twitter || all?.tiktok || all?.linkedin) {
-                        form.setFieldsValue({
-                            instagram: false,
-                            twitter: false,
-                            tiktok: false,
-                            linkedin: false,
-                        });
-                    }
-                    if (!sections.length) {
-                        const first = {
-                            id: Math.random().toString(36).slice(2, 9),
-                            title: '',
-                            description: '',
-                            rssItems: [],
-                            newsArticles: [],
-                        };
-                        setSections([first]);
-                        setActiveSectionIndex(0);
-                    }
-                }
-                if (
-                    !all?.newsletter &&
-                    !(all?.instagram || all?.twitter || all?.tiktok || all?.linkedin)
-                ) {
-                    setActiveSectionIndex(-1);
-                    setNewsletterPreview(null);
-                }
-                if (any) {
-                    handleFetchRss(true);
-                } else {
-                    setRssItems([]);
-                    setSelectedItemLinks(new Set());
-                }
+            style={{ 
+                padding: '16px 0',
+                width: '100%',
+                maxWidth: '100%'
             }}
+            onValuesChange={onValuesChange}
         >
             <Form.Item
                 name="brandId"
@@ -154,6 +128,7 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
                         </Button>
                     </div>
                 }
+                style={{ marginBottom: '24px' }}
             >
                 <Select
                     allowClear
@@ -162,6 +137,7 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
                     loading={brandsLoading}
                     options={brandOptions}
                     optionFilterProp="label"
+                    style={{ width: '100%' }}
                 />
             </Form.Item>
 
@@ -236,11 +212,13 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
                     </span>
                 }
                 rules={[{ required: true }]}
+                style={{ marginBottom: '45px' }}
             >
                 <Input
                     placeholder="Newsletter"
                     allowClear
                     style={{
+                        width: '100%',
                         borderRadius: '8px',
                         padding: '8px 12px',
                         fontSize: '14px',
@@ -248,45 +226,59 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
                 />
             </Form.Item>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <Form.Item
-                    name="audience"
-                    label={
-                        <span style={{ fontWeight: '600', fontSize: '14px' }}>
-                            {t('createContent.audienceLabel')}
-                        </span>
-                    }
-                >
-                    <Input
-                        placeholder={t('createContent.audiencePlaceholder') as string}
-                        allowClear
-                        style={{
-                            borderRadius: '8px',
-                            padding: '8px 12px',
-                            fontSize: '14px',
-                        }}
-                    />
-                </Form.Item>
+            <div style={{ 
+                display: 'flex', 
+                gap: '20px', 
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                marginBottom: '45px'
+            }}>
+                <div style={{ flex: '1', minWidth: '250px' }}>
+                    <Form.Item
+                        name="audience"
+                        label={
+                            <span style={{ fontWeight: '600', fontSize: '14px' }}>
+                                {t('createContent.audienceLabel')}
+                            </span>
+                        }
+                        style={{ marginBottom: '0' }}
+                    >
+                        <Input
+                            placeholder={t('createContent.audiencePlaceholder') as string}
+                            allowClear
+                            style={{
+                                width: '100%',
+                                borderRadius: '8px',
+                                padding: '8px 12px',
+                                fontSize: '14px',
+                            }}
+                        />
+                    </Form.Item>
+                </div>
 
-                <Form.Item
-                    name="goal"
-                    label={
-                        <span style={{ fontWeight: '600', fontSize: '14px' }}>
-                            {t('createContent.goalLabel')}
-                        </span>
-                    }
-                >
-                    <Input.TextArea
-                        rows={3}
-                        placeholder={t('createContent.goalPlaceholder') as string}
-                        style={{
-                            borderRadius: '8px',
-                            padding: '8px 12px',
-                            fontSize: '14px',
-                            resize: 'none',
-                        }}
-                    />
-                </Form.Item>
+                <div style={{ flex: '1', minWidth: '250px' }}>
+                    <Form.Item
+                        name="goal"
+                        label={
+                            <span style={{ fontWeight: '600', fontSize: '14px' }}>
+                                {t('createContent.goalLabel')}
+                            </span>
+                        }
+                        style={{ marginBottom: '0' }}
+                    >
+                        <Input.TextArea
+                            rows={3}
+                            placeholder={t('createContent.goalPlaceholder') as string}
+                            style={{
+                                width: '100%',
+                                borderRadius: '8px',
+                                padding: '8px 12px',
+                                fontSize: '14px',
+                                resize: 'none',
+                            }}
+                        />
+                    </Form.Item>
+                </div>
             </div>
 
             <div>
@@ -296,76 +288,19 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
                         fontSize: '14px',
                         fontWeight: '600',
                         display: 'block',
+                        marginBottom: '8px'
                     }}
                 >
-                    {t('createContent.networksTitle')}
+                    Configurações Básicas
                 </Typography.Text>
-                <Form.Item shouldUpdate noStyle>
-                    {({ getFieldValue }) => {
-                        const isNewsletter = !!getFieldValue('newsletter');
-                        return (
-                            <Space size={[4, 4]}>
-                                <Form.Item name="newsletter" valuePropName="checked" noStyle>
-                                    <Checkbox
-                                        style={{
-                                            fontSize: '13px',
-                                            padding: '4px 8px',
-                                        }}
-                                    >
-                                        {t('createContent.newsletter')}
-                                    </Checkbox>
-                                </Form.Item>
-                                <Form.Item name="instagram" valuePropName="checked" noStyle>
-                                    <Checkbox
-                                        disabled={isNewsletter}
-                                        style={{
-                                            fontSize: '13px',
-                                            padding: '4px 2px',
-                                        }}
-                                    >
-                                        {t('createContent.instagram')}
-                                    </Checkbox>
-                                </Form.Item>
-                                <Form.Item name="twitter" valuePropName="checked" noStyle>
-                                    <Checkbox
-                                        disabled={isNewsletter}
-                                        style={{
-                                            fontSize: '13px',
-                                            padding: '4px 2px',
-                                        }}
-                                    >
-                                        {t('createContent.twitter')}
-                                    </Checkbox>
-                                </Form.Item>
-                                <Form.Item name="tiktok" valuePropName="checked" noStyle>
-                                    <Checkbox
-                                        disabled={isNewsletter}
-                                        style={{
-                                            fontSize: '13px',
-                                            padding: '4px 2px',
-                                        }}
-                                    >
-                                        {t('createContent.tiktok')}
-                                    </Checkbox>
-                                </Form.Item>
-                                <Form.Item name="linkedin" valuePropName="checked" noStyle>
-                                    <Checkbox
-                                        disabled={isNewsletter}
-                                        style={{
-                                            fontSize: '13px',
-                                            padding: '4px 2px',
-                                        }}
-                                    >
-                                        {t('createContent.linkedin')}
-                                    </Checkbox>
-                                </Form.Item>
-                            </Space>
-                        );
-                    }}
-                </Form.Item>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Configure as informações básicas do seu conteúdo
+                </Typography.Text>
             </div>
         </Form>
     </Card>
-);
+    </>
+    );
+};
 
 export default BasicConfigurationCard;
