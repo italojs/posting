@@ -1,19 +1,20 @@
+import { Form } from 'antd';
 import type { FormInstance } from 'antd/es/form/Form';
 import type { TFunction } from 'i18next';
 import React, { type Dispatch, type SetStateAction } from 'react';
 import type {
-    GeneratedNewsletterPreview,
     LinkedInPost,
-    NewsletterSection,
     RssItem,
     TwitterThread,
 } from '/app/api/contents/models';
 import type { BrandSummary } from '/app/api/brands/models';
 import BasicConfigurationCard from './configuration/BasicConfigurationCard';
+import SocialNetworkSelector from './configuration/SocialNetworkSelector';
 import TwitterThreadCard from './configuration/TwitterThreadCard';
 import LinkedInPostCard from './configuration/LinkedInPostCard';
 
 interface ConfigurationPanelProps {
+    contentType: 'newsletter' | 'social';
     form: FormInstance;
     t: TFunction<'common'>;
     brandOptions: { value: string; label: string }[];
@@ -21,13 +22,7 @@ interface ConfigurationPanelProps {
     brandsLoading: boolean;
     selectedBrandSummary?: BrandSummary;
     isBrandMissing: boolean;
-    sections: NewsletterSection[];
-    setSections: Dispatch<SetStateAction<NewsletterSection[]>>;
-    setActiveSectionIndex: Dispatch<SetStateAction<number>>;
     handleFetchRss: (auto?: boolean) => Promise<void>;
-    setRssItems: Dispatch<SetStateAction<RssItem[]>>;
-    setSelectedItemLinks: Dispatch<SetStateAction<Set<string>>>;
-    setNewsletterPreview: Dispatch<SetStateAction<GeneratedNewsletterPreview | null>>;
     navigate: (path: string) => void;
     rssItems: RssItem[];
     selectedTwitterArticle: RssItem | null;
@@ -49,6 +44,7 @@ interface ConfigurationPanelProps {
 }
 
 const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
+    contentType,
     form,
     t,
     brandOptions,
@@ -56,13 +52,7 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     brandsLoading,
     selectedBrandSummary,
     isBrandMissing,
-    sections,
-    setSections,
-    setActiveSectionIndex,
     handleFetchRss,
-    setRssItems,
-    setSelectedItemLinks,
-    setNewsletterPreview,
     navigate,
     rssItems,
     selectedTwitterArticle,
@@ -82,53 +72,57 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     handleCopyLinkedInPost,
     handleResetLinkedInPost,
 }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '600px' }}>
-        <BasicConfigurationCard
-            form={form}
-            t={t}
-            brandOptions={brandOptions}
-            brands={brands}
-            brandsLoading={brandsLoading}
-            selectedBrandSummary={selectedBrandSummary}
-            isBrandMissing={isBrandMissing}
-            sections={sections}
-            setSections={setSections}
-            setActiveSectionIndex={setActiveSectionIndex}
-            handleFetchRss={handleFetchRss}
-            setRssItems={setRssItems}
-            setSelectedItemLinks={setSelectedItemLinks}
-            setNewsletterPreview={setNewsletterPreview}
-            navigate={navigate}
-        />
+    <Form form={form}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+            <BasicConfigurationCard
+                form={form}
+                t={t}
+                brandOptions={brandOptions}
+                brands={brands}
+                brandsLoading={brandsLoading}
+                selectedBrandSummary={selectedBrandSummary}
+                isBrandMissing={isBrandMissing}
+                navigate={navigate}
+            />
 
-        <TwitterThreadCard
-            form={form}
-            t={t}
-            rssItems={rssItems}
-            selectedTwitterArticle={selectedTwitterArticle}
-            setSelectedTwitterArticle={setSelectedTwitterArticle}
-            generatingThread={generatingThread}
-            generatedThread={generatedThread}
-            setGeneratedThread={setGeneratedThread}
-            handleGenerateTwitterThread={handleGenerateTwitterThread}
-            handleCopyIndividualTweet={handleCopyIndividualTweet}
-            handleResetTwitterThread={handleResetTwitterThread}
-        />
+            {contentType === 'social' && (
+                <>
+                    <SocialNetworkSelector
+                        t={t}
+                        handleFetchRss={handleFetchRss}
+                    />
 
-        <LinkedInPostCard
-            form={form}
-            t={t}
-            rssItems={rssItems}
-            selectedLinkedInArticle={selectedLinkedInArticle}
-            setSelectedLinkedInArticle={setSelectedLinkedInArticle}
-            generatingLinkedInPost={generatingLinkedInPost}
-            generatedLinkedInPost={generatedLinkedInPost}
-            setGeneratedLinkedInPost={setGeneratedLinkedInPost}
-            handleGenerateLinkedInPost={handleGenerateLinkedInPost}
-            handleCopyLinkedInPost={handleCopyLinkedInPost}
-            handleResetLinkedInPost={handleResetLinkedInPost}
-        />
-    </div>
+                    <TwitterThreadCard
+                        form={form}
+                        t={t}
+                        rssItems={rssItems}
+                        selectedTwitterArticle={selectedTwitterArticle}
+                        setSelectedTwitterArticle={setSelectedTwitterArticle}
+                        generatingThread={generatingThread}
+                        generatedThread={generatedThread}
+                        setGeneratedThread={setGeneratedThread}
+                        handleGenerateTwitterThread={handleGenerateTwitterThread}
+                        handleCopyIndividualTweet={handleCopyIndividualTweet}
+                        handleResetTwitterThread={handleResetTwitterThread}
+                    />
+
+                    <LinkedInPostCard
+                        form={form}
+                        t={t}
+                        rssItems={rssItems}
+                        selectedLinkedInArticle={selectedLinkedInArticle}
+                        setSelectedLinkedInArticle={setSelectedLinkedInArticle}
+                        generatingLinkedInPost={generatingLinkedInPost}
+                        generatedLinkedInPost={generatedLinkedInPost}
+                        setGeneratedLinkedInPost={setGeneratedLinkedInPost}
+                        handleGenerateLinkedInPost={handleGenerateLinkedInPost}
+                        handleCopyLinkedInPost={handleCopyLinkedInPost}
+                        handleResetLinkedInPost={handleResetLinkedInPost}
+                    />
+                </>
+            )}
+        </div>
+    </Form>
 );
 
 export default ConfigurationPanel;

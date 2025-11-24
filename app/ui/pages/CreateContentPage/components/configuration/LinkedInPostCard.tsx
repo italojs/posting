@@ -69,6 +69,12 @@ const LinkedInPostCard: React.FC<LinkedInPostCardProps> = ({
                             header: { borderBottom: 'none' },
                             body: { paddingTop: 0 },
                         }}
+                        style={{
+                            width: '100%',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            marginBottom: 0
+                        }}
                     >
                         <div style={{ padding: '8px 0' }}>
                             <Typography.Text

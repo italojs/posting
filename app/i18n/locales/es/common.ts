@@ -116,6 +116,7 @@ const common = {
     // Twitter Thread
     twitterThreadTitle: "Generar Thread de Twitter",
     twitterThreadHelp: "Selecciona un artículo RSS para generar un thread de Twitter con 3-5 tweets",
+    generateTwitterThread: "Generar Thread de Twitter",
     generateThread: "Generar Thread",
     threadGenerated: "¡Thread de Twitter generado con éxito!",
     threadGenerationError: "Error al generar thread de Twitter",
@@ -126,6 +127,9 @@ const common = {
     tweetCopied: "¡Tweet {{number}} copiado!",
     clipboardNotSupported: "Portapapeles no soportado en este navegador",
     characterCount: "{{count}}/280 caracteres",
+    resetThread: "Reiniciar Thread",
+    copyTweet: "Copiar Tweet",
+    threadSummaryTitle: "Resumen del Thread",
 
     // LinkedIn Post
     linkedinPostTitle: "Generar Post de LinkedIn",

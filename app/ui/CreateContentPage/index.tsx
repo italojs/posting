@@ -15,7 +15,10 @@ import { Alert, Button, Card, Checkbox, Form, Input, List, Space, Typography, me
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation, useRoute } from 'wouter';
-import { BasicSiteProps } from '../App';
+
+type BasicSiteProps = {
+    userId?: string;
+};
 import {
     RssItem,
     NewsletterSection,
@@ -29,7 +32,7 @@ import {
     TwitterThread,
 } from '/app/api/contents/models';
 import { BrandSummary, BrandContextForAI } from '/app/api/brands/models';
-import { BillingPlanId, SubscriptionOverview } from '/app/api/billing/models';
+
 import { publicRoutes, protectedRoutes } from '/app/utils/constants/routes';
 import { errorResponse } from '/app/utils/errors';
 import { useTranslation } from 'react-i18next';
@@ -49,7 +52,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [loading, setLoading] = useState(false);
     const [AILoading, setAILoading] = useState(false);
     const [processingNewsletter, setProcessingNewsletter] = useState(false);
-    const [subscriptionOverview, setSubscriptionOverview] = useState<SubscriptionOverview | null>(null);
+    const [contentType, setContentType] = useState<'newsletter' | 'social' | null>(null);
+    
     
     // Custom CSS for Collapse
     const collapseStyles = `
@@ -164,10 +168,13 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         [sectionsWithContent, sectionGenerations],
     );
     const allSectionsGenerated = sectionsWithContent.length > 0 && generatedSectionsCount === sectionsWithContent.length;
-    const freePlanLimit = subscriptionOverview?.plan?.monthlyNewsletterLimit ?? null;
-    const usedNewsletters = subscriptionOverview?.usage?.newsletterCount ?? 0;
+    // const freePlanLimit = subscriptionOverview?.plan?.monthlyNewsletterLimit ?? null;
+    // const usedNewsletters = subscriptionOverview?.usage?.newsletterCount ?? 0;
+    const freePlanLimit = null;
+    const usedNewsletters = 0;
     const remainingNewsletters = freePlanLimit != null ? Math.max(freePlanLimit - usedNewsletters, 0) : null;
-    const showFreePlanLimitAlert = subscriptionOverview?.plan?.id === BillingPlanId.FREE && freePlanLimit != null;
+    // const showFreePlanLimitAlert = subscriptionOverview?.plan?.id === BillingPlanId.FREE && freePlanLimit != null;
+    const showFreePlanLimitAlert = false;
     const freePlanLimitLabel = useMemo(() => {
         if (freePlanLimit == null) return '';
         return freePlanLimit === 1
@@ -277,25 +284,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     useEffect(() => {
         if (!userId) return;
 
-        let cancelled = false;
-
-        const loadSubscriptionOverview = async () => {
-            try {
-                const overview = (await Meteor.callAsync('get.billing.subscriptionOverview')) as SubscriptionOverview;
-                if (!cancelled) {
-                    setSubscriptionOverview(overview);
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    errorResponse(error as Meteor.Error, t('createContent.subscriptionOverviewError'));
-                }
-            }
-        };
-
-        loadSubscriptionOverview();
-
         return () => {
-            cancelled = true;
         };
     }, [userId, t]);
 
@@ -950,31 +939,83 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     {t('createContent.subtitle')}
                 </Typography.Text>
             </div>
-            {showFreePlanLimitAlert && (
-                <Alert
-                    type="warning"
-                    showIcon
-                    message={t('createContent.freePlanLimitTitle')}
-                    description={t('createContent.freePlanLimitDescription', {
-                        limitLabel: freePlanLimitLabel,
-                        used: usedNewsletters,
-                        remaining: remainingNewsletters ?? 0,
-                    })}
-                />
+
+            {/* Content Type Selection */}
+            {!contentType && (
+                <Card style={{ marginTop: '24px' }}>
+                    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                        <Typography.Title level={4} style={{ marginBottom: '24px' }}>
+                            Que tipo de conteúdo você quer criar?
+                        </Typography.Title>
+                        <Space size="large" direction="vertical" style={{ width: '100%' }}>
+                            <Card 
+                                hoverable 
+                                onClick={() => setContentType('newsletter')}
+                                style={{ cursor: 'pointer', borderColor: '#1890ff' }}
+                            >
+                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                    <FileTextOutlined style={{ fontSize: '48px', color: '#1890ff', marginBottom: '16px' }} />
+                                    <Typography.Title level={5}>Newsletter</Typography.Title>
+                                    <Typography.Text type="secondary">
+                                        Crie newsletters completas com múltiplas seções e conteúdo estruturado
+                                    </Typography.Text>
+                                </div>
+                            </Card>
+                            <Card 
+                                hoverable 
+                                onClick={() => setContentType('social')}
+                                style={{ cursor: 'pointer', borderColor: '#1890ff' }}
+                            >
+                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                    <TwitterOutlined style={{ fontSize: '48px', color: '#1890ff', marginBottom: '16px' }} />
+                                    <Typography.Title level={5}>Redes Sociais</Typography.Title>
+                                    <Typography.Text type="secondary">
+                                        Crie conteúdo otimizado para redes sociais como Twitter, LinkedIn e Instagram
+                                    </Typography.Text>
+                                </div>
+                            </Card>
+                        </Space>
+                    </div>
+                </Card>
             )}
 
-            {/* Layout em uma única coluna */}
-            <div 
-                style={{ 
-                    display: 'grid',
-                    gridTemplateColumns: '1fr',
-                    gap: '20px',
-                    alignItems: 'start',
-                    minHeight: '600px'
-                }}
-            >
-                {/* Sidebar - Configuration Cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '600px' }}>
+            {/* Content Creation Form */}
+            {contentType && (
+                <>
+                    <div style={{ marginBottom: '16px' }}>
+                        <Button 
+                            onClick={() => setContentType(null)} 
+                            style={{ marginBottom: '16px' }}
+                        >
+                            ← Voltar para seleção
+                        </Button>
+                    </div>
+
+                    {showFreePlanLimitAlert && (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message={t('createContent.freePlanLimitTitle')}
+                            description={t('createContent.freePlanLimitDescription', {
+                                limitLabel: freePlanLimitLabel,
+                                used: usedNewsletters,
+                                remaining: remainingNewsletters ?? 0,
+                            })}
+                        />
+                    )}
+
+                    {/* Layout em uma única coluna */}
+                    <div 
+                        style={{ 
+                            display: 'grid',
+                            gridTemplateColumns: '1fr',
+                            gap: '20px',
+                            alignItems: 'start',
+                            minHeight: '600px'
+                        }}
+                    >
+                        {/* Sidebar - Configuration Cards */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '600px' }}>
                     {/* Card 1: Basic Config */}
                     <Card 
                         title={
@@ -1598,7 +1639,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                                                     fontSize: '16px',
                                                     fontWeight: 'bold'
                                                 }}>
-                                                    2
+                                                    3
                                                 </div>
                                                 <span style={{ fontSize: '16px', fontWeight: '600' }}>
                                                     Seções da Newsletter
@@ -2357,12 +2398,11 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                             }}
                         </Form.Item>
                     </Form>
-                </div>
+                    </div>
+                    </div>
 
-                
-            </div>
-
-            {newsletterPreview && (
+                    {/* Newsletter Preview */}
+                    {newsletterPreview && (
                 <Card
                     title={
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
@@ -2529,6 +2569,9 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     )}
                 </Space>
             </div>
+                </>
+            )}
+
         </Space>
         </>
     );

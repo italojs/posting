@@ -1,5 +1,5 @@
 import { CopyOutlined, RobotOutlined, TwitterOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Space, Typography } from 'antd';
+import { Button, Card, Form, Radio, Space, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form/Form';
 import type { TFunction } from 'i18next';
 import React, { type Dispatch, type SetStateAction } from 'react';
@@ -34,14 +34,13 @@ const TwitterThreadCard: React.FC<TwitterThreadCardProps> = ({
     handleCopyIndividualTweet,
     handleResetTwitterThread,
 }) => (
-    <Form form={form}>
-        <Form.Item shouldUpdate noStyle>
-            {({ getFieldValue }) => {
-                const isTwitter = !!getFieldValue('twitter');
-                if (!isTwitter) return null;
+    <Form.Item shouldUpdate noStyle>
+        {({ getFieldValue }) => {
+            const isTwitter = !!getFieldValue('twitter');
+            if (!isTwitter) return null;
 
-                return (
-                    <Card
+            return (
+                <Card
                         title={
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div
@@ -68,6 +67,12 @@ const TwitterThreadCard: React.FC<TwitterThreadCardProps> = ({
                         styles={{
                             header: { borderBottom: 'none' },
                             body: { paddingTop: 0 },
+                        }}
+                        style={{
+                            width: '100%',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            marginBottom: 0
                         }}
                     >
                         <div style={{ padding: '8px 0' }}>
@@ -196,7 +201,7 @@ const TwitterThreadCard: React.FC<TwitterThreadCardProps> = ({
                                 </Space>
                             </div>
 
-                            {generatedThread && (
+                            {generatedThread && generatedThread.tweets && generatedThread.tweets.length > 0 && (
                                 <div style={{ display: 'grid', gap: 12 }}>
                                     {generatedThread.tweets.map((tweet, index) => (
                                         <Card
@@ -211,70 +216,78 @@ const TwitterThreadCard: React.FC<TwitterThreadCardProps> = ({
                                                     key="copy"
                                                     type="text"
                                                     icon={<CopyOutlined />}
-                                                    onClick={() => handleCopyIndividualTweet(tweet, index + 1)}
+                                                    onClick={() => handleCopyIndividualTweet(tweet, index)}
                                                 >
                                                     {t('createContent.copyTweet')}
                                                 </Button>,
                                             ]}
                                         >
-                                            <Typography.Paragraph style={{ marginBottom: 0 }}>
+                                            <Typography.Text strong style={{ color: '#1DA1F2', fontSize: '12px' }}>
+                                                Tweet {index + 1}/{generatedThread.tweets.length}
+                                            </Typography.Text>
+                                            <Typography.Paragraph style={{ marginTop: 8, marginBottom: 0 }}>
                                                 {tweet}
                                             </Typography.Paragraph>
                                         </Card>
                                     ))}
 
-                                    <Card
-                                        size="small"
-                                        style={{
-                                            borderColor: '#c7d2fe',
-                                            background: '#eef2ff',
-                                        }}
-                                    >
-                                        <Typography.Text strong>
-                                            {t('createContent.threadSummaryTitle')}
-                                        </Typography.Text>
-                                        <Typography.Paragraph style={{ marginTop: 8 }}>
-                                            {generatedThread.summary}
-                                        </Typography.Paragraph>
-                                        <Space wrap>
-                                            {generatedThread.callToActions.map((cta, idx) => (
-                                                <Button
-                                                    key={idx}
-                                                    size="small"
-                                                    icon={<RobotOutlined />}
+                                    {generatedThread.summary && (
+                                        <Card
+                                            size="small"
+                                            style={{
+                                                borderColor: '#c7d2fe',
+                                                background: '#eef2ff',
+                                            }}
+                                        >
+                                            <Typography.Text strong>
+                                                {t('createContent.threadSummaryTitle')}
+                                            </Typography.Text>
+                                            <Typography.Paragraph style={{ marginTop: 8 }}>
+                                                {generatedThread.summary}
+                                            </Typography.Paragraph>
+                                            
+                                            {generatedThread.callToActions && generatedThread.callToActions.length > 0 && (
+                                                <Space wrap style={{ marginTop: 8 }}>
+                                                    {generatedThread.callToActions.map((cta, idx) => (
+                                                        <Button
+                                                            key={idx}
+                                                            size="small"
+                                                            icon={<RobotOutlined />}
+                                                            style={{
+                                                                background: '#1DA1F2',
+                                                                borderColor: '#1DA1F2',
+                                                                color: 'white',
+                                                            }}
+                                                        >
+                                                            {cta}
+                                                        </Button>
+                                                    ))}
+                                                </Space>
+                                            )}
+
+                                            {generatedThread.articleUrl && (
+                                                <div
                                                     style={{
-                                                        background: '#1DA1F2',
-                                                        borderColor: '#1DA1F2',
-                                                        color: 'white',
+                                                        marginTop: '16px',
+                                                        padding: '12px',
+                                                        background: '#f0f8ff',
+                                                        borderRadius: '6px',
                                                     }}
                                                 >
-                                                    {cta}
-                                                </Button>
-                                            ))}
-                                        </Space>
-
-                                        {generatedThread.articleUrl && (
-                                            <div
-                                                style={{
-                                                    marginTop: '16px',
-                                                    padding: '12px',
-                                                    background: '#f0f8ff',
-                                                    borderRadius: '6px',
-                                                }}
-                                            >
-                                                <Typography.Text style={{ fontSize: '12px', color: '#1890ff' }}>
-                                                    <strong>Fonte:</strong>{' '}
-                                                    <a
-                                                        href={generatedThread.articleUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        {generatedThread.articleTitle}
-                                                    </a>
-                                                </Typography.Text>
-                                            </div>
-                                        )}
-                                    </Card>
+                                                    <Typography.Text style={{ fontSize: '12px', color: '#1890ff' }}>
+                                                        <strong>Fonte:</strong>{' '}
+                                                        <a
+                                                            href={generatedThread.articleUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            {generatedThread.articleTitle}
+                                                        </a>
+                                                    </Typography.Text>
+                                                </div>
+                                            )}
+                                        </Card>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -282,7 +295,6 @@ const TwitterThreadCard: React.FC<TwitterThreadCardProps> = ({
                 );
             }}
         </Form.Item>
-    </Form>
 );
 
 export default TwitterThreadCard;

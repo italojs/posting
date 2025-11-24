@@ -19,10 +19,6 @@ interface NewsletterWorkspaceProps {
     activeSectionIndex: number;
     setActiveSectionIndex: Dispatch<SetStateAction<number>>;
     sectionGenerations: Record<string, SectionGenerationEntry>;
-    sectionGenerationLoading: Record<string, boolean>;
-    sectionNewsResults: Record<string, SearchNewsResult[]>;
-    sectionNewsLoading: Record<string, boolean>;
-    sectionQueryLoading: Record<string, boolean>;
     handleRefreshSectionQueries: (section: NewsletterSection) => Promise<void>;
     handleFetchNewsForSection: (section: NewsletterSection) => Promise<void>;
     handleGenerateSectionContent: (section: NewsletterSection) => Promise<void>;
@@ -50,10 +46,6 @@ const NewsletterWorkspace: React.FC<NewsletterWorkspaceProps> = (props) => {
         activeSectionIndex,
         setActiveSectionIndex,
         sectionGenerations,
-        sectionGenerationLoading,
-        sectionNewsResults,
-        sectionNewsLoading,
-        sectionQueryLoading,
         handleRefreshSectionQueries,
         handleFetchNewsForSection,
         handleGenerateSectionContent,
@@ -82,10 +74,6 @@ const NewsletterWorkspace: React.FC<NewsletterWorkspaceProps> = (props) => {
                 activeSectionIndex={activeSectionIndex}
                 setActiveSectionIndex={setActiveSectionIndex}
                 sectionGenerations={sectionGenerations}
-                sectionGenerationLoading={sectionGenerationLoading}
-                sectionNewsResults={sectionNewsResults}
-                sectionNewsLoading={sectionNewsLoading}
-                sectionQueryLoading={sectionQueryLoading}
                 handleRefreshSectionQueries={handleRefreshSectionQueries}
                 handleFetchNewsForSection={handleFetchNewsForSection}
                 handleGenerateSectionContent={handleGenerateSectionContent}
