@@ -49,6 +49,8 @@ interface NewsletterSectionsCardProps {
     currentSectionGenerationLoading: boolean;
     favoriteUrls: string[];
     rssItems: RssItem[];
+    handleGenerateAISuggestion: () => void;
+    AILoading: boolean;
 }
 
 const NewsletterSectionsCard: React.FC<NewsletterSectionsCardProps> = ({
@@ -72,6 +74,8 @@ const NewsletterSectionsCard: React.FC<NewsletterSectionsCardProps> = ({
     currentSectionGenerationLoading,
     favoriteUrls,
     rssItems,
+    handleGenerateAISuggestion,
+    AILoading,
 }) => (
     <Form form={form}>
         <Form.Item shouldUpdate noStyle>
@@ -82,26 +86,36 @@ const NewsletterSectionsCard: React.FC<NewsletterSectionsCardProps> = ({
                 return (
                     <Card
                         title={
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div
-                                    style={{
-                                        backgroundColor: '#5B5BD6',
-                                        color: 'white',
-                                        borderRadius: '50%',
-                                        width: '32px',
-                                        height: '32px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                    }}
-                                >
-                                    2
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div
+                                        style={{
+                                            backgroundColor: '#5B5BD6',
+                                            color: 'white',
+                                            borderRadius: '50%',
+                                            width: '32px',
+                                            height: '32px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                        }}
+                                    >
+                                        2
+                                    </div>
+                                    <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                                        Seções da Newsletter
+                                    </span>
                                 </div>
-                                <span style={{ fontSize: '16px', fontWeight: '600' }}>
-                                    Seções da Newsletter
-                                </span>
+                                <Button
+                                    type="primary"
+                                    icon={<RobotOutlined />}
+                                    onClick={handleGenerateAISuggestion}
+                                    loading={AILoading}
+                                >
+                                    {t('createContent.generateAISuggestion')}
+                                </Button>
                             </div>
                         }
                         styles={{

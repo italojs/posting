@@ -35,6 +35,8 @@ interface NewsletterWorkspaceProps {
     newsletterPreview: GeneratedNewsletterPreview | null;
     handleCopyPreviewMarkdown: () => Promise<void>;
     setNewsletterPreview: Dispatch<SetStateAction<GeneratedNewsletterPreview | null>>;
+    handleGenerateAISuggestion: () => void;
+    AILoading: boolean;
 }
 
 const NewsletterWorkspace: React.FC<NewsletterWorkspaceProps> = (props) => {
@@ -62,6 +64,8 @@ const NewsletterWorkspace: React.FC<NewsletterWorkspaceProps> = (props) => {
         newsletterPreview,
         handleCopyPreviewMarkdown,
         setNewsletterPreview,
+        handleGenerateAISuggestion,
+        AILoading,
     } = props;
 
     return (
@@ -87,6 +91,8 @@ const NewsletterWorkspace: React.FC<NewsletterWorkspaceProps> = (props) => {
                 currentSectionGenerationLoading={currentSectionGenerationLoading}
                 favoriteUrls={favoriteUrls}
                 rssItems={rssItems}
+                handleGenerateAISuggestion={handleGenerateAISuggestion}
+                AILoading={AILoading}
             />
 
             <NewsletterPreviewCard

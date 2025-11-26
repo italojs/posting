@@ -1087,6 +1087,8 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         newsletterPreview={newsletterPreview}
                         handleCopyPreviewMarkdown={handleCopyPreviewMarkdown}
                         setNewsletterPreview={setNewsletterPreview}
+                        handleGenerateAISuggestion={handleGenerateAISuggestion}
+                        AILoading={AILoading}
                     />
                 )}
             </div>
@@ -1095,15 +1097,6 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             <div style={{ textAlign: 'center' }}>
                 <Space direction="vertical" size={12} style={{ width: '100%' }}>
                     <Space wrap>
-                        <Button
-                            type="default"
-                            icon={<RobotOutlined />}
-                            onClick={handleGenerateAISuggestion}
-                            loading={AILoading}
-                            style={{ background: '#f0f0f0', borderColor: '#d9d9d9' }}
-                        >
-                            {t('createContent.generateAISuggestion')}
-                        </Button>
                         {contentType && (
                             <Button 
                                 type="primary" 
