@@ -1,4 +1,4 @@
-import { LoadingOutlined, SendOutlined, RobotOutlined, FileTextOutlined } from '@ant-design/icons';
+import { LoadingOutlined, SendOutlined, FileTextOutlined } from '@ant-design/icons';
 import { Button, Form, Space, Typography, message } from 'antd';
 import { Meteor } from 'meteor/meteor';
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
@@ -138,8 +138,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const currentSectionNewsResults = currentSectionId ? sectionNewsResults[currentSectionId] || [] : [];
     const currentSectionQueriesLoading = currentSectionId ? !!sectionQueryLoading[currentSectionId] : false;
     const currentSectionNewsLoading = currentSectionId ? !!sectionNewsLoading[currentSectionId] : false;
-    const currentSectionGeneration = currentSectionId ? sectionGenerations[currentSectionId] : undefined;
-    const currentSectionGenerationLoading = currentSectionId ? !!sectionGenerationLoading[currentSectionId] : false;
+
     const sectionsWithContent = useMemo(
         () =>
             sections.filter(
@@ -945,19 +944,6 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                 tiktok: false,
             });
             
-            // Initialize newsletter sections if not exists
-            if (!sections.length) {
-                const firstSection = {
-                    id: Math.random().toString(36).slice(2, 9),
-                    title: '',
-                    description: '',
-                    rssItems: [],
-                    newsArticles: [],
-                };
-                setSections([firstSection]);
-                setActiveSectionIndex(0);
-            }
-            
             // Automatically fetch RSS for newsletter (wait for favoriteUrls to be loaded)
             if (favoriteUrls.length > 0) {
                 setTimeout(() => handleFetchRss(true), 100);
@@ -1075,13 +1061,10 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                         handleFetchNewsForSection={handleFetchNewsForSection}
                         handleGenerateSectionContent={handleGenerateSectionContent}
                         currentSection={currentSection}
-                        currentSectionId={currentSectionId}
                         currentSectionQueries={currentSectionQueries}
                         currentSectionNewsResults={currentSectionNewsResults}
                         currentSectionQueriesLoading={currentSectionQueriesLoading}
                         currentSectionNewsLoading={currentSectionNewsLoading}
-                        currentSectionGeneration={currentSectionGeneration}
-                        currentSectionGenerationLoading={currentSectionGenerationLoading}
                         favoriteUrls={favoriteUrls}
                         rssItems={rssItems}
                         newsletterPreview={newsletterPreview}

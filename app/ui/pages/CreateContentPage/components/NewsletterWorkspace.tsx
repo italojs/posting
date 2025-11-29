@@ -23,13 +23,10 @@ interface NewsletterWorkspaceProps {
     handleFetchNewsForSection: (section: NewsletterSection) => Promise<void>;
     handleGenerateSectionContent: (section: NewsletterSection) => Promise<void>;
     currentSection?: NewsletterSection;
-    currentSectionId: string;
     currentSectionQueries: string[];
     currentSectionNewsResults: SearchNewsResult[];
     currentSectionQueriesLoading: boolean;
     currentSectionNewsLoading: boolean;
-    currentSectionGeneration?: SectionGenerationEntry;
-    currentSectionGenerationLoading: boolean;
     favoriteUrls: string[];
     rssItems: RssItem[];
     newsletterPreview: GeneratedNewsletterPreview | null;
@@ -52,13 +49,10 @@ const NewsletterWorkspace: React.FC<NewsletterWorkspaceProps> = (props) => {
         handleFetchNewsForSection,
         handleGenerateSectionContent,
         currentSection,
-        currentSectionId,
         currentSectionQueries,
         currentSectionNewsResults,
         currentSectionQueriesLoading,
         currentSectionNewsLoading,
-        currentSectionGeneration,
-        currentSectionGenerationLoading,
         favoriteUrls,
         rssItems,
         newsletterPreview,
@@ -82,13 +76,10 @@ const NewsletterWorkspace: React.FC<NewsletterWorkspaceProps> = (props) => {
                 handleFetchNewsForSection={handleFetchNewsForSection}
                 handleGenerateSectionContent={handleGenerateSectionContent}
                 currentSection={currentSection}
-                currentSectionId={currentSectionId}
                 currentSectionQueries={currentSectionQueries}
                 currentSectionNewsResults={currentSectionNewsResults}
                 currentSectionQueriesLoading={currentSectionQueriesLoading}
                 currentSectionNewsLoading={currentSectionNewsLoading}
-                currentSectionGeneration={currentSectionGeneration}
-                currentSectionGenerationLoading={currentSectionGenerationLoading}
                 favoriteUrls={favoriteUrls}
                 rssItems={rssItems}
                 handleGenerateAISuggestion={handleGenerateAISuggestion}
