@@ -1,8 +1,8 @@
-import { AppstoreAddOutlined } from '@ant-design/icons';
+import { AppstoreAddOutlined, EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Card, Form, Input, Select, Space, Typography, Button } from 'antd';
 import type { FormInstance } from 'antd/es/form/Form';
 import type { TFunction } from 'i18next';
-import React from 'react';
+import React, { useState } from 'react';
 import type { BrandSummary } from '/app/api/brands/models';
 import { protectedRoutes } from '/app/utils/constants/routes';
 
@@ -17,6 +17,7 @@ interface BasicConfigurationCardProps {
     navigate: (path: string) => void;
     onValuesChange?: (changedValues: any, allValues: any) => void;
     initialValues?: any;
+    onBrandUpdate?: (updates: Partial<BrandSummary>) => void;
 }
 
 const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
@@ -30,7 +31,36 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
     navigate,
     onValuesChange,
     initialValues,
+    onBrandUpdate,
 }) => {
+    const [isEditingBrand, setIsEditingBrand] = useState(false);
+    const [brandEditForm] = Form.useForm();
+
+    const handleEditBrand = () => {
+        if (selectedBrandSummary) {
+            brandEditForm.setFieldsValue({
+                tone: selectedBrandSummary.tone || '',
+                audience: selectedBrandSummary.audience || '',
+                differentiators: selectedBrandSummary.differentiators || '',
+            });
+            setIsEditingBrand(true);
+        }
+    };
+
+    const handleSaveBrand = async () => {
+        try {
+            const values = await brandEditForm.validateFields();
+            onBrandUpdate?.(values);
+            setIsEditingBrand(false);
+        } catch (error) {
+            console.error('Validation failed:', error);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditingBrand(false);
+        brandEditForm.resetFields();
+    };
     return (
     <>
         <style>
@@ -143,56 +173,173 @@ const BasicConfigurationCard: React.FC<BasicConfigurationCardProps> = ({
 
             <div style={{ marginBottom: 16 }}>
                 {selectedBrandSummary ? (
-                    <div
-                        style={{
-                            border: '1px solid #e0e7ff',
-                            background: '#f5f7ff',
-                            borderRadius: 8,
-                            padding: 12,
-                        }}
-                    >
-                        <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                            <Typography.Text strong>{selectedBrandSummary.name}</Typography.Text>
-                            {selectedBrandSummary.description && (
-                                <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                                    {selectedBrandSummary.description}
-                                </Typography.Text>
-                            )}
-                            {selectedBrandSummary.tone && (
-                                <Typography.Text style={{ fontSize: 12 }}>
-                                    <strong>{t('createContent.brandTone')}:</strong>{' '}
-                                    {selectedBrandSummary.tone}
-                                </Typography.Text>
-                            )}
-                            {selectedBrandSummary.audience && (
-                                <Typography.Text style={{ fontSize: 12 }}>
-                                    <strong>{t('createContent.brandAudience')}:</strong>{' '}
-                                    {selectedBrandSummary.audience}
-                                </Typography.Text>
-                            )}
-                            {selectedBrandSummary.differentiators && (
-                                <Typography.Text style={{ fontSize: 12 }}>
-                                    <strong>{t('createContent.brandDifferentiators')}:</strong>{' '}
-                                    {selectedBrandSummary.differentiators}
-                                </Typography.Text>
-                            )}
-                            {selectedBrandSummary.keywords &&
-                                selectedBrandSummary.keywords.length > 0 && (
-                                    <Space size={[4, 4]} wrap>
-                                        {selectedBrandSummary.keywords.map((keyword) => (
-                                            <Typography.Text key={keyword} code style={{ fontSize: 12 }}>
-                                                {keyword}
-                                            </Typography.Text>
-                                        ))}
-                                    </Space>
+                    <>
+                        {isEditingBrand ? (
+                            <Form
+                                form={brandEditForm}
+                                layout="vertical"
+                                style={{
+                                    border: '1px solid #e0e7ff',
+                                    background: '#f5f7ff',
+                                    borderRadius: 8,
+                                    padding: 12,
+                                }}
+                            >
+                                <div style={{ marginBottom: 12 }}>
+                                    <Typography.Text strong style={{ fontSize: 14 }}>
+                                        {selectedBrandSummary.name}
+                                    </Typography.Text>
+                                </div>
+                                {selectedBrandSummary.description && (
+                                    <div style={{ marginBottom: 12 }}>
+                                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                            {selectedBrandSummary.description}
+                                        </Typography.Text>
+                                    </div>
                                 )}
-                            {isBrandMissing && (
-                                <Typography.Text type="danger" style={{ fontSize: 12 }}>
-                                    {t('createContent.brandMissingWarning')}
-                                </Typography.Text>
-                            )}
-                        </Space>
-                    </div>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: '10% 50% 40%', gap: 7, marginBottom: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                            {t('createContent.brandTone')}:
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <Form.Item
+                                            name="tone"
+                                            style={{ marginBottom: 0 }}
+                                        >
+                                            <Input
+                                                size="small"
+                                                placeholder={t('brands.form.tonePlaceholder') as string}
+                                                style={{ fontSize: 12 }}
+                                            />
+                                        </Form.Item>
+                                    </div>
+                                    <div />
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                            {t('createContent.brandAudience')}:
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <Form.Item
+                                            name="audience"
+                                            style={{ marginBottom: 0 }}
+                                        >
+                                            <Input
+                                                size="small"
+                                                placeholder={t('brands.form.audiencePlaceholder') as string}
+                                                style={{ fontSize: 12 }}
+                                            />
+                                        </Form.Item>
+                                    </div>
+                                    <div />
+
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 600, paddingTop: 4, whiteSpace: 'nowrap' }}>
+                                            {t('createContent.brandDifferentiators')}:
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <Form.Item
+                                            name="differentiators"
+                                            style={{ marginBottom: 0 }}
+                                        >
+                                            <Input.TextArea
+                                                rows={2}
+                                                placeholder={t('brands.form.differentiatorsPlaceholder') as string}
+                                                style={{ fontSize: 12, resize: 'none' }}
+                                            />
+                                        </Form.Item>
+                                    </div>
+                                    <div />
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                                    <Button
+                                        type="primary"
+                                        size="small"
+                                        icon={<CheckOutlined />}
+                                        onClick={handleSaveBrand}
+                                    >
+                                        {t('brands.actions.save')}
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        icon={<CloseOutlined />}
+                                        onClick={handleCancelEdit}
+                                    >
+                                        {t('brands.actions.cancel')}
+                                    </Button>
+                                </div>
+                            </Form>
+                        ) : (
+                            <div
+                                style={{
+                                    border: '1px solid #e0e7ff',
+                                    background: '#f5f7ff',
+                                    borderRadius: 8,
+                                    padding: 12,
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    gap: 12,
+                                }}
+                            >
+                                <Space direction="vertical" size={4} style={{ flex: 1, minWidth: 0 }}>
+                                    <Typography.Text strong>{selectedBrandSummary.name}</Typography.Text>
+                                    {selectedBrandSummary.description && (
+                                        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                                            {selectedBrandSummary.description}
+                                        </Typography.Text>
+                                    )}
+                                    {selectedBrandSummary.tone && (
+                                        <Typography.Text style={{ fontSize: 12 }}>
+                                            <strong>{t('createContent.brandTone')}:</strong>{' '}
+                                            {selectedBrandSummary.tone}
+                                        </Typography.Text>
+                                    )}
+                                    {selectedBrandSummary.audience && (
+                                        <Typography.Text style={{ fontSize: 12 }}>
+                                            <strong>{t('createContent.brandAudience')}:</strong>{' '}
+                                            {selectedBrandSummary.audience}
+                                        </Typography.Text>
+                                    )}
+                                    {selectedBrandSummary.differentiators && (
+                                        <Typography.Text style={{ fontSize: 12 }}>
+                                            <strong>{t('createContent.brandDifferentiators')}:</strong>{' '}
+                                            {selectedBrandSummary.differentiators}
+                                        </Typography.Text>
+                                    )}
+                                    {selectedBrandSummary.keywords &&
+                                        selectedBrandSummary.keywords.length > 0 && (
+                                            <Space size={[4, 4]} wrap>
+                                                {selectedBrandSummary.keywords.map((keyword) => (
+                                                    <Typography.Text key={keyword} code style={{ fontSize: 12 }}>
+                                                        {keyword}
+                                                    </Typography.Text>
+                                                ))}
+                                            </Space>
+                                        )}
+                                    {isBrandMissing && (
+                                        <Typography.Text type="danger" style={{ fontSize: 12 }}>
+                                            {t('createContent.brandMissingWarning')}
+                                        </Typography.Text>
+                                    )}
+                                </Space>
+                                <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<EditOutlined />}
+                                    onClick={handleEditBrand}
+                                    title={t('brands.actions.edit')}
+                                    style={{ flexShrink: 0 }}
+                                />
+                            </div>
+                        )}
+                    </>
                 ) : brands.length === 0 ? (
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                         {t('createContent.brandEmptyHint')}

@@ -1,7 +1,7 @@
 import { Form } from 'antd';
 import type { FormInstance } from 'antd/es/form/Form';
 import type { TFunction } from 'i18next';
-import React, { type Dispatch, type SetStateAction } from 'react';
+import React, { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type {
     LinkedInPost,
     RssItem,
@@ -22,6 +22,7 @@ interface ConfigurationPanelProps {
     brandsLoading: boolean;
     selectedBrandSummary?: BrandSummary;
     isBrandMissing: boolean;
+    setSelectedBrandSummary?: (brand: BrandSummary | undefined) => void;
     handleFetchRss: (auto?: boolean) => Promise<void>;
     navigate: (path: string) => void;
     rssItems: RssItem[];
@@ -52,6 +53,7 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     brandsLoading,
     selectedBrandSummary,
     isBrandMissing,
+    setSelectedBrandSummary,
     handleFetchRss,
     navigate,
     rssItems,
@@ -71,7 +73,16 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     handleGenerateLinkedInPost,
     handleCopyLinkedInPost,
     handleResetLinkedInPost,
-}) => (
+}) => {
+    const handleBrandUpdate = useCallback((updates: Partial<BrandSummary>) => {
+        if (selectedBrandSummary) {
+            setSelectedBrandSummary?.(
+                { ...selectedBrandSummary, ...updates }
+            );
+        }
+    }, [selectedBrandSummary, setSelectedBrandSummary]);
+
+    return (
     <Form form={form}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
             <BasicConfigurationCard
@@ -83,6 +94,7 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                 selectedBrandSummary={selectedBrandSummary}
                 isBrandMissing={isBrandMissing}
                 navigate={navigate}
+                onBrandUpdate={handleBrandUpdate}
             />
 
             {contentType === 'social' && (
@@ -121,8 +133,9 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                     />
                 </>
             )}
-        </div>
-    </Form>
-);
+            </div>
+        </Form>
+    );
+};
 
 export default ConfigurationPanel;

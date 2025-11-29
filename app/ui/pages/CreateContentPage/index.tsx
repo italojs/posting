@@ -94,6 +94,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
     const [brands, setBrands] = useState<BrandSummary[]>([]);
     const [brandsLoading, setBrandsLoading] = useState(false);
     const [loadedContentBrand, setLoadedContentBrand] = useState<{ id: string; snapshot?: BrandContextForAI } | null>(null);
+    const [brandOverride, setBrandOverride] = useState<Partial<BrandSummary> | null>(null);
 
     // Twitter Thread states
     const [selectedTwitterArticle, setSelectedTwitterArticle] = useState<RssItem | null>(null);
@@ -278,21 +279,13 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
             if (!brandId) return undefined;
             const brand = brands.find((item) => item._id === brandId);
             if (brand) {
-                return {
-                    name: brand.name,
-                    description: brand.description,
-                    tone: brand.tone,
-                    audience: brand.audience,
-                    differentiators: brand.differentiators,
-                    keywords: brand.keywords,
-                };
+                const mergedBrand = brandOverride ? { ...brand, ...brandOverride } : brand;
+                const { name, description, tone, audience, differentiators, keywords } = mergedBrand;
+                return { name, description, tone, audience, differentiators, keywords };
             }
-            if (loadedContentBrand && loadedContentBrand.id === brandId && loadedContentBrand.snapshot) {
-                return loadedContentBrand.snapshot;
-            }
-            return undefined;
+            return loadedContentBrand?.id === brandId ? loadedContentBrand.snapshot : undefined;
         },
-        [brands, loadedContentBrand],
+        [brands, loadedContentBrand, brandOverride],
     );
 
     const brandOptions = useMemo(() => {
@@ -333,6 +326,14 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
         const exists = brands.some((brand) => brand._id === watchBrandId);
         return !exists && loadedContentBrand !== null && loadedContentBrand.id === watchBrandId;
     }, [brands, loadedContentBrand, watchBrandId]);
+
+    const setSelectedBrandSummary = useCallback((brand: BrandSummary | undefined) => {
+        setBrandOverride(
+            brand
+                ? { tone: brand.tone, audience: brand.audience, differentiators: brand.differentiators }
+                : null
+        );
+    }, []);
 
     useEffect(() => {
         if (!watchNewsletter) return;
@@ -1041,6 +1042,7 @@ const CreateContentPage: React.FC<CreateContentPageProps> = ({ userId }) => {
                     brandsLoading={brandsLoading}
                     selectedBrandSummary={selectedBrandSummary}
                     isBrandMissing={isBrandMissing}
+                    setSelectedBrandSummary={setSelectedBrandSummary}
                     handleFetchRss={handleFetchRss}
                     rssItems={rssItems}
                     navigate={navigate}
