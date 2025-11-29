@@ -97,6 +97,20 @@ const DEFAULT_CATEGORY = 'general';
 // =============================
 // Utilities
 // =============================
+function cleanText(text) {
+  if (!text) return '';
+  return String(text).trim().replace(/\s+/g, ' ');
+}
+
+function optionalText(text) {
+  const cleaned = cleanText(text);
+  return cleaned || undefined;
+}
+
+function uniqueStrings(arr) {
+  return [...new Set(arr.filter(Boolean))];
+}
+
 function chunkArray(arr, size) {
   const out = []; let i = 0;
   while (i < arr.length) out.push(arr.slice(i, i += size));
@@ -177,17 +191,17 @@ function normalizeSource(raw) {
   if (!url) throw new Error('Source without URL');
   return {
     url,
-    name: optionalText(rawEntry.name),
-    category: cleanText(primaryCategory) || DEFAULT_CATEGORY,
-    categories: categories.length ? categories : undefined,
-    description: optionalText(rawEntry.description),
-    siteUrl: optionalText(rawEntry.siteUrl),
-    imageUrl: optionalText(rawEntry.imageUrl),
-    language: optionalText(rawEntry.language),
-    generator: optionalText(rawEntry.generator),
-    copyright: optionalText(rawEntry.copyright),
-    enabled: rawEntry.enabled === false ? false : true,
-  });
+    name: optionalText(raw.name),
+    category: optionalText(raw.category),
+    categories: Array.isArray(raw.categories) ? raw.categories : undefined,
+    description: optionalText(raw.description),
+    siteUrl: optionalText(raw.siteUrl),
+    imageUrl: optionalText(raw.imageUrl),
+    language: optionalText(raw.language),
+    generator: optionalText(raw.generator),
+    copyright: optionalText(raw.copyright),
+    enabled: raw.enabled === false ? false : true,
+  };
 }
 
 async function enrichSourceWithFeed(source) {
@@ -284,9 +298,9 @@ async function processSources(rawList) {
   const chunks = chunkArray(unique, CONCURRENCY);
   for (const c of chunks) {
     const results = await Promise.all(c.map(enrichSourceWithFeed));
-    enriched.push(...results);
+    withTitles.push(...results);
   }
-  return enriched.map(finalizeSource);
+  return withTitles.map(finalizeSource);
 }
 
 async function main() {
@@ -304,7 +318,7 @@ async function main() {
     const processed = await processSources(RSS_SOURCES);
     console.log('Total sources (processed unique):', processed.length);
 
-    client = await MongoClient.connect(MONGO_URL, { useUnifiedTopology: true });
+    client = await MongoClient.connect(MONGO_URL);
     const dbName = DB_NAME_FROM_URL;
     const db = client.db(dbName);
 

@@ -46,6 +46,7 @@ const common = {
     sectionsTitle: "Secciones del boletín",
     section: "Sección",
     addSection: "Agregar sección",
+    sectionSave: "Guardar",
     removeSection: "Eliminar sección",
     sectionTitlePlaceholder: "Título de la sección",
     sectionDescriptionPlaceholder: "Descripción de la sección (opcional)",

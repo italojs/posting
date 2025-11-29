@@ -45,6 +45,7 @@ const common = {
     networksTitle: "Redes sociais",
     sectionsTitle: "Seções da newsletter",
     section: "Seção",
+    sectionSave: "Salvar",
     addSection: "Adicionar seção",
     removeSection: "Remover seção",
     sectionTitlePlaceholder: "Título da seção",
